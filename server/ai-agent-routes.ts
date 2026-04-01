@@ -3056,9 +3056,13 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         const queryStr = (args.query as string || "").trim();
         const description = args.description as string || "";
         
-        const forbidden = /\b(DROP|TRUNCATE|ALTER|DELETE\s+FROM|CREATE\s+TABLE|CREATE\s+INDEX)\b/i;
+        const forbidden = /\b(DROP|TRUNCATE|ALTER|DELETE\s+FROM|CREATE\s+TABLE|CREATE\s+INDEX|GRANT|REVOKE|COPY|EXECUTE|DO\s*\$|pg_read_file|pg_write_file|lo_import|lo_export)\b/i;
         if (forbidden.test(queryStr)) {
-          return JSON.stringify({ error: "هذا النوع من الاستعلامات غير مسموح به (DROP/DELETE/TRUNCATE/ALTER/CREATE TABLE). يُسمح فقط بـ SELECT و INSERT و UPDATE." });
+          return JSON.stringify({ error: "هذا النوع من الاستعلامات غير مسموح به. يُسمح فقط بـ SELECT و INSERT و UPDATE." });
+        }
+
+        if (queryStr.includes(';') && queryStr.replace(/;[\s]*$/, '').includes(';')) {
+          return JSON.stringify({ error: "لا يُسمح بتنفيذ استعلامات متعددة في نفس الوقت. أرسل كل استعلام على حدة." });
         }
 
         const isWrite = /^\s*(INSERT|UPDATE)\b/i.test(queryStr);
@@ -3140,7 +3144,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
               const isAbsent = absentDaysThisMonth.has(dateStr);
 
               if (isAbsent) {
-                await db.execute(sql.raw(`INSERT INTO attendance (user_id, status, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, 'غائب', 0, 0, '${shiftType}', 0)`));
+                await db.execute(sql`INSERT INTO attendance (user_id, date, status, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, ${dateStr}, 'غائب', 0, 0, ${shiftType}, 0)`);
                 absentRecords++;
               } else {
                 const ciHour = checkInStartHour + Math.floor(Math.random() * (checkInEndHour - checkInStartHour));
@@ -3158,7 +3162,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
                 const overtime = workHours > 8 ? Math.round((workHours - 8) * 100) / 100 : 0;
                 const lateMin = ciMin > 0 && ciHour >= checkInStartHour ? ciMin : 0;
 
-                await db.execute(sql.raw(`INSERT INTO attendance (user_id, status, check_in_time, check_out_time, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, 'حاضر', '${checkIn}', '${checkOut}', ${Math.round(workHours * 100) / 100}, ${overtime}, '${shiftType}', ${lateMin})`));
+                await db.execute(sql`INSERT INTO attendance (user_id, date, status, check_in_time, check_out_time, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, ${dateStr}, 'حاضر', ${checkIn}, ${checkOut}, ${Math.round(workHours * 100) / 100}, ${overtime}, ${shiftType}, ${lateMin})`);
                 presentRecords++;
               }
               totalRecords++;
@@ -3195,7 +3199,8 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
           return JSON.stringify({ error: `الجدول '${tableName}' غير موجود` });
         }
 
-        const rowCount = await db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM "${tableName}"`));
+        const safeTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+        const rowCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM ${sql.identifier(safeTableName)}`);
 
         return JSON.stringify({
           table: tableName,
@@ -3215,14 +3220,16 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
 
         let sectionUsers;
         if (sectionId) {
-          sectionUsers = await db.execute(sql.raw(`SELECT id, username, display_name, display_name_ar, phone, email, section_id, status FROM users WHERE section_id::text = '${sectionId}' OR section_id::text = 'SEC${sectionId.padStart(2, '0')}' ORDER BY id`));
+          const safeSectionId = String(sectionId).replace(/[^a-zA-Z0-9_]/g, '');
+          const secPadded = 'SEC' + safeSectionId.padStart(2, '0');
+          sectionUsers = await db.execute(sql`SELECT id, username, display_name, display_name_ar, phone, email, section_id, status FROM users WHERE section_id::text = ${safeSectionId} OR section_id::text = ${secPadded} ORDER BY id`);
         } else if (sectionName) {
           const matchingSections = await db.execute(sql`SELECT id FROM sections WHERE name_ar LIKE ${'%' + sectionName + '%'} OR name LIKE ${'%' + sectionName + '%'}`);
           if (matchingSections.rows.length === 0) {
             return JSON.stringify({ error: `لم يتم العثور على قسم باسم '${sectionName}'`, available_sections: "استخدم get_database_schema مع table_name='sections' أو execute_database_query مع SELECT * FROM sections" });
           }
-          const secIds = matchingSections.rows.map((r: any) => `'${r.id}'`).join(",");
-          sectionUsers = await db.execute(sql.raw(`SELECT id, username, display_name, display_name_ar, phone, email, section_id, status FROM users WHERE section_id::text IN (${secIds}) ORDER BY id`));
+          const secIdValues = matchingSections.rows.map((r: any) => String(r.id));
+          sectionUsers = await db.execute(sql`SELECT id, username, display_name, display_name_ar, phone, email, section_id, status FROM users WHERE section_id::text = ANY(${secIdValues}) ORDER BY id`);
         } else {
           return JSON.stringify({ error: "يجب تحديد section_id أو section_name" });
         }
