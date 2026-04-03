@@ -3646,3 +3646,13 @@ export type QualityIssueResponsible = typeof quality_issue_responsibles.$inferSe
 export const insertQualityIssueActionSchema = createInsertSchema(quality_issue_actions).omit({ id: true, created_at: true });
 export type InsertQualityIssueAction = z.infer<typeof insertQualityIssueActionSchema>;
 export type QualityIssueAction = typeof quality_issue_actions.$inferSelect;
+
+export const face_registrations = pgTable("face_registrations", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  face_hash: text("face_hash").notNull(),
+  registered_at: timestamp("registered_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export type FaceRegistration = typeof face_registrations.$inferSelect;

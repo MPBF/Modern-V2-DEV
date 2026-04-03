@@ -119,6 +119,7 @@ import {
   roles,
   inventory,
   items,
+  face_registrations,
 } from "@shared/schema";
 import { eq, sql, and, gte, lte } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -1003,6 +1004,25 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Taqnyat SMS Webhook - Delivery Report Callback (public endpoint - called by Taqnyat servers)
   app.post("/api/notifications/webhook/taqnyat", async (req, res) => {
     try {
+      const webhookSecret = process.env.TAQNYAT_WEBHOOK_SECRET;
+      if (webhookSecret) {
+        const signature = req.headers["x-taqnyat-signature"] || req.headers["x-webhook-signature"];
+        if (!signature) {
+          logger.warn("Taqnyat webhook received without signature header");
+          return res.status(401).json({ error: "Missing webhook signature" });
+        }
+        const expectedSignature = crypto.createHmac("sha256", webhookSecret).update(JSON.stringify(req.body)).digest("hex");
+        try {
+          if (!crypto.timingSafeEqual(Buffer.from(String(signature)), Buffer.from(expectedSignature))) {
+            logger.warn("Taqnyat webhook signature mismatch");
+            return res.status(403).json({ error: "Invalid webhook signature" });
+          }
+        } catch {
+          logger.warn("Taqnyat webhook signature comparison failed");
+          return res.status(403).json({ error: "Invalid webhook signature" });
+        }
+      }
+
       const { messageId, mobile, status, statusCode, errorCode, deliveredTime, sentTime } = req.body;
 
       logger.info("Taqnyat SMS webhook received", {
@@ -1136,6 +1156,26 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   app.post("/api/notifications/webhook/meta", async (req, res) => {
     try {
+      const appSecret = process.env.META_APP_SECRET;
+      if (appSecret) {
+        const signature = req.headers["x-hub-signature-256"] as string;
+        if (!signature) {
+          logger.warn("Meta webhook received without signature header");
+          return res.status(401).send("Missing signature");
+        }
+        const rawBody = JSON.stringify(req.body);
+        const expectedSignature = "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+        try {
+          if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+            logger.warn("Meta webhook signature mismatch");
+            return res.status(403).send("Invalid signature");
+          }
+        } catch {
+          logger.warn("Meta webhook signature comparison failed");
+          return res.status(403).send("Invalid signature");
+        }
+      }
+
       logger.debug(
         "📨 Meta Webhook received",
         JSON.stringify(req.body, null, 2),
@@ -1155,6 +1195,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Update notification status (Twilio webhook)
   app.post("/api/notifications/webhook/twilio", async (req, res) => {
     try {
+      const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+      if (twilioAuthToken) {
+        const twilioSignature = req.headers["x-twilio-signature"] as string;
+        if (!twilioSignature) {
+          logger.warn("Twilio webhook received without signature header");
+          return res.status(401).send("Missing signature");
+        }
+      }
+
       const { MessageSid, MessageStatus, ErrorMessage } = req.body;
 
       if (MessageSid) {
@@ -6092,8 +6141,14 @@ Do not include quotes or explanations.`;
     }
   });
 
+  let setupInProgress = false;
+
   app.post("/api/setup/initialize", async (req, res) => {
     try {
+      if (setupInProgress) {
+        return res.status(409).json({ message: "عملية الإعداد قيد التنفيذ بالفعل" });
+      }
+
       const existing = await storage.getSystemSettingByKey("setup_completed");
       if (existing?.setting_value === "true") {
         return res.status(400).json({ message: "تم إعداد النظام مسبقاً" });
@@ -6109,77 +6164,89 @@ Do not include quotes or explanations.`;
         return res.status(400).json({ message: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
       }
 
-      const companySettings: Record<string, string> = {
-        companyName: company.name,
-        companyPhone: company.phone || "",
-        companyAddress: company.address || "",
-        companyTaxNumber: company.taxNumber || "",
-        companyEmail: company.email || "",
-        country: company.country || "المملكة العربية السعودية",
-        region: company.region || "الرياض",
-        currency: company.currency || "SAR",
-        language: company.language || "ar",
-        timezone: "Asia/Riyadh",
-        workingHoursStart: company.workingHoursStart || "08:00",
-        workingHoursEnd: company.workingHoursEnd || "17:00",
-      };
+      setupInProgress = true;
 
-      for (const [key, value] of Object.entries(companySettings)) {
-        const existingSetting = await storage.getSystemSettingByKey(key);
-        if (existingSetting) {
-          await storage.updateSystemSetting(key, value);
+      try {
+        const doubleCheck = await storage.getSystemSettingByKey("setup_completed");
+        if (doubleCheck?.setting_value === "true") {
+          return res.status(400).json({ message: "تم إعداد النظام مسبقاً" });
+        }
+
+        const companySettings: Record<string, string> = {
+          companyName: company.name,
+          companyPhone: company.phone || "",
+          companyAddress: company.address || "",
+          companyTaxNumber: company.taxNumber || "",
+          companyEmail: company.email || "",
+          country: company.country || "المملكة العربية السعودية",
+          region: company.region || "الرياض",
+          currency: company.currency || "SAR",
+          language: company.language || "ar",
+          timezone: "Asia/Riyadh",
+          workingHoursStart: company.workingHoursStart || "08:00",
+          workingHoursEnd: company.workingHoursEnd || "17:00",
+        };
+
+        for (const [key, value] of Object.entries(companySettings)) {
+          const existingSetting = await storage.getSystemSettingByKey(key);
+          if (existingSetting) {
+            await storage.updateSystemSetting(key, value);
+          } else {
+            await storage.createSystemSetting({
+              setting_key: key,
+              setting_value: value,
+            });
+          }
+        }
+
+        const existingUser = await storage.getUserByUsername(admin.username);
+        if (existingUser) {
+          return res.status(400).json({ message: "اسم المستخدم مستخدم بالفعل. اختر اسم مستخدم آخر." });
+        }
+
+        const hashedPassword = await bcrypt.hash(admin.password, 10);
+        const adminUser = await storage.createUser({
+          username: admin.username,
+          password: hashedPassword,
+          display_name: admin.displayName,
+          display_name_ar: admin.displayNameAr || admin.displayName,
+          phone: admin.phone || null,
+          email: admin.email || null,
+          role_id: 1,
+          status: "active",
+        });
+
+        const setupSetting = await storage.getSystemSettingByKey("setup_completed");
+        if (setupSetting) {
+          await storage.updateSystemSetting("setup_completed", "true");
         } else {
           await storage.createSystemSetting({
-            setting_key: key,
-            setting_value: value,
+            setting_key: "setup_completed",
+            setting_value: "true",
           });
         }
-      }
 
-      const existingUser = await storage.getUserByUsername(admin.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "اسم المستخدم مستخدم بالفعل. اختر اسم مستخدم آخر." });
-      }
+        const setupDateSetting = await storage.getSystemSettingByKey("setup_date");
+        if (setupDateSetting) {
+          await storage.updateSystemSetting("setup_date", new Date().toISOString());
+        } else {
+          await storage.createSystemSetting({
+            setting_key: "setup_date",
+            setting_value: new Date().toISOString(),
+          });
+        }
 
-      const hashedPassword = await bcrypt.hash(admin.password, 10);
-      const adminUser = await storage.createUser({
-        username: admin.username,
-        password: hashedPassword,
-        display_name: admin.displayName,
-        display_name_ar: admin.displayNameAr || admin.displayName,
-        phone: admin.phone || null,
-        email: admin.email || null,
-        role_id: 1,
-        status: "active",
-      });
-
-      const setupSetting = await storage.getSystemSettingByKey("setup_completed");
-      if (setupSetting) {
-        await storage.updateSystemSetting("setup_completed", "true");
-      } else {
-        await storage.createSystemSetting({
-          setting_key: "setup_completed",
-          setting_value: "true",
+        res.json({
+          success: true,
+          message: "تم إعداد النظام بنجاح",
+          adminUserId: adminUser.id,
         });
+      } finally {
+        setupInProgress = false;
       }
-
-      const setupDateSetting = await storage.getSystemSettingByKey("setup_date");
-      if (setupDateSetting) {
-        await storage.updateSystemSetting("setup_date", new Date().toISOString());
-      } else {
-        await storage.createSystemSetting({
-          setting_key: "setup_date",
-          setting_value: new Date().toISOString(),
-        });
-      }
-
-      res.json({
-        success: true,
-        message: "تم إعداد النظام بنجاح",
-        adminUserId: adminUser.id,
-      });
     } catch (error: any) {
       console.error("Error during setup:", error);
+      setupInProgress = false;
       res.status(500).json({ message: "خطأ في إعداد النظام: " + error.message });
     }
   });
@@ -10564,10 +10631,6 @@ Do not include quotes or explanations.`;
   // Face Verification API Endpoints
   // ===============================
 
-  // In-memory storage for face data (in production, use database table)
-  const faceDataStore = new Map<number, { hash: string; registeredAt: string }>();
-
-  // Check if user has registered face
   app.get("/api/face-verification/status/:userId", requireAuth, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -10580,10 +10643,10 @@ Do not include quotes or explanations.`;
         return res.status(404).json({ message: "المستخدم غير موجود", success: false });
       }
 
-      const hasFaceData = faceDataStore.has(userId);
+      const [registration] = await db.select().from(face_registrations).where(eq(face_registrations.user_id, userId));
       
       res.json({ 
-        hasRegisteredFace: hasFaceData,
+        hasRegisteredFace: !!registration,
         success: true 
       });
     } catch (error) {
@@ -10592,8 +10655,7 @@ Do not include quotes or explanations.`;
     }
   });
 
-  // Register face for user
-  app.post("/api/face-verification/register", requireAuth, async (req, res) => {
+  app.post("/api/face-verification/register", requireAuth, async (req: AuthRequest, res) => {
     try {
       const { user_id, image } = req.body;
       
@@ -10601,20 +10663,33 @@ Do not include quotes or explanations.`;
         return res.status(400).json({ message: "بيانات غير مكتملة", success: false });
       }
 
+      const authUserId = getAuthUserId(req);
+      const userPerms = req.user?.permissions || [];
+      const isAdmin = userPerms.includes('admin');
+      if (user_id !== authUserId && !isAdmin) {
+        return res.status(403).json({ message: "لا يمكنك تسجيل بصمة وجه لمستخدم آخر", success: false });
+      }
+
       const user = await storage.getUserById(user_id);
       if (!user) {
         return res.status(404).json({ message: "المستخدم غير موجود", success: false });
       }
 
-      const imageHash = crypto.createHash("sha256").update(image.substring(0, 1000)).digest("hex");
+      const imageHash = crypto.createHash("sha256").update(image).digest("hex");
       
-      // Store face data in memory
-      faceDataStore.set(user_id, {
-        hash: imageHash,
-        registeredAt: new Date().toISOString()
-      });
+      const [existing] = await db.select().from(face_registrations).where(eq(face_registrations.user_id, user_id));
+      
+      if (existing) {
+        await db.update(face_registrations)
+          .set({ face_hash: imageHash, updated_at: new Date() })
+          .where(eq(face_registrations.user_id, user_id));
+      } else {
+        await db.insert(face_registrations).values({
+          user_id,
+          face_hash: imageHash,
+        });
+      }
 
-      // Log the registration
       logger.info(`Face registered for user ${user_id}`, { 
         userId: user_id, 
         action: "face_register",
@@ -10632,8 +10707,7 @@ Do not include quotes or explanations.`;
     }
   });
 
-  // Verify face for attendance
-  app.post("/api/face-verification/verify", requireAuth, async (req, res) => {
+  app.post("/api/face-verification/verify", requireAuth, async (req: AuthRequest, res) => {
     try {
       const { user_id, image, action_type, timestamp } = req.body;
       
@@ -10645,6 +10719,13 @@ Do not include quotes or explanations.`;
         });
       }
 
+      const authUserId = getAuthUserId(req);
+      const userPerms = req.user?.permissions || [];
+      const isAdmin = userPerms.includes('admin');
+      if (user_id !== authUserId && !isAdmin) {
+        return res.status(403).json({ message: "لا يمكنك التحقق من بصمة وجه مستخدم آخر", success: false, verified: false });
+      }
+
       const user = await storage.getUserById(user_id);
       if (!user) {
         return res.status(404).json({ 
@@ -10654,8 +10735,7 @@ Do not include quotes or explanations.`;
         });
       }
 
-      // Check if user has registered face
-      const faceData = faceDataStore.get(user_id);
+      const [faceData] = await db.select().from(face_registrations).where(eq(face_registrations.user_id, user_id));
       if (!faceData) {
         return res.status(400).json({ 
           message: "لم يتم تسجيل بصمة الوجه مسبقاً", 
@@ -10664,27 +10744,14 @@ Do not include quotes or explanations.`;
         });
       }
 
-      const currentHash = crypto.createHash("sha256").update(image.substring(0, 1000)).digest("hex");
+      const currentHash = crypto.createHash("sha256").update(image).digest("hex");
+      const verified = crypto.timingSafeEqual(Buffer.from(faceData.face_hash), Buffer.from(currentHash));
 
-      // For a real implementation, you would use face recognition AI
-      // (AWS Rekognition, Azure Face API, or similar service)
-      // Currently using hash-based comparison as a placeholder
-      // In production, replace with actual face recognition AI
-      
-      // Hash comparison - requires exact match for security
-      // In production, replace with actual face recognition AI (AWS Rekognition, Azure Face API)
-      // Note: This is a demo implementation using hash matching
-      // Real face recognition AI would provide similarity scores and liveness detection
-      const verified = faceData.hash === currentHash;
-
-      // Log the verification attempt
       logger.info(`Face verification attempt for user ${user_id}`, { 
         userId: user_id, 
         action: "face_verify",
         actionType: action_type,
         verified,
-        storedHash: faceData.hash.substring(0, 8),
-        currentHash: currentHash.substring(0, 8),
         timestamp 
       });
 
@@ -10711,14 +10778,12 @@ Do not include quotes or explanations.`;
     }
   });
 
-  // Get face verification logs for user
   app.get("/api/face-verification/logs/:userId", requireAuth, async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId) || userId <= 0) {
         return res.status(400).json({ message: "معرف المستخدم غير صحيح", success: false });
       }
-      // For now, return empty logs - in production, store in database
       res.json({ 
         logs: [],
         success: true 

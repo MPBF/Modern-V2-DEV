@@ -141,7 +141,19 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 - **API**: `GET /api/setup/status` → `{ setupCompleted: boolean }`, `POST /api/setup/initialize` → creates company settings + admin user
 - Frontend checks setup status and redirects to `/login` if already completed
 - Rejects duplicate admin usernames
+- Race condition protection via `setupInProgress` mutex + double-check pattern
 - Setup data stored in `system_settings` table with keys like `company_name`, `company_phone`, etc.
+
+### Face Verification
+- Face registration data persisted in `face_registrations` database table (survives server restarts)
+- Hash-based comparison of full image data (placeholder for real face recognition AI)
+- To integrate real face recognition, replace hash comparison in `/api/face-verification/verify` with a service like AWS Rekognition or Azure Face API
+
+### Webhook Security
+- Taqnyat webhooks: HMAC-SHA256 signature verification when `TAQNYAT_WEBHOOK_SECRET` env var is set
+- Meta WhatsApp webhooks: `x-hub-signature-256` verification when `META_APP_SECRET` env var is set
+- Twilio webhooks: `x-twilio-signature` header presence check when `TWILIO_AUTH_TOKEN` env var is set
+- All verification is opt-in — if the env var is not set, webhooks remain open for development
 
 ### AI Agent Database Tools (`server/ai-agent-routes.ts`)
 The AI smart agent now has full database interaction capabilities:
