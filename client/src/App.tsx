@@ -55,6 +55,7 @@ const MaterialMixing = lazy(() => import("./pages/material-mixing"));
 const WarehouseMobile = lazy(() => import("./pages/warehouse-mobile"));
 const ProductionMobile = lazy(() => import("./pages/production-mobile"));
 const UserDashboardMobile = lazy(() => import("./pages/user-dashboard-mobile"));
+const MyOrders = lazy(() => import("./pages/my-orders"));
 const OrdersMobile = lazy(() => import("./pages/orders-mobile"));
 const ProductionDashboardMobile = lazy(() => import("./pages/production-dashboard-mobile"));
 
@@ -110,6 +111,12 @@ function AppRoutes() {
           <ProtectedRoute path="/orders">
             <MobileAutoRedirect path="/orders" />
             <Orders />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/my-orders">
+          <ProtectedRoute path="/my-orders">
+            <MyOrders />
           </ProtectedRoute>
         </Route>
 

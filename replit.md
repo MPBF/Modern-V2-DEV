@@ -266,6 +266,7 @@ The AI smart agent now has full database interaction capabilities:
 |-------|------|---------|
 | `/` | Dashboard | Main overview with customizable widgets |
 | `/orders` | Orders | Unified view: orders, production orders, queues, roll search, reports (tabbed) |
+| `/my-orders` | MyOrders | Sales rep scoped view: orders, production orders, rolls grouped by sales rep. Admins see all; sales reps see only their assigned customers' orders; others have no access |
 | `/production` | Production | Production stage management |
 | `/production-dashboard` | ProductionDashboard | Unified operator dashboard (film/printing/cutting) |
 | `/warehouse` | Warehouse | 5-tab: Production Hall, Finished Goods, Raw Materials, Definitions, Reports |

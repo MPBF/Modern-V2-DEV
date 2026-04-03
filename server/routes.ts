@@ -108,6 +108,9 @@ import {
   insertLeaveRequestSchema,
   insertLeaveBalanceSchema,
   insertSystemSettingSchema,
+  orders,
+  production_orders,
+  rolls,
   customers,
   customer_products,
   locations,
@@ -127,7 +130,7 @@ import {
   mobile_sessions,
   mobile_sync_queue,
 } from "@shared/schema";
-import { eq, sql, and, gte, lte, gt } from "drizzle-orm";
+import { eq, sql, and, gte, lte, gt, desc, inArray } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 
 import { z } from "zod";
@@ -2241,6 +2244,136 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         message: "خطأ في جلب الطلبات",
         success: false,
       });
+    }
+  });
+
+  app.get("/api/my-orders", requireAuth, requirePermission('view_my_orders', 'manage_orders', 'admin'), async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const userPerms: string[] = (req as any).user?.permissions || [];
+      const isAdmin = userPerms.includes('admin');
+
+      let baseQuery = db
+        .select({
+          id: orders.id,
+          order_number: orders.order_number,
+          customer_id: orders.customer_id,
+          customer_name: customers.name,
+          customer_name_ar: customers.name_ar,
+          delivery_days: orders.delivery_days,
+          delivery_date: orders.delivery_date,
+          status: orders.status,
+          notes: orders.notes,
+          created_by: orders.created_by,
+          created_at: orders.created_at,
+          sales_rep_id: customers.sales_rep_id,
+        })
+        .from(orders)
+        .leftJoin(customers, eq(orders.customer_id, customers.id));
+
+      let filteredOrders;
+      if (isAdmin) {
+        filteredOrders = await baseQuery.orderBy(desc(orders.id));
+      } else {
+        filteredOrders = await baseQuery
+          .where(eq(customers.sales_rep_id, userId))
+          .orderBy(desc(orders.id));
+      }
+
+      if (filteredOrders.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const orderIds = filteredOrders.map(o => o.id);
+      const allPOs = await db
+        .select({
+          id: production_orders.id,
+          order_id: production_orders.order_id,
+          production_order_number: production_orders.production_order_number,
+          quantity_kg: production_orders.quantity_kg,
+          final_quantity_kg: production_orders.final_quantity_kg,
+          produced_quantity_kg: production_orders.produced_quantity_kg,
+          film_completion_percentage: production_orders.film_completion_percentage,
+          printing_completion_percentage: production_orders.printing_completion_percentage,
+          cutting_completion_percentage: production_orders.cutting_completion_percentage,
+          status: production_orders.status,
+        })
+        .from(production_orders)
+        .where(inArray(production_orders.order_id, orderIds));
+
+      const poIds = allPOs.map(po => po.id);
+      let allRolls: any[] = [];
+      if (poIds.length > 0) {
+        allRolls = await db
+          .select({
+            id: rolls.id,
+            roll_number: rolls.roll_number,
+            production_order_id: rolls.production_order_id,
+            stage: rolls.stage,
+            weight_kg: rolls.weight_kg,
+            waste_kg: rolls.waste_kg,
+            created_at: rolls.created_at,
+          })
+          .from(rolls)
+          .where(inArray(rolls.production_order_id, poIds));
+      }
+
+      const rollsByPoId = new Map<number, any[]>();
+      for (const roll of allRolls) {
+        if (roll.production_order_id != null) {
+          if (!rollsByPoId.has(roll.production_order_id)) rollsByPoId.set(roll.production_order_id, []);
+          rollsByPoId.get(roll.production_order_id)!.push(roll);
+        }
+      }
+
+      const poByOrderId = new Map<number, any[]>();
+      for (const po of allPOs) {
+        if (po.order_id != null) {
+          const poWithRolls = { ...po, rolls: rollsByPoId.get(po.id) || [] };
+          if (!poByOrderId.has(po.order_id)) poByOrderId.set(po.order_id, []);
+          poByOrderId.get(po.order_id)!.push(poWithRolls);
+        }
+      }
+
+      const salesRepIds = [...new Set(filteredOrders.map(o => o.sales_rep_id).filter(Boolean))] as number[];
+      let salesReps: any[] = [];
+      if (salesRepIds.length > 0) {
+        salesReps = await db
+          .select({
+            id: users.id,
+            display_name: users.display_name,
+            display_name_ar: users.display_name_ar,
+            username: users.username,
+          })
+          .from(users)
+          .where(inArray(users.id, salesRepIds));
+      }
+
+      const salesRepMap = new Map<number, any>();
+      for (const rep of salesReps) {
+        salesRepMap.set(rep.id, rep);
+      }
+
+      const grouped: Record<string, { salesRep: any; orders: any[] }> = {};
+      for (const order of filteredOrders) {
+        const repId = order.sales_rep_id || 0;
+        const key = String(repId);
+        if (!grouped[key]) {
+          grouped[key] = {
+            salesRep: repId ? salesRepMap.get(repId) || { id: repId, display_name: 'غير معروف', display_name_ar: 'غير معروف' } : { id: 0, display_name: 'بدون مندوب', display_name_ar: 'بدون مندوب' },
+            orders: [],
+          };
+        }
+        grouped[key].orders.push({
+          ...order,
+          production_orders: poByOrderId.get(order.id) || [],
+        });
+      }
+
+      res.json({ success: true, data: Object.values(grouped) });
+    } catch (error) {
+      console.error("My orders fetch error:", error);
+      res.status(500).json({ message: "خطأ في جلب طلباتي", success: false });
     }
   });
 

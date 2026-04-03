@@ -82,6 +82,7 @@ export type PermissionKey =
   | 'manage_production_hall'
   | 'view_display_screen'
   | 'manage_display_screen'
+  | 'view_my_orders'
   | 'admin'; // Super admin permission
 
 export interface Permission {
@@ -605,6 +606,13 @@ export const PERMISSIONS: Permission[] = [
     category: 'الطلبات',
     description: 'View orders without editing permissions'
   },
+  {
+    id: 'view_my_orders',
+    name: 'View My Orders',
+    name_ar: 'عرض طلباتي',
+    category: 'الطلبات',
+    description: 'View orders assigned to the sales representative'
+  },
   
   // AI Agent
   { 
@@ -738,6 +746,9 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey[]> = {
 
   // Factory Floor
   '/factory-floor': ['view_production', 'manage_production', 'admin'],
+
+  // My Orders (sales reps)
+  '/my-orders': ['view_my_orders', 'manage_orders', 'admin'],
 };
 
 // Settings tabs permissions
