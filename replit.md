@@ -70,7 +70,8 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 │   ├── storage.ts                   # Database access layer (~5,200 lines, all CRUD ops)
 │   ├── db.ts                        # Drizzle DB connection (Neon serverless)
 │   ├── vite.ts                      # Vite dev server integration (DO NOT MODIFY)
-│   ├── ai-agent-routes.ts           # AI assistant chat, knowledge base, tools
+│   ├── ai-agent-routes.ts           # AI assistant chat, knowledge base, tools (model: AI_MODEL constant)
+│   │                                 # SSE streaming with keepalive, temp doc cleanup, 30+ AI tools
 │   ├── auth/
 │   │   └── sessionUser.ts           # Session user resolution
 │   ├── middleware/
@@ -79,6 +80,7 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 │   │   ├── validation.ts            # Zod-based request validation middleware
 │   │   └── performance-monitor.ts   # Request latency and resource tracking
 │   ├── services/
+│   │   ├── arabic-text-service.ts   # Shared Arabic text reshaping + bidi (used by AI agent routes)
 │   │   ├── notification-manager.ts  # Multi-channel notification orchestration
 │   │   ├── notification-service.ts  # Notification delivery logic
 │   │   ├── event-trigger-service.ts # Event-driven notification triggers

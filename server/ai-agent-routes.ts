@@ -16,11 +16,14 @@ import PDFDocument from "pdfkit";
 import * as docx from "docx";
 import { objectStorageClient } from "./replit_integrations/object_storage";
 import { generateQuotePdfWithAdobe, isAdobePdfAvailable } from "./adobe-pdf-service";
-// @ts-ignore
-import ArabicReshaper from "arabic-reshaper";
-// @ts-ignore
-import bidiFactory from "bidi-js";
-const bidi = bidiFactory();
+import { processArabicText, isArabicText } from "./services/arabic-text-service";
+
+const AI_MODEL = "gpt-4.1" as const;
+const AI_MODEL_VISION = "gpt-4.1" as const;
+const MAX_TOOL_ROUNDS = 6;
+const SSE_PING_INTERVAL_MS = 15000;
+const MAX_CHAT_HISTORY = 20;
+const DOCS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PDF_DIR = "/tmp/quote-pdfs";
 if (!fs.existsSync(PDF_DIR)) {
@@ -30,6 +33,26 @@ const DOCS_DIR = "/tmp/agent-docs";
 if (!fs.existsSync(DOCS_DIR)) {
   fs.mkdirSync(DOCS_DIR, { recursive: true });
 }
+
+function cleanupOldDocs() {
+  try {
+    const now = Date.now();
+    for (const dir of [PDF_DIR, DOCS_DIR]) {
+      if (!fs.existsSync(dir)) continue;
+      for (const file of fs.readdirSync(dir)) {
+        const filePath = path.join(dir, file);
+        try {
+          const stat = fs.statSync(filePath);
+          if (now - stat.mtimeMs > DOCS_MAX_AGE_MS) {
+            fs.unlinkSync(filePath);
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+}
+setInterval(cleanupOldDocs, 60 * 60 * 1000);
+cleanupOldDocs();
 
 // دالة للحصول على الدومين الأساسي للتطبيق
 function getAppBaseUrl(): string {
@@ -79,21 +102,6 @@ async function uploadPdfToStorage(pdfBuffer: Buffer, documentNumber: string): Pr
   }
 }
 
-function processArabicText(text: string): string {
-  if (!text) return "";
-  
-  const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
-  if (!arabicRegex.test(text)) return text;
-  
-  try {
-    const reshaped = ArabicReshaper.convertArabic(text);
-    const embeddingLevels = bidi.getEmbeddingLevels(reshaped, 'rtl');
-    return bidi.getReorderedString(reshaped, embeddingLevels);
-  } catch (e) {
-    console.error("Arabic text processing error:", e);
-    return text;
-  }
-}
 
 async function generateQuotePdfBuffer(quoteId: number): Promise<Buffer> {
   const [quote] = await db.select().from(quotes).where(eq(quotes.id, quoteId));
@@ -1268,11 +1276,10 @@ async function generatePdfDocument(title: string, filename: string, content: any
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
-    const isArabic = (text: string) => /[\u0600-\u06FF]/.test(text || "");
     const safeText = (text: string) => {
       if (!text) return "";
-      if (isArabic(text) && hasArabicFont) return text;
-      if (isArabic(text)) return processArabicText(text);
+      if (isArabicText(text) && hasArabicFont) return text;
+      if (isArabicText(text)) return processArabicText(text);
       return text;
     };
 
@@ -3324,13 +3331,6 @@ export function registerAiAgentRoutes(app: Express): void {
 
   app.post("/api/ai-agent/chat", requireAuth, async (req: Request, res: Response) => {
   let clientClosed = false;
-
-  // لمراقبة إغلاق الاتصال من العميل
-  req.on("close", () => {
-    clientClosed = true;
-  });
-
-  // وظيفة صغيرة لتنظيف الاتصال بأمان
   let ping: NodeJS.Timeout | null = null;
 
   const safeEnd = () => {
@@ -3343,7 +3343,6 @@ export function registerAiAgentRoutes(app: Express): void {
         res.end();
       }
     } catch {
-      // تجاهل
     }
   };
 
@@ -3352,9 +3351,13 @@ export function registerAiAgentRoutes(app: Express): void {
     try {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     } catch {
-      // تجاهل
     }
   };
+
+  req.on("close", () => {
+    clientClosed = true;
+    safeEnd();
+  });
 
   try {
     const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
@@ -3364,57 +3367,41 @@ export function registerAiAgentRoutes(app: Express): void {
       return res.status(400).json({ error: "صيغة الرسائل غير صحيحة" });
     }
 
-    // ===== SSE Headers =====
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
-
-    // إرسال الهيدرز فوراً (مهم لبعض البيئات)
     res.flushHeaders?.();
 
-    // ===== Keep-alive Ping =====
-    // بعض المنصات/البروكسي تقطع SSE لو ما فيه بيانات لفترة
     ping = setInterval(() => {
       if (clientClosed || res.writableEnded) return;
       try {
-        // هذا تعليق SSE، ما يتعارض مع JSON عند العميل
         res.write(`: ping\n\n`);
       } catch {
-        // تجاهل
       }
-    }, 15000);
+    }, SSE_PING_INTERVAL_MS);
 
-    req.on("close", () => {
-      clientClosed = true;
-      safeEnd();
-    });
-
-    // ===== بناء رسائل الشات =====
     const dynamicSystemPrompt = await getSystemPrompt();
 
     const chatMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: dynamicSystemPrompt },
       ...messages
-        .slice(-20) // حد أقصى للرسائل لحماية الأداء
+        .slice(-MAX_CHAT_HISTORY)
         .map((m) => ({
           role: m.role as "user" | "assistant",
           content: String(m.content || ""),
         })),
     ];
 
-    const MAX_TOOL_ROUNDS = 6;
     let toolRounds = 0;
 
-    // ===== أول استدعاء OpenAI =====
     let response = await openai.chat.completions.create({
-      model: "gpt-4.1",
+      model: AI_MODEL,
       messages: chatMessages,
       tools,
       tool_choice: "auto",
       max_completion_tokens: 4096,
     });
 
-    // ===== Loop: تنفيذ الأدوات =====
     while (response.choices[0]?.message?.tool_calls) {
       if (clientClosed) return safeEnd();
 
@@ -3460,9 +3447,10 @@ export function registerAiAgentRoutes(app: Express): void {
         });
       }
 
-      // ===== استدعاء OpenAI بعد تنفيذ الأدوات =====
+      if (clientClosed) return safeEnd();
+
       response = await openai.chat.completions.create({
-        model: "gpt-4.1",
+        model: AI_MODEL,
         messages: chatMessages,
         tools,
         tool_choice: "auto",
@@ -3470,22 +3458,54 @@ export function registerAiAgentRoutes(app: Express): void {
       });
     }
 
-    // ===== الرد النهائي =====
-    const content = response.choices[0]?.message?.content || "";
+    if (clientClosed) return safeEnd();
 
-    safeWrite({ content, done: true });
-    safeEnd();
+    // ===== Final response =====
+    const finalContent = response.choices[0]?.message?.content;
+    if (finalContent) {
+      safeWrite({ content: finalContent, done: true });
+      safeEnd();
+    } else {
+      try {
+        const stream = await openai.chat.completions.create({
+          model: AI_MODEL,
+          messages: chatMessages,
+          max_completion_tokens: 4096,
+          stream: true,
+        });
+
+        let accumulated = "";
+        for await (const chunk of stream) {
+          if (clientClosed) return safeEnd();
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            accumulated += delta;
+            safeWrite({ content: accumulated, done: false });
+          }
+        }
+        safeWrite({ content: accumulated || "", done: true });
+        safeEnd();
+      } catch (streamError) {
+        console.error("Streaming fallback error:", streamError);
+        const fallback = await openai.chat.completions.create({
+          model: AI_MODEL,
+          messages: chatMessages,
+          max_completion_tokens: 4096,
+        });
+        const content = fallback.choices[0]?.message?.content || "";
+        safeWrite({ content, done: true });
+        safeEnd();
+      }
+    }
   } catch (error) {
     console.error("AI Agent error:", error);
 
-    // لو الهيدرز انرسلت بالفعل (SSE)، رجع خطأ بصيغة event
     if (res.headersSent && !res.writableEnded) {
       safeWrite({ error: "حدث خطأ في المعالجة", done: true });
       safeEnd();
       return;
     }
 
-    // لو ما بدأ SSE أصلاً
     try {
       return res.status(500).json({ error: "حدث خطأ في المعالجة" });
     } catch {
@@ -3632,7 +3652,7 @@ export function registerAiAgentRoutes(app: Express): void {
         const imageUrl = `data:${file.mimetype};base64,${base64Image}`;
         
         const visionResponse = await openai.chat.completions.create({
-          model: "gpt-4.1",
+          model: AI_MODEL_VISION,
           messages: [
             {
               role: "user",
