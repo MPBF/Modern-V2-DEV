@@ -1,0 +1,112 @@
+026-04-01 06:32:46.42
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 806ms
+2026-04-01 07:28:59.83
+ee249b6a
+User
+⚠️ [WARNING] POST /api/login took 1158ms
+2026-04-01 08:20:21.02
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 2274ms
+2026-04-01 08:21:36.79
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 3621ms
+2026-04-01 08:22:06.14
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 3892ms
+2026-04-01 08:22:16.00
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 2150ms
+2026-04-01 08:22:24.42
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 2587ms
+2026-04-01 08:23:21.54
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 2604ms
+2026-04-01 08:24:15.36
+ee249b6a
+User
+⚠️ [WARNING] POST /api/attendance/monthly-editor/save took 1353ms
+2026-04-01 08:24:17.72
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 3206ms
+2026-04-01 08:24:55.81
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/ai-agent/chat took 15951ms
+2026-04-01 10:48:00.89
+ee249b6a
+User
+⚠️ [WARNING] POST /api/attendance/monthly-editor/save took 688ms
+2026-04-01 11:43:20.23
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 809ms
+2026-04-01 14:06:43.93
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 784ms
+2026-04-01 15:54:09.04
+ee249b6a
+User
+⚠️ [WARNING] POST /api/attendance/monthly-editor/save took 1040ms
+2026-04-01 15:56:53.68
+ee249b6a
+User
+⚠️ [CRITICAL] POST /api/notifications/webhook/meta took 4796ms
+2026-04-01 17:44:37.21
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 1772ms
+2026-04-01 19:13:17.65
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 1357ms
+2026-04-02 08:01:36.33
+ee249b6a
+User
+⚠️ [WARNING] POST /api/mobile/login took 1486ms
+2026-04-02 08:01:40.74
+ee249b6a
+User
+⚠️ [WARNING] GET /api/orders/enhanced took 690ms
+2026-04-02 08:49:55.58
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 746ms
+2026-04-02 09:26:59.77
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 736ms
+2026-04-02 09:31:53.41
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 815ms
+2026-04-02 09:36:06.22
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 771ms
+2026-04-02 13:09:16.26
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 726ms
+2026-04-02 15:16:51.27
+ee249b6a
+User
+⚠️ [WARNING] POST /api/notifications/webhook/meta took 1783ms
+2026-04-02 15:36:41.77
+ee249b6a
+User
+⚠️ [WARNING] POST /api/production-orders/batch took 626ms
+2026-04-02 15:39:30.71
+ee249b6a
+User
+⚠️ [WARNING] POST /api/production-orders/batch took 501ms
