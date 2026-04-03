@@ -169,7 +169,9 @@ export async function populateUserFromSession(req: Request, res: Response, next:
       try {
         const user = await resolveUserById(inMemoryUserId);
         if (user) req.user = user;
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error resolving user from in-memory token:", e);
+      }
       return next();
     }
 
@@ -180,7 +182,9 @@ export async function populateUserFromSession(req: Request, res: Response, next:
         if (user) req.user = user;
         return next();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error resolving user from DB token:", e);
+    }
 
     return next();
   }

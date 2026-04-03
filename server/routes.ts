@@ -10221,9 +10221,14 @@ Do not include quotes or explanations.`;
   app.post("/api/suppliers", requireAuth, requirePermission('manage_warehouse'), async (req, res) => {
     try {
       const { name, name_ar, phone, email, address, contact_person } = req.body;
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedNameAr = typeof name_ar === 'string' ? name_ar.trim() : '';
+      if (!trimmedName || !trimmedNameAr) {
+        return res.status(400).json({ message: "اسم المورد بالعربية والإنجليزية مطلوب" });
+      }
       const result = await db.execute(sql`
         INSERT INTO suppliers (name, name_ar, phone, email, address, contact_person)
-        VALUES (${name}, ${name_ar}, ${phone || null}, ${email || null}, ${address || null}, ${contact_person || null})
+        VALUES (${trimmedName}, ${trimmedNameAr}, ${phone || null}, ${email || null}, ${address || null}, ${contact_person || null})
         RETURNING *
       `);
       res.status(201).json(result.rows[0]);
@@ -10237,13 +10242,21 @@ Do not include quotes or explanations.`;
     try {
       const id = parseRouteParam(req.params.id, "id");
       const { name, name_ar, phone, email, address, contact_person } = req.body;
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedNameAr = typeof name_ar === 'string' ? name_ar.trim() : '';
+      if (!trimmedName || !trimmedNameAr) {
+        return res.status(400).json({ message: "اسم المورد بالعربية والإنجليزية مطلوب" });
+      }
       const result = await db.execute(sql`
         UPDATE suppliers 
-        SET name = ${name}, name_ar = ${name_ar}, phone = ${phone || null}, 
+        SET name = ${trimmedName}, name_ar = ${trimmedNameAr}, phone = ${phone || null}, 
             email = ${email || null}, address = ${address || null}, contact_person = ${contact_person || null}
         WHERE id = ${id}
         RETURNING *
       `);
+      if (!result.rows[0]) {
+        return res.status(404).json({ message: "المورد غير موجود" });
+      }
       res.json(result.rows[0]);
     } catch (error) {
       console.error("Error updating supplier:", error);
@@ -10273,12 +10286,21 @@ Do not include quotes or explanations.`;
     }
   });
 
-  app.post("/api/units", requireAuth, async (req, res) => {
+  app.post("/api/units", requireAuth, requirePermission('manage_warehouse', 'manage_definitions'), async (req, res) => {
     try {
       const { name, name_ar, symbol, conversion_factor } = req.body;
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedNameAr = typeof name_ar === 'string' ? name_ar.trim() : '';
+      if (!trimmedName || !trimmedNameAr) {
+        return res.status(400).json({ message: "اسم الوحدة بالعربية والإنجليزية مطلوب" });
+      }
+      const parsedFactor = parseFloat(conversion_factor);
+      if (conversion_factor !== undefined && conversion_factor !== null && (isNaN(parsedFactor) || parsedFactor <= 0)) {
+        return res.status(400).json({ message: "معامل التحويل يجب أن يكون رقماً موجباً" });
+      }
       const result = await db.execute(sql`
         INSERT INTO units (name, name_ar, symbol, conversion_factor)
-        VALUES (${name}, ${name_ar}, ${symbol}, ${parseFloat(conversion_factor) || 1})
+        VALUES (${trimmedName}, ${trimmedNameAr}, ${symbol || null}, ${parsedFactor > 0 ? parsedFactor : 1})
         RETURNING *
       `);
       res.status(201).json(result.rows[0]);
@@ -10288,17 +10310,29 @@ Do not include quotes or explanations.`;
     }
   });
 
-  app.put("/api/units/:id", requireAuth, async (req, res) => {
+  app.put("/api/units/:id", requireAuth, requirePermission('manage_warehouse', 'manage_definitions'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
       const { name, name_ar, symbol, conversion_factor } = req.body;
+      const trimmedName = typeof name === 'string' ? name.trim() : '';
+      const trimmedNameAr = typeof name_ar === 'string' ? name_ar.trim() : '';
+      if (!trimmedName || !trimmedNameAr) {
+        return res.status(400).json({ message: "اسم الوحدة بالعربية والإنجليزية مطلوب" });
+      }
+      const parsedFactor = parseFloat(conversion_factor);
+      if (conversion_factor !== undefined && conversion_factor !== null && (isNaN(parsedFactor) || parsedFactor <= 0)) {
+        return res.status(400).json({ message: "معامل التحويل يجب أن يكون رقماً موجباً" });
+      }
       const result = await db.execute(sql`
         UPDATE units 
-        SET name = ${name}, name_ar = ${name_ar}, symbol = ${symbol}, 
-            conversion_factor = ${parseFloat(conversion_factor) || 1}
+        SET name = ${trimmedName}, name_ar = ${trimmedNameAr}, symbol = ${symbol || null}, 
+            conversion_factor = ${parsedFactor > 0 ? parsedFactor : 1}
         WHERE id = ${id}
         RETURNING *
       `);
+      if (!result.rows[0]) {
+        return res.status(404).json({ message: "الوحدة غير موجودة" });
+      }
       res.json(result.rows[0]);
     } catch (error) {
       console.error("Error updating unit:", error);
@@ -10306,7 +10340,7 @@ Do not include quotes or explanations.`;
     }
   });
 
-  app.delete("/api/units/:id", requireAuth, async (req, res) => {
+  app.delete("/api/units/:id", requireAuth, requirePermission('manage_warehouse', 'manage_definitions'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
       await db.execute(sql`UPDATE units SET is_active = false WHERE id = ${id}`);
