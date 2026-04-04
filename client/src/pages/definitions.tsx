@@ -3643,7 +3643,7 @@ export default function Definitions() {
                             </SelectTrigger>
                             <SelectContent className="max-h-[200px]">
                               <SelectItem value="none">{t("definitions.form.none")}</SelectItem>
-                              {Array.from({ length: 60 }, (_, i) => i + 1).map((num) => (
+                              {Array.from({ length: 100 }, (_, i) => i + 1).map((num) => (
                                 <SelectItem key={num} value={num.toString()}>
                                   {num}
                                 </SelectItem>
