@@ -905,6 +905,9 @@ export default function Definitions() {
           punching = "علاقي";
         } else if (nameAr === "أكياس بنانة") {
           punching = "بنانة";
+        
+        }  else if (nameAr === "أكياس فحم") {
+          punching = "بنانة";
         }
 
         const isSufra = nameAr === "سفرة بلاستيكية" || nameAr === "سفرة بلاستيكية مطوية";
