@@ -1,0 +1,321 @@
+
+
+  async getDistributionPreview(algorithm: string, params?: any): Promise<any> {
+    return { preview: [], suggestions: [] };
+  }
+
+  async getFactoryLocation(id: number): Promise<FactoryLocation | undefined> {
+    const [l] = await db.select().from(factory_locations).where(eq(factory_locations.id, id));
+    return l;
+  }
+
+  async getHRReports(options?: any): Promise<any> {
+    return { reports: [] };
+  }
+
+  async getMachineCapacityStats(): Promise<any> {
+    return { machines: [], totalCapacity: 0, usedCapacity: 0 };
+  }
+
+  async getMachineDetailAllStages(machineId: number, dateFrom?: string, dateTo?: string): Promise<any> {
+    const machine = await this.getMachineById(machineId);
+    const queue = await this.getMachineQueue(machineId);
+    return { machine, queue };
+  }
+
+  async getMachinePerformance(filters?: any): Promise<any> {
+    return { performance: 0, uptime: 0 };
+  }
+
+  async getMachineQueues(): Promise<any[]> {
+    const allMachines = await this.getAllMachines();
+    const queues = await Promise.all(allMachines.map(m => this.getMachineQueue(m.id as any)));
+    return allMachines.map((m, i) => ({ machine: m, queue: queues[i] }));
+  }
+
+  async getMachineUtilizationStats(dateFrom?: string, dateTo?: string): Promise<any> {
+    return { utilization: 0, machines: [] };
+  }
+
+  async getQualityIssues(filters?: { status?: string; source?: string; severity?: string; customer_id?: string; dateFrom?: string; dateTo?: string }): Promise<any[]> {
+    const conditions: any[] = [];
+    if (filters?.status) conditions.push(eq(quality_issues.status, filters.status));
+    if (filters?.source) conditions.push(eq(quality_issues.source, filters.source));
+    if (filters?.severity) conditions.push(eq(quality_issues.severity, filters.severity));
+    if (filters?.customer_id) conditions.push(eq(quality_issues.customer_id, filters.customer_id));
+    if (filters?.dateFrom) conditions.push(sql`${quality_issues.created_at} >= ${filters.dateFrom}::timestamp`);
+    if (filters?.dateTo) conditions.push(sql`${quality_issues.created_at} <= (${filters.dateTo}::date + interval '1 day')`);
+Code Diagnostics
+
+'BatchIngredient' is declared but its value is never read.
+(typescript)
+Ln 85, Col 8
+'InsertProductionSettings' is declared but its value is never read.
+(typescript)
+Ln 112, Col 8
+'InsertUserSetting' is declared but its value is never read.
+(typescript)
+Ln 148, Col 8
+'InsertRawMaterialVoucherIn' is declared but its value is never read.
+(typescript)
+Ln 195, Col 8
+'InsertRawMaterialVoucherOut' is declared but its value is never read.
+(typescript)
+Ln 197, Col 8
+'InsertFinishedGoodsVoucherIn' is declared but its value is never read.
+(typescript)
+Ln 199, Col 8
+'InsertFinishedGoodsVoucherOut' is declared but its value is never read.
+(typescript)
+Ln 201, Col 8
+'sum' is declared but its value is never read.
+(typescript)
+Ln 228, Col 30
+'ne' is declared but its value is never read.
+(typescript)
+Ln 228, Col 55
+All imports in import declaration are unused.
+(typescript)
+Ln 231, Col 1
+All imports in import declaration are unused.
+(typescript)
+Ln 236, Col 1
+'calculateProductionQuantities' is declared but its value is never read.
+(typescript)
+Ln 237, Col 1
+'alertTimesStorage' is declared but its value is never read.
+(typescript)
+Ln 791, Col 11
+No overload matches this call. Overload 1 of 2, '(value: { order_number: string | SQL<unknown> | Placeholder<string, any>; customer_id: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; ... 5 more ...; delivery_date?: string | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ status: "waiting" | "in_production" | "paused" | "cancelled" | "completed"; order_number: string; customer_id: string; delivery_days: number | null; delivery_date: Date | null; notes?: string | ... 1 more ... | undefined; created_by?: number | undefined; }' is not assignable to parameter of type '{ order_number: string | SQL<unknown> | Placeholder<string, any>; customer_id: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; ... 5 more ...; delivery_date?: string | ... 3 more ... | undefined; }'. Types of property 'delivery_date' are incompatible. Type 'Date | null' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any> | null | undefined'. Type 'Date' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any> | null | undefined'. Overload 2 of 2, '(values: { order_number: string | SQL<unknown> | Placeholder<string, any>; customer_id: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; ... 5 more ...; delivery_date?: string | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ status: "waiting" | "in_production" | "paused" | "cancelled" | "completed"; order_number: string; customer_id: string; delivery_days: number | null; delivery_date: Date | null; notes?: string | ... 1 more ... | undefined; created_by?: number | undefined; }' is not assignable to parameter of type '{ order_number: string | SQL<unknown> | Placeholder<string, any>; customer_id: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; ... 5 more ...; delivery_date?: string | ... 3 more ... | undefined; }[]'. Type '{ status: "waiting" | "in_production" | "paused" | "cancelled" | "completed"; order_number: string; customer_id: string; delivery_days: number | null; delivery_date: Date | null; notes?: string | ... 1 more ... | undefined; created_by?: number | undefined; }' is missing the following properties from type '{ order_number: string | SQL<unknown> | Placeholder<string, any>; customer_id: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; ... 5 more ...; delivery_date?: string | ... 3 more ... | undefined; }[]': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 1034, Col 56
+No overload matches this call. Overload 1 of 2, '(value: { production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ production_order_number: string; status: "active" | "cancelled" | "completed" | "pending"; order_id: number; customer_product_id: number; quantity_kg: string; overrun_percentage: string; ... 10 more ...; warehouse_delivered_kg?: string | undefined; }[]' is not assignable to parameter of type '{ production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }'. Type '{ production_order_number: string; status: "active" | "cancelled" | "completed" | "pending"; order_id: number; customer_product_id: number; quantity_kg: string; overrun_percentage: string; ... 10 more ...; warehouse_delivered_kg?: string | undefined; }[]' is missing the following properties from type '{ production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }': production_order_number, order_id, customer_product_id, quantity_kg, final_quantity_kg Overload 2 of 2, '(values: { production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ production_order_number: string; status: "active" | "cancelled" | "completed" | "pending"; order_id: number; customer_product_id: number; quantity_kg: string; overrun_percentage: string; ... 10 more ...; warehouse_delivered_kg?: string | undefined; }[]' is not assignable to parameter of type '{ production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }[]'. Property 'final_quantity_kg' is missing in type '{ production_order_number: string; status: "active" | "cancelled" | "completed" | "pending"; order_id: number; customer_product_id: number; quantity_kg: string; overrun_percentage: string; ... 10 more ...; warehouse_delivered_kg?: string | undefined; }' but required in type '{ production_order_number: string | SQL<unknown> | Placeholder<string, any>; order_id: number | SQL<unknown> | Placeholder<string, any>; customer_product_id: number | ... 1 more ... | Placeholder<...>; ... 23 more ...; warehouse_delivered_kg?: string | ... 2 more ... | undefined; }'.
+(typescript)
+Ln 1289, Col 62
+No overload matches this call. Overload 1 of 2, '(value: { created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<...> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ created_by: number; production_order_id: number; stage: string; weight_kg: number; film_machine_id: string; production_time_minutes?: number | null | undefined; cut_weight_total_kg?: string | undefined; ... 10 more ...; qr_code?: string | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<unknown> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }'. Type '{ created_by: number; production_order_id: number; stage: string; weight_kg: number; film_machine_id: string; production_time_minutes?: number | null | undefined; cut_weight_total_kg?: string | undefined; ... 10 more ...; qr_code?: string | ... 1 more ... | undefined; }' is missing the following properties from type '{ created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<unknown> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }': roll_seq, roll_number, qr_code_text Overload 2 of 2, '(values: { created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<...> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ created_by: number; production_order_id: number; stage: string; weight_kg: number; film_machine_id: string; production_time_minutes?: number | null | undefined; cut_weight_total_kg?: string | undefined; ... 10 more ...; qr_code?: string | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<unknown> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }[]'. Type '{ created_by: number; production_order_id: number; stage: string; weight_kg: number; film_machine_id: string; production_time_minutes?: number | null | undefined; cut_weight_total_kg?: string | undefined; ... 10 more ...; qr_code?: string | ... 1 more ... | undefined; }' is missing the following properties from type '{ created_by: number | SQL<unknown> | Placeholder<string, any>; roll_seq: number | SQL<unknown> | Placeholder<string, any>; roll_number: string | SQL<unknown> | Placeholder<...>; ... 23 more ...; completed_at?: SQL<...> | ... 3 more ... | undefined; }[]': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 1481, Col 54
+No overload matches this call. Overload 1 of 2, '(value: { request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ status?: string | null | undefined; description?: string | null | undefined; machine_id?: string | null | undefined; reported_by?: number | null | undefined; issue_type?: string | null | undefined; urgency_level?: string | ... 1 more ... | undefined; assigned_to?: number | ... 1 more ... | undefined; action_taken?...' is not assignable to parameter of type '{ request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }'. Property 'request_number' is missing in type '{ status?: string | null | undefined; description?: string | null | undefined; machine_id?: string | null | undefined; reported_by?: number | null | undefined; issue_type?: string | null | undefined; urgency_level?: string | ... 1 more ... | undefined; assigned_to?: number | ... 1 more ... | undefined; action_taken?...' but required in type '{ request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }'. Overload 2 of 2, '(values: { request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ status?: string | null | undefined; description?: string | null | undefined; machine_id?: string | null | undefined; reported_by?: number | null | undefined; issue_type?: string | null | undefined; urgency_level?: string | ... 1 more ... | undefined; assigned_to?: number | ... 1 more ... | undefined; action_taken?...' is not assignable to parameter of type '{ request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }[]'. Type '{ status?: string | null | undefined; description?: string | null | undefined; machine_id?: string | null | undefined; reported_by?: number | null | undefined; issue_type?: string | null | undefined; urgency_level?: string | ... 1 more ... | undefined; assigned_to?: number | ... 1 more ... | undefined; action_taken?...' is missing the following properties from type '{ request_number: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<string, any> | undefined; status?: string | SQL<...> | Placeholder<...> | null | undefined; ... 8 more ...; date_resolved?: SQL<...> | ... 3 more ... | undefined; }[]': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 1579, Col 71
+No overload matches this call. Overload 1 of 2, '(value: { production_order_id: number | SQL<unknown> | Placeholder<string, any>; received_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | ... 2 more ... | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; cut_id?: number | ... 3 more ... | undefined; received_by?: number | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ production_order_id: number; received_weight_kg: number; cut_id?: number | null | undefined; received_by?: number | null | undefined; }' is not assignable to parameter of type '{ production_order_id: number | SQL<unknown> | Placeholder<string, any>; received_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<...> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; cut_id?: number | ... 3 more ... | undefined; received_by?: number ...'. Types of property 'received_weight_kg' are incompatible. Type 'number' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any>'. Overload 2 of 2, '(values: { production_order_id: number | SQL<unknown> | Placeholder<string, any>; received_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | ... 2 more ... | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; cut_id?: number | ... 3 more ... | undefined; received_by?: number | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ production_order_id: number; received_weight_kg: number; cut_id?: number | null | undefined; received_by?: number | null | undefined; }' is not assignable to parameter of type '{ production_order_id: number | SQL<unknown> | Placeholder<string, any>; received_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<...> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; cut_id?: number | ... 3 more ... | undefined; received_by?: number ...'. Type '{ production_order_id: number; received_weight_kg: number; cut_id?: number | null | undefined; received_by?: number | null | undefined; }' is missing the following properties from type '{ production_order_id: number | SQL<unknown> | Placeholder<string, any>; received_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<...> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; cut_id?: number | ... 3 more ... | undefined; received_by?: number ...': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 2027, Col 60
+No overload matches this call. Overload 1 of 3, '(left: PgColumn<{ name: "employee_id"; tableName: "training_enrollments"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; ... 6 more ...; generated: undefined; }, {}, {}>, right: number | SQLWrapper): SQL<...>', gave the following error. Argument of type 'string' is not assignable to parameter of type 'number | SQLWrapper'. Overload 2 of 3, '(left: Aliased<string>, right: string | SQLWrapper): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "employee_id"; tableName: "training_enrollments"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is not assignable to parameter of type 'Aliased<string>'. Type 'PgColumn<{ name: "employee_id"; tableName: "training_enrollments"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is missing the following properties from type 'Aliased<string>': sql, fieldAlias Overload 3 of 3, '(left: never, right: unknown): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "employee_id"; tableName: "training_enrollments"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is not assignable to parameter of type 'never'.
+(typescript)
+Ln 2060, Col 46
+'options' is declared but its value is never read.
+(typescript)
+Ln 2230, Col 46
+No overload matches this call. Overload 1 of 2, '(value: { code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<...>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ code: string; type: string; status?: string | null | undefined; notes?: string | null | undefined; unit?: string | null | undefined; location?: string | null | undefined; current_quantity?: number | undefined; min_quantity?: number | ... 1 more ... | undefined; max_quantity?: number | ... 1 more ... | undefined; b...' is not assignable to parameter of type '{ code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<string, any>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }'. Property 'part_id' is missing in type '{ code: string; type: string; status?: string | null | undefined; notes?: string | null | undefined; unit?: string | null | undefined; location?: string | null | undefined; current_quantity?: number | undefined; min_quantity?: number | ... 1 more ... | undefined; max_quantity?: number | ... 1 more ... | undefined; b...' but required in type '{ code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<string, any>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }'. Overload 2 of 2, '(values: { code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<...>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ code: string; type: string; status?: string | null | undefined; notes?: string | null | undefined; unit?: string | null | undefined; location?: string | null | undefined; current_quantity?: number | undefined; min_quantity?: number | ... 1 more ... | undefined; max_quantity?: number | ... 1 more ... | undefined; b...' is not assignable to parameter of type '{ code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<string, any>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }[]'. Type '{ code: string; type: string; status?: string | null | undefined; notes?: string | null | undefined; unit?: string | null | undefined; location?: string | null | undefined; current_quantity?: number | undefined; min_quantity?: number | ... 1 more ... | undefined; max_quantity?: number | ... 1 more ... | undefined; b...' is missing the following properties from type '{ code: string | SQL<unknown> | Placeholder<string, any>; type: string | SQL<unknown> | Placeholder<string, any>; part_id: string | SQL<unknown> | Placeholder<string, any>; ... 10 more ...; barcode?: string | ... 3 more ... | undefined; }[]': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 2262, Col 58
+No overload matches this call. Overload 1 of 2, '(value: { performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ performed_by: number; quantity: number; consumable_part_id: number; transaction_type: string; notes?: string | null | undefined; barcode_scanned?: string | null | undefined; manual_entry?: boolean | ... 1 more ... | undefined; transaction_reason?: string | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }'. Property 'transaction_id' is missing in type '{ performed_by: number; quantity: number; consumable_part_id: number; transaction_type: string; notes?: string | null | undefined; barcode_scanned?: string | null | undefined; manual_entry?: boolean | ... 1 more ... | undefined; transaction_reason?: string | ... 1 more ... | undefined; }' but required in type '{ performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }'. Overload 2 of 2, '(values: { performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ performed_by: number; quantity: number; consumable_part_id: number; transaction_type: string; notes?: string | null | undefined; barcode_scanned?: string | null | undefined; manual_entry?: boolean | ... 1 more ... | undefined; transaction_reason?: string | ... 1 more ... | undefined; }' is not assignable to parameter of type '{ performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }[]'. Type '{ performed_by: number; quantity: number; consumable_part_id: number; transaction_type: string; notes?: string | null | undefined; barcode_scanned?: string | null | undefined; manual_entry?: boolean | ... 1 more ... | undefined; transaction_reason?: string | ... 1 more ... | undefined; }' is missing the following properties from type '{ performed_by: number | SQL<unknown> | Placeholder<string, any>; quantity: number | SQL<unknown> | Placeholder<string, any>; transaction_id: string | SQL<...> | Placeholder<...>; ... 7 more ...; transaction_reason?: string | ... 3 more ... | undefined; }[]': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 2271, Col 71
+'options' is declared but its value is never read.
+(typescript)
+Ln 2341, Col 22
+'userId' is declared but its value is never read.
+(typescript)
+Ln 2355, Col 55
+'options' is declared but its value is never read.
+(typescript)
+Ln 2386, Col 37
+'notes' is declared but its value is never read.
+(typescript)
+Ln 2432, Col 56
+'options' is declared but its value is never read.
+(typescript)
+Ln 2550, Col 26
+Property 'location_id' does not exist on type '{ id: number; status: string; created_at: Date | null; updated_at: Date | null; notes: string | null; item_id: string; production_order_id: number | null; unit: string; quantity: string; ... 8 more ...; issued_to: string | null; }'.
+(typescript)
+Ln 2701, Col 25
+Property 'location_id' does not exist on type '{ id: number; voucher_number: string; voucher_type: string; production_order_id: number | null; item_id: string; quantity: string; unit: string; batch_number: string | null; barcode: string | null; ... 8 more ...; updated_at: Date | null; }'.
+(typescript)
+Ln 2726, Col 25
+Type 'Map<number, { weight: number; item: any; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+(typescript)
+Ln 2766, Col 46
+No overload matches this call. Overload 1 of 3, '(left: PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>, right: string | SQLWrapper): SQL<...>', gave the following error. Argument of type 'number' is not assignable to parameter of type 'string | SQLWrapper'. Overload 2 of 3, '(left: Aliased<number>, right: number | SQLWrapper): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'Aliased<number>'. Type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is missing the following properties from type 'Aliased<number>': sql, fieldAlias Overload 3 of 3, '(left: never, right: unknown): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'never'.
+(typescript)
+Ln 2980, Col 57
+No overload matches this call. Overload 1 of 3, '(left: PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>, right: string | SQLWrapper): SQL<...>', gave the following error. Argument of type 'number' is not assignable to parameter of type 'string | SQLWrapper'. Overload 2 of 3, '(left: Aliased<number>, right: number | SQLWrapper): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'Aliased<number>'. Type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is missing the following properties from type 'Aliased<number>': sql, fieldAlias Overload 3 of 3, '(left: never, right: unknown): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "location_id"; tableName: "inventory"; dataType: "string"; columnType: "PgVarchar"; data: string; driverParam: string; notNull: false; hasDefault: false; isPrimaryKey: false; isAutoincrement: false; ... 4 more ...; generated: undefined; }, {}, { ...; }>' is not assignable to parameter of type 'never'.
+(typescript)
+Ln 3046, Col 44
+Type 'Map<number, { weight: number; item: any; }>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+(typescript)
+Ln 3131, Col 46
+'barcode' is declared but its value is never read.
+(typescript)
+Ln 3316, Col 25
+'options' is declared but its value is never read.
+(typescript)
+Ln 3348, Col 34
+Type '{ id: number; username: string | null; display_name: string | null; display_name_ar: string | null; role_id: number | null; status: string | null; replit_user_id: string | null; created_at: Date | null; }[]' is not assignable to type 'SafeUser[]'. Type '{ id: number; username: string | null; display_name: string | null; display_name_ar: string | null; role_id: number | null; status: string | null; replit_user_id: string | null; created_at: Date | null; }' is missing the following properties from type 'SafeUser': full_name, phone, email, section_id, and 4 more.
+(typescript)
+Ln 3458, Col 5
+'search' is declared but its value is never read.
+(typescript)
+Ln 3474, Col 42
+'id' is declared but its value is never read.
+(typescript)
+Ln 3588, Col 24
+'sectionId' is declared but its value is never read.
+(typescript)
+Ln 3607, Col 37
+'sectionId' is declared but its value is never read.
+(typescript)
+Ln 3611, Col 38
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 3760, Col 54
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 3760, Col 73
+No overload matches this call. Overload 1 of 3, '(left: PgColumn<{ name: "employee_id"; tableName: "training_evaluations"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; ... 6 more ...; generated: undefined; }, {}, {}>, right: number | SQLWrapper): SQL<...>', gave the following error. Argument of type 'string' is not assignable to parameter of type 'number | SQLWrapper'. Overload 2 of 3, '(left: Aliased<string>, right: string | SQLWrapper): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "employee_id"; tableName: "training_evaluations"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is not assignable to parameter of type 'Aliased<string>'. Type 'PgColumn<{ name: "employee_id"; tableName: "training_evaluations"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is missing the following properties from type 'Aliased<string>': sql, fieldAlias Overload 3 of 3, '(left: never, right: unknown): SQL<unknown>', gave the following error. Argument of type 'PgColumn<{ name: "employee_id"; tableName: "training_evaluations"; dataType: "number"; columnType: "PgInteger"; data: number; driverParam: string | number; notNull: false; hasDefault: false; isPrimaryKey: false; ... 5 more ...; generated: undefined; }, {}, {}>' is not assignable to parameter of type 'never'.
+(typescript)
+Ln 4003, Col 37
+'id' is declared but its value is never read.
+(typescript)
+Ln 4045, Col 25
+'id' is declared but its value is never read.
+(typescript)
+Ln 4049, Col 25
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 4079, Col 50
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 4079, Col 69
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 4087, Col 33
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 4087, Col 52
+'section' is declared but its value is never read.
+(typescript)
+Ln 4091, Col 38
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 4091, Col 55
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 4091, Col 74
+No overload matches this call. Overload 1 of 2, '(value: { roll_id: number | SQL<unknown> | Placeholder<string, any>; cut_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; performed_by?: number | ... 3 more ... | undefined; pieces_count?: number | ... 3 more ... | undefined; }): PgInsertBase<...>', gave the following error. Argument of type '{ roll_id: number; cut_weight_kg: number; performed_by?: number | null | undefined; pieces_count?: number | null | undefined; }' is not assignable to parameter of type '{ roll_id: number | SQL<unknown> | Placeholder<string, any>; cut_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; performed_by?: number | ... 3 more ... | undefined; pieces_count?: number | ... ...'. Types of property 'cut_weight_kg' are incompatible. Type 'number' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any>'. Overload 2 of 2, '(values: { roll_id: number | SQL<unknown> | Placeholder<string, any>; cut_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; performed_by?: number | ... 3 more ... | undefined; pieces_count?: number | ... 3 more ... | undefined; }[]): PgInsertBase<...>', gave the following error. Argument of type '{ roll_id: number; cut_weight_kg: number; performed_by?: number | null | undefined; pieces_count?: number | null | undefined; }' is not assignable to parameter of type '{ roll_id: number | SQL<unknown> | Placeholder<string, any>; cut_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; performed_by?: number | ... 3 more ... | undefined; pieces_count?: number | ... ...'. Type '{ roll_id: number; cut_weight_kg: number; performed_by?: number | null | undefined; pieces_count?: number | null | undefined; }' is missing the following properties from type '{ roll_id: number | SQL<unknown> | Placeholder<string, any>; cut_weight_kg: string | SQL<unknown> | Placeholder<string, any>; id?: number | SQL<unknown> | Placeholder<...> | undefined; created_at?: SQL<...> | ... 3 more ... | undefined; performed_by?: number | ... 3 more ... | undefined; pieces_count?: number | ... ...': length, pop, push, concat, and 35 more.
+(typescript)
+Ln 4138, Col 46
+'productionOrderId' is declared but its value is never read.
+(typescript)
+Ln 4191, Col 32
+'productionOrderId' is declared but its value is never read.
+(typescript)
+Ln 4195, Col 33
+'filters' is declared but its value is never read.
+(typescript)
+Ln 4222, Col 26
+'userId' is declared but its value is never read.
+(typescript)
+Ln 4235, Col 46
+'userId' is declared but its value is never read.
+(typescript)
+Ln 4294, Col 43
+'userId' is declared but its value is never read.
+(typescript)
+Ln 4361, Col 42
+'batchId' is declared but its value is never read.
+(typescript)
+Ln 4454, Col 38
+'data' is declared but its value is never read.
+(typescript)
+Ln 4462, Col 41
+'data' is declared but its value is never read.
+(typescript)
+Ln 4495, Col 64
+'algorithm' is declared but its value is never read.
+(typescript)
+Ln 4566, Col 31
+'params' is declared but its value is never read.
+(typescript)
+Ln 4566, Col 50
+'data' is declared but its value is never read.
+(typescript)
+Ln 4570, Col 36
+'backupId' is declared but its value is never read.
+(typescript)
+Ln 4684, Col 31
+'options' is declared but its value is never read.
+(typescript)
+Ln 4696, Col 24
+'tableName' is declared but its value is never read.
+(typescript)
+Ln 4784, Col 25
+'format' is declared but its value is never read.
+(typescript)
+Ln 4784, Col 57
+'backupId' is declared but its value is never read.
+(typescript)
+Ln 4788, Col 23
+'type' is declared but its value is never read.
+(typescript)
+Ln 4822, Col 37
+'filters' is declared but its value is never read.
+(typescript)
+Ln 4880, Col 32
+'options' is declared but its value is never read.
+(typescript)
+Ln 4891, Col 25
+'options' is declared but its value is never read.
+(typescript)
+Ln 4896, Col 27
+'filters' is declared but its value is never read.
+(typescript)
+Ln 5025, Col 29
+'filters' is declared but its value is never read.
+(typescript)
+Ln 5029, Col 32
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 5033, Col 40
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 5033, Col 59
+'section' is declared but its value is never read.
+(typescript)
+Ln 5037, Col 38
+'search' is declared but its value is never read.
+(typescript)
+Ln 5037, Col 55
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 5167, Col 55
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 5167, Col 74
+'options' is declared but its value is never read.
+(typescript)
+Ln 5359, Col 30
+'algorithm' is declared but its value is never read.
+(typescript)
+Ln 5418, Col 32
+'params' is declared but its value is never read.
+(typescript)
+Ln 5418, Col 51
+'options' is declared but its value is never read.
+(typescript)
+Ln 5427, Col 22
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 5435, Col 54
+'dateTo' is declared but its value is never read.
+(typescript)
+Ln 5435, Col 73
+'filters' is declared but its value is never read.
+(typescript)
+Ln 5441, Col 31
+'dateFrom' is declared but its value is never read.
+(typescript)
+Ln 5451, Col 36
+'dateTo' is declared but its value is never read.
+(typescript)

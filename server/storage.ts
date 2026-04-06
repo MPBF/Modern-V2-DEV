@@ -225,7 +225,7 @@ import {
 } from "@shared/schema";
 
 import { db, pool } from "./db";
-import { eq, desc, and, sql, sum, count, inArray, or, ne } from "drizzle-orm";
+import { eq, desc, and, sql, count, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import bcrypt from "bcrypt";
 import {
@@ -233,8 +233,6 @@ import {
   generateUUID,
   generateCertificateNumber,
 } from "@shared/id-generator";
-import { numberToDecimalString, normalizeDecimal } from "@shared/decimal-utils";
-import { calculateProductionQuantities } from "@shared/quantity-utils";
 import { getDataValidator } from "./services/data-validator";
 import QRCode from "qrcode";
 
@@ -1031,7 +1029,7 @@ export class DatabaseStorage implements IStorage {
           throw new Error(`خطأ في البيانات: ${validation.errors.map(e => e.message_ar).join(', ')}`);
         }
 
-        const [order] = await db.insert(orders).values(insertOrder).returning();
+        const [order] = await db.insert(orders).values(insertOrder as any).returning();
         return order;
       },
       "createOrder",
@@ -1286,7 +1284,7 @@ export class DatabaseStorage implements IStorage {
               return { ...po, production_order_number: poNumber };
             });
 
-            return await tx.insert(production_orders).values(valuesToInsert).returning();
+            return await tx.insert(production_orders).values(valuesToInsert as any).returning();
           });
 
           results.successful = created;
@@ -1332,7 +1330,7 @@ export class DatabaseStorage implements IStorage {
               return { ...data, production_order_number: poNumber, final_quantity_kg: finalQuantityKg.toString() };
             });
 
-            return await tx.insert(production_orders).values(valuesToInsert).returning();
+            return await tx.insert(production_orders).values(valuesToInsert as any).returning();
           });
 
           results.successful = created;
@@ -1478,7 +1476,7 @@ export class DatabaseStorage implements IStorage {
   async createRoll(insertRoll: InsertRoll): Promise<Roll> {
     return withDatabaseErrorHandling(
       async () => {
-        const [roll] = await db.insert(rolls).values(insertRoll).returning();
+        const [roll] = await db.insert(rolls).values(insertRoll as any).returning();
         return roll;
       },
       "createRoll",
@@ -1576,7 +1574,7 @@ export class DatabaseStorage implements IStorage {
   async createMaintenanceRequest(req: InsertMaintenanceRequest): Promise<MaintenanceRequest> {
     return withDatabaseErrorHandling(
       async () => {
-        const [newReq] = await db.insert(maintenance_requests).values(req).returning();
+        const [newReq] = await db.insert(maintenance_requests).values(req as any).returning();
         return newReq;
       },
       "createMaintenanceRequest",
@@ -2024,7 +2022,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWarehouseReceipt(data: InsertWarehouseReceipt): Promise<WarehouseReceipt> {
-    const [r] = await db.insert(warehouse_receipts).values(data).returning();
+    const [r] = await db.insert(warehouse_receipts).values(data as any).returning();
     return r;
   }
 
@@ -2057,7 +2055,7 @@ export class DatabaseStorage implements IStorage {
   async getTrainingEnrollments(filters?: { programId?: number; employeeId?: number }): Promise<any[]> {
     const conditions: any[] = [];
     if (filters?.programId) conditions.push(eq(training_enrollments.program_id, filters.programId));
-    if (filters?.employeeId) conditions.push(eq(training_enrollments.employee_id, String(filters.employeeId)));
+    if (filters?.employeeId) conditions.push(eq(training_enrollments.employee_id, filters.employeeId));
     if (conditions.length > 0) {
       return await db.select().from(training_enrollments).where(and(...conditions));
     }
@@ -2259,7 +2257,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createConsumablePart(data: InsertConsumablePart): Promise<ConsumablePart> {
-    const [p] = await db.insert(consumable_parts).values(data).returning();
+    const [p] = await db.insert(consumable_parts).values(data as any).returning();
     return p;
   }
 
@@ -2268,7 +2266,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createConsumablePartTransaction(data: InsertConsumablePartTransaction): Promise<ConsumablePartTransaction> {
-    const [t] = await db.insert(consumable_parts_transactions).values(data).returning();
+    const [t] = await db.insert(consumable_parts_transactions).values(data as any).returning();
     return t;
   }
 
@@ -2698,7 +2696,7 @@ export class DatabaseStorage implements IStorage {
       const [v] = await tx.insert(raw_material_vouchers_out).values(data).returning();
       if (v.item_id && v.quantity) {
         const qty = parseFloat(String(v.quantity));
-        const locId = v.location_id || null;
+        const locId = (v as any).location_id || null;
         const stockCheck = await tx.execute(sql`
           SELECT current_stock FROM inventory
           WHERE item_id = ${v.item_id} AND (location_id = ${locId} OR (location_id IS NULL AND ${locId} IS NULL))
@@ -2723,7 +2721,7 @@ export class DatabaseStorage implements IStorage {
       if (!v) throw new Error("السند غير موجود");
       if (v.item_id && v.quantity) {
         const qty = parseFloat(String(v.quantity));
-        const locId = v.location_id || null;
+        const locId = (v as any).location_id || null;
         await tx.execute(sql`
           UPDATE inventory SET current_stock = current_stock + ${qty}, last_updated = NOW()
           WHERE item_id = ${v.item_id} AND (location_id = ${locId} OR (location_id IS NULL AND ${locId} IS NULL))
@@ -2763,7 +2761,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
-      for (const [poId, { weight, item }] of mergedByPo) {
+      for (const [poId, { weight, item }] of Array.from(mergedByPo)) {
         const [po] = await db.select().from(production_orders).where(eq(production_orders.id, poId));
         if (!po) {
           throw new Error(`أمر الإنتاج رقم ${poId} غير موجود`);
@@ -2975,9 +2973,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (voucher.item_id && totalQty > 0) {
-        const locId = voucher.location_id;
+        const locId = (voucher as any).location_id;
         const conditions = locId
-          ? and(eq(inventory.item_id, voucher.item_id), eq(inventory.location_id, locId))
+          ? and(eq(inventory.item_id, voucher.item_id), eq(inventory.location_id, String(locId)))
           : eq(inventory.item_id, voucher.item_id);
         const existing = await tx.select().from(inventory).where(conditions as any);
 
@@ -3043,7 +3041,7 @@ export class DatabaseStorage implements IStorage {
   async updateFinishedGoodsStock(itemId: string, quantityChange: number, locationId?: number): Promise<void> {
     const locId = locationId ? (typeof locationId === 'string' ? parseInt(locationId) : locationId) : null;
     const conditions = locId
-      ? and(eq(inventory.item_id, itemId), eq(inventory.location_id, locId))
+      ? and(eq(inventory.item_id, itemId), eq(inventory.location_id, String(locId)))
       : eq(inventory.item_id, itemId);
 
     const existing = await db.select().from(inventory).where(conditions as any);
@@ -3128,7 +3126,7 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
-      for (const [poId, { weight, item }] of mergedByPo) {
+      for (const [poId, { weight, item }] of Array.from(mergedByPo)) {
         const [po] = await db.select().from(production_orders).where(eq(production_orders.id, poId));
         if (!po) {
           throw new Error(`أمر الإنتاج رقم ${poId} غير موجود`);
@@ -3455,7 +3453,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSafeUsersBySection(sectionId: number): Promise<SafeUser[]> {
-    return await db.select({
+    const result = await db.select({
       id: users.id,
       username: users.username,
       display_name: users.display_name,
@@ -3465,6 +3463,7 @@ export class DatabaseStorage implements IStorage {
       replit_user_id: users.replit_user_id,
       created_at: users.created_at,
     }).from(users).where(and(eq(users.section_id, sectionId), eq(users.status, 'active')));
+    return result as unknown as SafeUser[];
   }
 
   async getRolls(): Promise<Roll[]> {
@@ -4000,7 +3999,7 @@ export class DatabaseStorage implements IStorage {
 
   async getTrainingEvaluations(employeeId?: number, programId?: number): Promise<TrainingEvaluation[]> {
     const conditions: any[] = [];
-    if (employeeId) conditions.push(eq(training_evaluations.employee_id, String(employeeId)));
+    if (employeeId) conditions.push(eq(training_evaluations.employee_id, employeeId));
     if (programId) conditions.push(eq(training_evaluations.program_id, programId));
     if (conditions.length > 0) {
       return await db.select().from(training_evaluations).where(and(...conditions));
