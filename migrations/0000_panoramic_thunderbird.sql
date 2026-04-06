@@ -729,7 +729,7 @@ CREATE TABLE "orders" (
         "delivery_date" date,
         CONSTRAINT "orders_order_number_unique" UNIQUE("order_number"),
         CONSTRAINT "delivery_days_positive" CHECK ("orders"."delivery_days" IS NULL OR "orders"."delivery_days" > 0),
-        CONSTRAINT "status_valid" CHECK ("orders"."status" IN ('waiting', 'in_production', 'paused', 'cancelled', 'completed', 'delivered', 'archived')),
+        CONSTRAINT "status_valid" CHECK ("orders"."status" IN ('waiting', 'in_production', 'for_production', 'paused', 'cancelled', 'completed', 'delivered', 'archived')),
         CONSTRAINT "delivery_date_valid" CHECK ("orders"."delivery_date" IS NULL OR "orders"."delivery_date" >= CURRENT_DATE)
 );
 --> statement-breakpoint

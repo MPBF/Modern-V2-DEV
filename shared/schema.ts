@@ -357,7 +357,7 @@ export const orders = pgTable(
     ),
     statusValid: check(
       "status_valid",
-      sql`${table.status} IN ('waiting', 'in_production', 'paused', 'cancelled', 'completed', 'delivered', 'archived')`,
+      sql`${table.status} IN ('waiting', 'in_production', 'for_production', 'paused', 'cancelled', 'completed', 'delivered', 'archived')`,
     ),
     // Temporal constraint: delivery_date must be in future when order is active
     deliveryDateValid: check(
