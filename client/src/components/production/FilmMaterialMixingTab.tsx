@@ -76,11 +76,10 @@ type BatchDetail = {
 };
 
 interface MasterBatchColor {
-  id: number;
-  code: string;
+  id: string;
+  name: string;
   name_ar: string;
-  name_en: string;
-  hex_color: string;
+  color_hex: string;
   aliases?: string;
 }
 
@@ -112,15 +111,14 @@ export default function FilmMaterialMixingTab() {
     if (!code) return '';
     const normalizedCode = code.toUpperCase().trim();
     const colorData = masterBatchColors.find((c) => {
-      if (!c.code) return false;
-      if (c.code.toUpperCase() === normalizedCode) return true;
+      if (String(c.id).toUpperCase() === normalizedCode) return true;
       if (c.aliases) {
         const aliasArr = c.aliases.split(",").map((a) => a.trim().toUpperCase());
         return aliasArr.includes(normalizedCode);
       }
       return false;
     });
-    return colorData ? `${colorData.name_ar} (${colorData.code})` : code;
+    return colorData ? colorData.name_ar : code;
   };
 
   const { data: productionOrdersData, isLoading: ordersLoading } = useQuery<any>({
