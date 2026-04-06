@@ -357,7 +357,7 @@ export const orders = pgTable(
     ),
     statusValid: check(
       "status_valid",
-      sql`${table.status} IN ('waiting', 'in_production', 'paused', 'cancelled', 'completed')`,
+      sql`${table.status} IN ('waiting', 'in_production', 'paused', 'cancelled', 'completed', 'archived')`,
     ),
     // Temporal constraint: delivery_date must be in future when order is active
     deliveryDateValid: check(
@@ -482,7 +482,7 @@ export const production_orders = pgTable(
     ),
     statusValid: check(
       "production_status_valid",
-      sql`${table.status} IN ('pending', 'active', 'completed', 'cancelled')`,
+      sql`${table.status} IN ('pending', 'active', 'completed', 'cancelled', 'archived')`,
     ),
 
     // NEW: قيود الكميات الجديدة

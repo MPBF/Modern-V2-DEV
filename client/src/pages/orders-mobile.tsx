@@ -99,12 +99,17 @@ function OrdersListView({ onViewOrder }: { onViewOrder: (order: any) => void }) 
       (order.order_number || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (customer?.name_ar || "").includes(searchQuery) ||
       (customer?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+    const matchesStatus = statusFilter === "all"
+      ? order.status !== "archived"
+      : statusFilter === "archived"
+        ? order.status === "archived"
+        : order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const nonArchivedCount = orders.filter((o: any) => o.status !== "archived").length;
   const statusFilters = [
-    { val: "all", label: t('mobilePages.orders.all'), count: orders.length },
+    { val: "all", label: t('mobilePages.orders.all'), count: nonArchivedCount },
     { val: "waiting", label: t('mobilePages.orders.waiting'), count: statusCounts["waiting"] || 0 },
     { val: "in_production", label: t('mobilePages.orders.inProduction'), count: statusCounts["in_production"] || 0 },
     { val: "completed", label: t('mobilePages.orders.completed'), count: statusCounts["completed"] || 0 },
@@ -118,6 +123,7 @@ function OrdersListView({ onViewOrder }: { onViewOrder: (order: any) => void }) 
       completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
       delivered: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
       cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      archived: "bg-gray-200 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
     };
     return colors[status] || "bg-gray-100 text-gray-600";
   };
@@ -273,6 +279,7 @@ function OrderDetailView({ order, onBack }: { order: any; onBack: () => void }) 
       completed: "bg-green-100 text-green-700",
       delivered: "bg-purple-100 text-purple-700",
       cancelled: "bg-red-100 text-red-700",
+      archived: "bg-gray-200 text-gray-600",
     };
     return colors[status] || "bg-gray-100 text-gray-600";
   };

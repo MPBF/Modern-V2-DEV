@@ -60,6 +60,7 @@ export default function OrdersSearch({
               <SelectItem value="completed">{t('orders.statuses.completed')}</SelectItem>
               <SelectItem value="received">{t('orders.statuses.received')}</SelectItem>
               <SelectItem value="delivered">{t('orders.statuses.delivered')}</SelectItem>
+              <SelectItem value="archived">{t('orders.statuses.archived')}</SelectItem>
             </>
           )}
         </SelectContent>

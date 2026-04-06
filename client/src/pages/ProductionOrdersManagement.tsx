@@ -419,7 +419,8 @@ function PrintProductionOrderWrapper({ productionOrder, onClose }: { productionO
         active: "#22c55e",
         in_production: "#3b82f6",
         completed: "#6b7280",
-        cancelled: "#ef4444"
+        cancelled: "#ef4444",
+        archived: "#9ca3af"
       };
       return colors[status] || "#6b7280";
     };

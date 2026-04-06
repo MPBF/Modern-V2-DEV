@@ -181,9 +181,12 @@ export default function Orders() {
         ?.name_ar?.toLowerCase()
         .includes(searchTerm.toLowerCase());
 
-    // Status filter
     const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
+      statusFilter === "all"
+        ? order.status !== "archived"
+        : statusFilter === "archived"
+          ? order.status === "archived"
+          : order.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -698,6 +701,99 @@ export default function Orders() {
     }
   };
 
+  const handleBulkArchive = async (orderIds: number[]) => {
+    try {
+      const response = await fetch("/api/orders/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: orderIds }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: t('messages.error'),
+          description: result.message || t('messages.error'),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: t('orders.archiveSuccess'),
+        description: result.message,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production/hierarchical-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    } catch (error) {
+      toast({
+        title: t('messages.error'),
+        description: error instanceof Error ? error.message : t('messages.error'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleArchiveOrder = async (order: any) => {
+    try {
+      const response = await fetch("/api/orders/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: [order.id] }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || t('messages.error'));
+      }
+      toast({
+        title: t('orders.archiveSuccess'),
+        description: result.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production/hierarchical-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    } catch (error) {
+      toast({
+        title: t('messages.error'),
+        description: error instanceof Error ? error.message : t('messages.error'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUnarchiveOrder = async (order: any) => {
+    try {
+      const response = await fetch("/api/orders/unarchive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: [order.id] }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || t('messages.error'));
+      }
+      toast({
+        title: t('orders.unarchiveSuccess'),
+        description: result.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production/hierarchical-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    } catch (error) {
+      toast({
+        title: t('messages.error'),
+        description: error instanceof Error ? error.message : t('messages.error'),
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleViewOrder = (order: any) => {
     setViewingOrder(order);
     setIsViewOrderDialogOpen(true);
@@ -790,6 +886,9 @@ export default function Orders() {
                   onOrderSubmit={onOrderSubmit}
                   onBulkDelete={handleBulkDelete}
                   onBulkStatusChange={handleBulkStatusChange}
+                  onBulkArchive={handleBulkArchive}
+                  onArchiveOrder={handleArchiveOrder}
+                  onUnarchiveOrder={handleUnarchiveOrder}
                   currentUser={user}
                   isAdmin={isAdmin}
                 />

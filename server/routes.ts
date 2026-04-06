@@ -6246,13 +6246,13 @@ Do not include quotes or explanations.`;
             .json({ message: "الحالة مطلوبة", success: false });
         }
 
-        // Status validation - only the 5 valid DB statuses allowed
         const validStatuses = [
           "waiting",
           "in_production",
           "paused",
           "completed",
           "cancelled",
+          "archived",
         ];
         if (!validStatuses.includes(status)) {
           return res
@@ -6274,11 +6274,12 @@ Do not include quotes or explanations.`;
 
         // Define valid state transitions based on business logic
         const validTransitions: Record<string, string[]> = {
-          waiting: ["in_production", "cancelled"],            // جديدة -> تحت الانتاج أو ملغية
-          in_production: ["paused", "completed", "cancelled"], // تحت الانتاج -> معلقة مؤقتاً أو مكتمل أو ملغية
-          paused: ["in_production", "cancelled"],              // معلقة مؤقتاً -> تحت الانتاج أو ملغية
-          completed: [],                                       // مكتمل - حالة نهائية
-          cancelled: [],                                       // ملغية - حالة نهائية
+          waiting: ["in_production", "cancelled", "archived"],
+          in_production: ["paused", "completed", "cancelled", "archived"],
+          paused: ["in_production", "cancelled", "archived"],
+          completed: ["archived"],
+          cancelled: ["archived"],
+          archived: ["completed"],
         };
 
         // Check if transition is allowed
@@ -6346,8 +6347,9 @@ Do not include quotes or explanations.`;
           // Suspend active production orders when order is paused
           await storage.updateProductionOrdersStatusByOrder(orderId, ["active"], "pending");
         } else if (newStatus === "cancelled") {
-          // Cancel all open production orders
           await storage.updateProductionOrdersStatusByOrder(orderId, ["pending", "active"], "cancelled");
+        } else if (newStatus === "archived") {
+          await storage.updateProductionOrdersStatusByOrder(orderId, ["pending", "active", "completed", "cancelled"], "archived");
         }
 
         res.json({
@@ -6362,6 +6364,136 @@ Do not include quotes or explanations.`;
 
         res.status(500).json({
           message: "خطأ في تحديث حالة الطلب",
+          success: false,
+        });
+      }
+    },
+  );
+
+  // ============ Archive Orders API ============
+
+  app.post(
+    "/api/orders/archive",
+    requireAuth,
+    requirePermission('manage_orders'),
+    async (req, res) => {
+      try {
+        const { order_ids } = req.body;
+
+        if (!Array.isArray(order_ids) || order_ids.length === 0) {
+          return res.status(400).json({
+            message: "يرجى تحديد طلب واحد على الأقل",
+            success: false,
+          });
+        }
+
+        const results: { orderId: number; success: boolean; error?: string }[] = [];
+
+        for (const orderId of order_ids) {
+          try {
+            const order = await storage.getOrderById(orderId);
+            if (!order) {
+              results.push({ orderId, success: false, error: "الطلب غير موجود" });
+              continue;
+            }
+
+            if (order.status === "archived") {
+              results.push({ orderId, success: true });
+              continue;
+            }
+
+            await storage.updateOrderStatus(orderId, "archived");
+
+            await storage.updateProductionOrdersStatusByOrder(
+              orderId,
+              ["pending", "active", "completed", "cancelled"],
+              "archived"
+            );
+
+            results.push({ orderId, success: true });
+          } catch (err: any) {
+            results.push({ orderId, success: false, error: err.message });
+          }
+        }
+
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+
+        res.json({
+          success: true,
+          message: `تم أرشفة ${successCount} طلب بنجاح${failCount > 0 ? ` (${failCount} فشل)` : ""}`,
+          results,
+          archivedCount: successCount,
+          failedCount: failCount,
+        });
+      } catch (error: any) {
+        console.error("Error archiving orders:", error);
+        res.status(500).json({
+          message: "خطأ في أرشفة الطلبات",
+          success: false,
+        });
+      }
+    },
+  );
+
+  app.post(
+    "/api/orders/unarchive",
+    requireAuth,
+    requirePermission('manage_orders'),
+    async (req, res) => {
+      try {
+        const { order_ids } = req.body;
+
+        if (!Array.isArray(order_ids) || order_ids.length === 0) {
+          return res.status(400).json({
+            message: "يرجى تحديد طلب واحد على الأقل",
+            success: false,
+          });
+        }
+
+        const results: { orderId: number; success: boolean; error?: string }[] = [];
+
+        for (const orderId of order_ids) {
+          try {
+            const order = await storage.getOrderById(orderId);
+            if (!order) {
+              results.push({ orderId, success: false, error: "الطلب غير موجود" });
+              continue;
+            }
+
+            if (order.status !== "archived") {
+              results.push({ orderId, success: false, error: "الطلب غير مؤرشف" });
+              continue;
+            }
+
+            await storage.updateOrderStatus(orderId, "completed");
+
+            await storage.updateProductionOrdersStatusByOrder(
+              orderId,
+              ["archived"],
+              "completed"
+            );
+
+            results.push({ orderId, success: true });
+          } catch (err: any) {
+            results.push({ orderId, success: false, error: err.message });
+          }
+        }
+
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+
+        res.json({
+          success: true,
+          message: `تم إلغاء أرشفة ${successCount} طلب بنجاح${failCount > 0 ? ` (${failCount} فشل)` : ""}`,
+          results,
+          unarchivedCount: successCount,
+          failedCount: failCount,
+        });
+      } catch (error: any) {
+        console.error("Error unarchiving orders:", error);
+        res.status(500).json({
+          message: "خطأ في إلغاء أرشفة الطلبات",
           success: false,
         });
       }

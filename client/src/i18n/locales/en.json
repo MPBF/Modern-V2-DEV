@@ -159,7 +159,8 @@
       "pending": "New",
       "paused": "Hold",
       "received": "Received",
-      "delivered": "Complete"
+      "delivered": "Complete",
+      "archived": "Archived"
     },
     "priorities": {
       "normal": "Normal",
@@ -237,6 +238,12 @@
     "daysRemaining": "Days Remaining",
     "daysLate": "Days Late",
     "daysCount": "Days Count",
+    "archiveOrder": "Archive Order",
+    "archiveSelected": "Archive Selected",
+    "unarchiveOrder": "Unarchive",
+    "confirmArchive": "Archive selected orders with all their attachments?",
+    "archiveSuccess": "Orders archived successfully",
+    "unarchiveSuccess": "Orders unarchived successfully",
     "deleteSelected": "Delete Selected",
     "clearSelection": "Clear Selection",
     "noMatchingResults": "No Matching Results",
@@ -359,7 +366,8 @@
       "cancelled": "Cancelled",
       "forProduction": "For Production",
       "inProduction": "In Production",
-      "inProgress": "In Progress"
+      "inProgress": "In Progress",
+      "archived": "Archived"
     },
     "rollNumber": "Roll Number",
     "rollWeight": "Roll Weight",

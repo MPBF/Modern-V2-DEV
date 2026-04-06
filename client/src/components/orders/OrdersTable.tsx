@@ -33,6 +33,8 @@ import {
   Download,
   ExternalLink,
   Settings2,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { format } from "date-fns";
 import ProductionProgress from "./ProductionProgress";
@@ -49,6 +51,8 @@ interface OrdersTableProps {
   onEditOrder?: (order: any) => void;
   onDeleteOrder: (order: any) => void;
   onStatusChange: (order: any, status: string) => void;
+  onArchiveOrder?: (order: any) => void;
+  onUnarchiveOrder?: (order: any) => void;
   currentUser?: any;
   isAdmin?: boolean;
   selectedOrders?: number[];
@@ -66,6 +70,8 @@ export default function OrdersTable({
   onEditOrder,
   onDeleteOrder,
   onStatusChange,
+  onArchiveOrder,
+  onUnarchiveOrder,
   currentUser,
   isAdmin = false,
   selectedOrders = [],
@@ -126,6 +132,11 @@ export default function OrdersTable({
         label: t('orders.statuses.cancelled'),
         variant: "destructive",
         color: "bg-red-100 text-red-800",
+      },
+      archived: {
+        label: t('orders.statuses.archived'),
+        variant: "outline",
+        color: "bg-gray-200 text-gray-600",
       },
     };
 
@@ -421,6 +432,26 @@ export default function OrdersTable({
                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full ml-2"></div>
                         <span>{t('orders.statuses.cancelled')}</span>
                       </DropdownMenuItem>
+                      
+                      <DropdownMenuSeparator />
+                      
+                      {order.status !== "archived" ? (
+                        <DropdownMenuItem
+                          onClick={() => onArchiveOrder ? onArchiveOrder(order) : onStatusChange(order, "archived")}
+                          className="cursor-pointer"
+                        >
+                          <Archive className="h-4 w-4 ml-2 text-gray-500" />
+                          <span>{t('orders.archiveOrder')}</span>
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={() => onUnarchiveOrder ? onUnarchiveOrder(order) : onStatusChange(order, "completed")}
+                          className="cursor-pointer"
+                        >
+                          <ArchiveRestore className="h-4 w-4 ml-2 text-green-500" />
+                          <span>{t('orders.unarchiveOrder')}</span>
+                        </DropdownMenuItem>
+                      )}
                       
                       {(isAdmin && onEditOrder) || isAdmin ? (
                         <>

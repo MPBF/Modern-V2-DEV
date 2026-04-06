@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Plus, Trash2, RefreshCw, ChevronDown } from "lucide-react";
+import { Plus, Trash2, RefreshCw, ChevronDown, Archive } from "lucide-react";
 import OrdersSearch from "./OrdersSearch";
 import OrdersTable from "./OrdersTable";
 import OrdersForm from "./OrdersForm";
@@ -46,6 +46,9 @@ interface OrdersTabsProps {
   onOrderSubmit: (data: any, productionOrders: any[]) => void;
   onBulkDelete?: (orderIds: number[]) => Promise<void>;
   onBulkStatusChange?: (orderIds: number[], status: string) => Promise<void>;
+  onBulkArchive?: (orderIds: number[]) => Promise<void>;
+  onArchiveOrder?: (order: any) => void;
+  onUnarchiveOrder?: (order: any) => void;
   currentUser?: any;
   isAdmin?: boolean;
 }
@@ -80,6 +83,9 @@ export default function OrdersTabs({
   onOrderSubmit,
   onBulkDelete,
   onBulkStatusChange,
+  onBulkArchive,
+  onArchiveOrder,
+  onUnarchiveOrder,
   currentUser,
   isAdmin = false,
 }: OrdersTabsProps) {
@@ -137,6 +143,20 @@ export default function OrdersTabs({
       setSelectedOrders([]);
     } catch (error) {
       console.error("خطأ في تغيير الحالة الجماعية:", error);
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (!onBulkArchive || selectedOrders.length === 0) return;
+
+    const confirmMessage = t('orders.confirmArchive');
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await onBulkArchive(selectedOrders);
+      setSelectedOrders([]);
+    } catch (error) {
+      console.error("خطأ في الأرشفة الجماعية:", error);
     }
   };
 
@@ -228,6 +248,16 @@ export default function OrdersTabs({
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkArchive}
+                        className="text-gray-600 border-gray-400 hover:bg-gray-100"
+                        data-testid="button-bulk-archive"
+                      >
+                        <Archive className="h-4 w-4 mr-1" />
+                        {t('orders.archiveSelected')} ({selectedOrders.length})
+                      </Button>
                       {isAdmin && (
                         <Button
                           variant="destructive"
@@ -263,6 +293,8 @@ export default function OrdersTabs({
               onEditOrder={isAdmin ? onEditOrder : undefined}
               onDeleteOrder={onDeleteOrder}
               onStatusChange={onStatusChange}
+              onArchiveOrder={onArchiveOrder}
+              onUnarchiveOrder={onUnarchiveOrder}
               currentUser={currentUser}
               isAdmin={isAdmin}
               selectedOrders={selectedOrders}

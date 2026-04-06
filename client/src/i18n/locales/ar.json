@@ -151,7 +151,8 @@
       "pending": "جديدة",
       "paused": "توقيف مؤقت",
       "received": "تم الاستلام",
-      "delivered": "مكتمل"
+      "delivered": "مكتمل",
+      "archived": "أرشيف"
     },
     "priorities": {
       "normal": "عادي",
@@ -229,6 +230,12 @@
     "daysRemaining": "أيام متبقية",
     "daysLate": "أيام تأخير",
     "daysCount": "عدد الأيام",
+    "archiveOrder": "أرشفة الطلب",
+    "archiveSelected": "أرشفة المحدد",
+    "unarchiveOrder": "إلغاء الأرشفة",
+    "confirmArchive": "هل تريد أرشفة الطلبات المحددة مع جميع ملحقاتها؟",
+    "archiveSuccess": "تم أرشفة الطلبات بنجاح",
+    "unarchiveSuccess": "تم إلغاء أرشفة الطلبات بنجاح",
     "deleteSelected": "حذف المحدد",
     "clearSelection": "إلغاء التحديد",
     "noMatchingResults": "لا توجد نتائج مطابقة",
@@ -353,7 +360,8 @@
       "forProduction": "جاهز للإنتاج",
       "inProduction": "قيد الإنتاج",
       "inProgress": "قيد التنفيذ",
-      "paused": "متوقف"
+      "paused": "متوقف",
+      "archived": "أرشيف"
     },
     "rollNumber": "رقم الرول",
     "rollWeight": "وزن الرول",
