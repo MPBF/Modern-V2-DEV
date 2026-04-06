@@ -1150,6 +1150,7 @@ export class DatabaseStorage implements IStorage {
     return withDatabaseErrorHandling(
       async () => {
         const operatorUser = alias(users, 'operator_user');
+        const productItem = alias(items, 'product_item');
         const result = await db
           .select({
             id: production_orders.id,
@@ -1184,6 +1185,10 @@ export class DatabaseStorage implements IStorage {
             size_caption: customer_products.size_caption,
             is_printed: customer_products.is_printed,
             item_id: customer_products.item_id,
+            raw_material: customer_products.raw_material,
+            master_batch_id: customer_products.master_batch_id,
+            item_name: productItem.name,
+            item_name_ar: productItem.name_ar,
             machine_name: machines.name,
             machine_name_ar: machines.name_ar,
             operator_name: operatorUser.display_name,
@@ -1193,6 +1198,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(orders, eq(production_orders.order_id, orders.id))
           .leftJoin(customers, eq(orders.customer_id, customers.id))
           .leftJoin(customer_products, eq(production_orders.customer_product_id, customer_products.id))
+          .leftJoin(productItem, eq(customer_products.item_id, productItem.id))
           .leftJoin(machines, eq(production_orders.assigned_machine_id, machines.id))
           .leftJoin(operatorUser, eq(production_orders.assigned_operator_id, operatorUser.id))
           .orderBy(desc(production_orders.id));

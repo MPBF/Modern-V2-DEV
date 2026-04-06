@@ -9943,7 +9943,17 @@ Do not include quotes or explanations.`;
         return res.status(400).json({ message: "معرف أمر الإنتاج غير صحيح" });
       }
       const batches = await storage.getMixingBatchesByProductionOrder(productionOrderId);
-      res.json({ data: batches });
+      let totalMixedA = 0;
+      let totalMixedB = 0;
+      for (const batch of batches) {
+        const weight = parseFloat(batch.total_weight_kg as string) || 0;
+        if (batch.screw_assignment === 'A') {
+          totalMixedA += weight;
+        } else if (batch.screw_assignment === 'B') {
+          totalMixedB += weight;
+        }
+      }
+      res.json({ data: batches, summary: { totalMixedA, totalMixedB, totalMixed: totalMixedA + totalMixedB } });
     } catch (error: any) {
       console.error("Error getting production order batches:", error);
       res.status(500).json({ message: "خطأ في جلب عمليات الخلط لأمر الإنتاج" });
@@ -9969,7 +9979,27 @@ Do not include quotes or explanations.`;
         return res.status(400).json({ message: "يجب تحديد الماكينة" });
       }
 
-      // Ensure batch_number is auto-generated (remove if user provided it)
+      if (batch.production_order_id) {
+        const poId = parseInt(batch.production_order_id);
+        if (!isNaN(poId) && poId > 0) {
+          const po = await storage.getProductionOrderById(poId);
+          if (po) {
+            const orderQty = parseFloat((po as any).final_quantity_kg || (po as any).quantity_kg || '0');
+            const existingBatches = await storage.getMixingBatchesByProductionOrder(poId);
+            let existingTotal = 0;
+            for (const b of existingBatches) {
+              existingTotal += parseFloat(b.total_weight_kg as string) || 0;
+            }
+            const newWeight = parseFloat(batch.total_weight_kg || '0');
+            if (existingTotal + newWeight > orderQty) {
+              return res.status(400).json({
+                message: `مجموع كميات الخلط (${(existingTotal + newWeight).toFixed(2)} كغ) يتجاوز الكمية المطلوبة في أمر الإنتاج (${orderQty.toFixed(2)} كغ). المتبقي: ${(orderQty - existingTotal).toFixed(2)} كغ`,
+              });
+            }
+          }
+        }
+      }
+
       const { batch_number, formula_id, roll_id, ...cleanBatchData } = batch;
 
       const batchData = {

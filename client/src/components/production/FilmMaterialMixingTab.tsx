@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedName } from "../../hooks/use-localized-name";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -31,10 +31,11 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { useToast } from "../../hooks/use-toast";
-import { Beaker, Plus, Trash2, Eye } from "lucide-react";
+import { Beaker, Plus, Trash2, Eye, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { useAuth } from "../../hooks/use-auth";
+import { Progress } from "../ui/progress";
 
 type Material = {
   id: string;
@@ -122,7 +123,6 @@ export default function FilmMaterialMixingTab() {
     return colorData ? `${colorData.name_ar} (${colorData.code})` : code;
   };
 
-  // Fetch data - get in_production and pending production orders
   const { data: productionOrdersData, isLoading: ordersLoading } = useQuery<any>({
     queryKey: ["/api/production-orders"],
   });
@@ -160,11 +160,39 @@ export default function FilmMaterialMixingTab() {
   const { data: usersData } = useQuery<any>({ queryKey: ["/api/users"] });
   const users = usersData?.data || usersData || [];
 
-  // Calculate total weight and auto-update percentages
+  const { data: poBatchesData } = useQuery<{ data: any[]; summary: { totalMixedA: number; totalMixedB: number; totalMixed: number } }>({
+    queryKey: ["/api/mixing-batches/production-order", productionOrderId],
+    queryFn: async () => {
+      if (!productionOrderId) return { data: [], summary: { totalMixedA: 0, totalMixedB: 0, totalMixed: 0 } };
+      const response = await fetch(`/api/mixing-batches/production-order/${productionOrderId}`, { credentials: 'include' });
+      if (!response.ok) return { data: [], summary: { totalMixedA: 0, totalMixedB: 0, totalMixed: 0 } };
+      return response.json();
+    },
+    enabled: !!productionOrderId,
+  });
+
+  const selectedOrder = useMemo(() => {
+    if (!productionOrderId) return null;
+    return productionOrders.find((po: any) => po.id.toString() === productionOrderId) || null;
+  }, [productionOrderId, productionOrders]);
+
+  const orderQuantity = useMemo(() => {
+    if (!selectedOrder) return 0;
+    return parseFloat(selectedOrder.final_quantity_kg || selectedOrder.quantity_kg || 0);
+  }, [selectedOrder]);
+
+  const previouslyMixed = poBatchesData?.summary?.totalMixed || 0;
+  const previouslyMixedA = poBatchesData?.summary?.totalMixedA || 0;
+  const previouslyMixedB = poBatchesData?.summary?.totalMixedB || 0;
+
   const totalWeight = materials.reduce(
     (sum, m) => sum + (parseFloat(m.weight_kg) || 0),
     0
   );
+
+  const remainingQuantity = orderQuantity - previouslyMixed - totalWeight;
+  const mixingProgress = orderQuantity > 0 ? ((previouslyMixed + totalWeight) / orderQuantity) * 100 : 0;
+  const isOverLimit = remainingQuantity < 0;
 
   const updatePercentages = (mats: Material[]) => {
     const total = mats.reduce((sum, m) => sum + (parseFloat(m.weight_kg) || 0), 0);
@@ -174,7 +202,6 @@ export default function FilmMaterialMixingTab() {
     }));
   };
 
-  // Add material
   const addMaterial = () => {
     if (materials.length >= 10) {
       toast({
@@ -195,13 +222,11 @@ export default function FilmMaterialMixingTab() {
     setMaterials([...materials, newMaterial]);
   };
 
-  // Remove material
   const removeMaterial = (id: string) => {
     const updated = materials.filter(m => m.id !== id);
     setMaterials(updatePercentages(updated));
   };
 
-  // Update material item
   const updateMaterialItem = (id: string, itemId: string) => {
     const item = rawMaterials.find((i: any) => i.id === itemId);
     const updated = materials.map(m =>
@@ -217,13 +242,11 @@ export default function FilmMaterialMixingTab() {
     setMaterials(updated);
   };
 
-  // Update material weight
   const updateMaterialWeight = (id: string, weight: string) => {
     const updated = materials.map(m => (m.id === id ? { ...m, weight_kg: weight } : m));
     setMaterials(updatePercentages(updated));
   };
 
-  // Create batch mutation
   const createBatchMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("/api/mixing-batches", {
@@ -237,6 +260,7 @@ export default function FilmMaterialMixingTab() {
         description: t("production.mixing.batchCreated"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/mixing-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mixing-batches/production-order", productionOrderId] });
       resetForm();
     },
     onError: (error: any) => {
@@ -248,7 +272,6 @@ export default function FilmMaterialMixingTab() {
     },
   });
 
-  // Reset form
   const resetForm = () => {
     setProductionOrderId("");
     setMachineId("");
@@ -256,7 +279,6 @@ export default function FilmMaterialMixingTab() {
     setMaterials([]);
   };
 
-  // Handle save
   const handleSave = () => {
     if (!productionOrderId) {
       toast({ title: t("production.mixing.error"), description: t("production.mixing.selectProductionOrder"), variant: "destructive" });
@@ -272,6 +294,15 @@ export default function FilmMaterialMixingTab() {
     }
     if (materials.some(m => !m.item_id || !m.weight_kg || parseFloat(m.weight_kg) <= 0)) {
       toast({ title: t("production.mixing.error"), description: t("production.mixing.checkMaterialData"), variant: "destructive" });
+      return;
+    }
+
+    if (isOverLimit) {
+      toast({
+        title: t("production.mixing.error"),
+        description: "مجموع كميات الخلط يتجاوز الكمية المطلوبة في أمر الإنتاج",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -293,7 +324,6 @@ export default function FilmMaterialMixingTab() {
     createBatchMutation.mutate({ batch, ingredients });
   };
 
-  // View batch details
   const viewBatchDetails = (batch: BatchDetail) => {
     setSelectedBatch(batch);
     setDetailsDialogOpen(true);
@@ -301,7 +331,6 @@ export default function FilmMaterialMixingTab() {
 
   return (
     <div className="space-y-6">
-      {/* Create New Batch Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -310,28 +339,27 @@ export default function FilmMaterialMixingTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Production Order & Machine Selection */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{t("production.mixing.productionOrder")}</Label>
               {ordersLoading ? (
                 <Skeleton className="h-10 w-full" />
               ) : (
-                <Select value={productionOrderId} onValueChange={setProductionOrderId}>
-                  <SelectTrigger data-testid="select-production-order">
+                <Select value={productionOrderId} onValueChange={(val) => { setProductionOrderId(val); setMaterials([]); }}>
+                  <SelectTrigger data-testid="select-production-order" className="min-w-[320px]">
                     <SelectValue placeholder={t("production.mixing.selectProductionOrder")} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="min-w-[480px] max-h-[400px]">
                     {productionOrders.map((order: any) => (
                       <SelectItem key={order.id} value={order.id.toString()}>
-                        <div className="flex flex-col gap-1">
-                          <div className="font-semibold">{order.production_order_number}</div>
-                          <div className="text-sm text-gray-600">
-                            {ln(order.item_name_ar, order.item_name)} | 
-                            {' '}{order.raw_material}
-                            {order.master_batch_id && ` | ${getMasterBatchText(order.master_batch_id)}`} | 
-                            {' '}{parseFloat(order.final_quantity_kg || order.quantity_kg || 0).toFixed(2)} {t("production.mixing.kg")} |
-                            {' '}{ln(order.customer_name_ar, order.customer_name)}
+                        <div className="flex flex-col gap-0.5 py-1">
+                          <div className="font-bold text-sm">{order.production_order_number}</div>
+                          <div className="text-xs text-muted-foreground leading-relaxed">
+                            {ln(order.customer_name_ar, order.customer_name)}
+                            {' | '}{ln(order.item_name_ar, order.item_name)}
+                            {order.raw_material && ` | ${order.raw_material}`}
+                            {order.master_batch_id && ` | ${getMasterBatchText(order.master_batch_id)}`}
+                            {' | '}{parseFloat(order.final_quantity_kg || order.quantity_kg || 0).toFixed(1)} كغ
                           </div>
                         </div>
                       </SelectItem>
@@ -378,7 +406,83 @@ export default function FilmMaterialMixingTab() {
             </div>
           </div>
 
-          {/* Materials Section */}
+          {selectedOrder && (
+            <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30">
+              <CardContent className="pt-4 pb-3 space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">العميل:</span>
+                    <p className="font-semibold">{ln(selectedOrder.customer_name_ar, selectedOrder.customer_name)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">المنتج:</span>
+                    <p className="font-semibold">{ln(selectedOrder.item_name_ar, selectedOrder.item_name) || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">المادة الخام:</span>
+                    <p className="font-semibold">{selectedOrder.raw_material || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">لون الماستر باتش:</span>
+                    <p className="font-semibold">{selectedOrder.master_batch_id ? getMasterBatchText(selectedOrder.master_batch_id) : '-'}</p>
+                  </div>
+                </div>
+                <div className="border-t pt-3 space-y-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">الكمية الإجمالية:</span>
+                      <p className="font-bold text-base">{orderQuantity.toFixed(2)} كغ</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">المخلوط سابقاً (A+B):</span>
+                      <p className="font-semibold">
+                        {previouslyMixed.toFixed(2)} كغ
+                        <span className="text-xs text-muted-foreground mr-1">
+                          (A: {previouslyMixedA.toFixed(1)} | B: {previouslyMixedB.toFixed(1)})
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">الخلطة الحالية:</span>
+                      <p className="font-semibold">{totalWeight.toFixed(2)} كغ</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">المتبقي:</span>
+                      <p className={`font-bold text-base ${isOverLimit ? 'text-red-600' : remainingQuantity <= 0 ? 'text-green-600' : ''}`}>
+                        {remainingQuantity.toFixed(2)} كغ
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>نسبة اكتمال الخلط</span>
+                      <span className={isOverLimit ? 'text-red-600 font-bold' : ''}>
+                        {Math.min(mixingProgress, 100).toFixed(1)}%
+                        {isOverLimit && ' (تجاوز!)'}
+                      </span>
+                    </div>
+                    <Progress
+                      value={Math.min(mixingProgress, 100)}
+                      className={`h-3 ${isOverLimit ? '[&>div]:bg-red-500' : mixingProgress >= 100 ? '[&>div]:bg-green-500' : '[&>div]:bg-blue-500'}`}
+                    />
+                  </div>
+                  {isOverLimit && (
+                    <div className="flex items-center gap-2 text-red-600 text-sm font-medium bg-red-50 dark:bg-red-950/50 p-2 rounded">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <span>مجموع كميات الخلط يتجاوز الكمية المطلوبة بـ {Math.abs(remainingQuantity).toFixed(2)} كغ</span>
+                    </div>
+                  )}
+                  {!isOverLimit && remainingQuantity <= 0 && previouslyMixed > 0 && (
+                    <div className="flex items-center gap-2 text-green-600 text-sm font-medium bg-green-50 dark:bg-green-950/50 p-2 rounded">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>تم اكتمال خلط كامل الكمية المطلوبة</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="border rounded-lg p-4 space-y-3">
             <div className="flex justify-between items-center">
               <Label className="text-lg font-semibold">{t("production.mixing.rawMaterials")}</Label>
@@ -469,7 +573,6 @@ export default function FilmMaterialMixingTab() {
               </div>
             )}
 
-            {/* Total Weight */}
             {materials.length > 0 && (
               <div className="pt-3 border-t">
                 <div className="flex justify-between items-center text-lg font-semibold">
@@ -480,10 +583,9 @@ export default function FilmMaterialMixingTab() {
             )}
           </div>
 
-          {/* Save Button */}
           <Button
             onClick={handleSave}
-            disabled={createBatchMutation.isPending}
+            disabled={createBatchMutation.isPending || isOverLimit}
             className="w-full"
             data-testid="button-save-batch"
           >
@@ -492,7 +594,6 @@ export default function FilmMaterialMixingTab() {
         </CardContent>
       </Card>
 
-      {/* Batches List Table */}
       <Card>
         <CardHeader>
           <CardTitle>{t("production.mixing.batchesLog")}</CardTitle>
@@ -586,7 +687,6 @@ export default function FilmMaterialMixingTab() {
         </CardContent>
       </Card>
 
-      {/* Batch Details Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-2xl" dir="rtl">
           <DialogHeader>
