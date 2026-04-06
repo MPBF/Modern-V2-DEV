@@ -2754,6 +2754,14 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         if (!emailRegex.test(email)) {
           return JSON.stringify({ error: "البريد الإلكتروني غير صحيح" });
         }
+
+        const emailCompanyInfo = await getCompanyInfo();
+        const emailCompanyName = emailCompanyInfo.name_ar || emailCompanyInfo.name || "مصنع الأكياس البلاستيكية الحديثة";
+        const emailCompanyNameEn = emailCompanyInfo.name || "Modern Plastic Bags Factory";
+        const emailCompanyWebsite = emailCompanyInfo.website || "www.modplastic.com";
+        const emailCompanyPhone = emailCompanyInfo.phone || "";
+        const emailCompanyEmail = emailCompanyInfo.email || "";
+        const emailCompanyTax = emailCompanyInfo.tax_number || "";
         
         const fmt = (n: string | number) => new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n || 0));
         
@@ -2779,8 +2787,10 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
 <body style="font-family: Arial, sans-serif; background:#f8fafc; margin:0; padding:20px; direction:rtl;">
   <div style="max-width:700px; margin:0 auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
     <div style="background:linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); padding:30px; text-align:center; color:#fff;">
-      <h1 style="margin:0; font-size:24px; font-weight:bold;">مصنع الأكياس البلاستيكية الحديثة</h1>
-      <p style="margin:8px 0 0; font-size:14px; opacity:0.9;">Modern Plastic Bags Factory | www.modplastic.com</p>
+      <h1 style="margin:0; font-size:24px; font-weight:bold;">${emailCompanyName}</h1>
+      <p style="margin:8px 0 0; font-size:14px; opacity:0.9;">${emailCompanyNameEn} | ${emailCompanyWebsite}</p>
+      ${emailCompanyPhone ? `<p style="margin:4px 0 0; font-size:12px; opacity:0.8;">هاتف: ${emailCompanyPhone}${emailCompanyEmail ? ` | بريد: ${emailCompanyEmail}` : ''}</p>` : ''}
+      ${emailCompanyTax ? `<p style="margin:4px 0 0; font-size:11px; opacity:0.7;">الرقم الضريبي: ${emailCompanyTax}</p>` : ''}
     </div>
     <div style="padding:30px;">
       <h2 style="color:#1e3a5f; margin-bottom:8px;">عرض السعر رقم: ${quote.document_number}</h2>
@@ -2820,13 +2830,13 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
       </div>
     </div>
     <div style="background:#f0f4f8; padding:20px; text-align:center; color:#64748b; font-size:12px;">
-      <p style="margin:0;">للاستفسار: www.modplastic.com | صناعة الأكياس البلاستيكية عالية الجودة</p>
+      <p style="margin:0;">للاستفسار: ${emailCompanyWebsite} | ${emailCompanyName}</p>
     </div>
   </div>
 </body>
 </html>`;
 
-        const subjectLine = `عرض السعر ${quote.document_number} - مصنع الأكياس البلاستيكية الحديثة`;
+        const subjectLine = `عرض السعر ${quote.document_number} - ${emailCompanyName}`;
         const plainText = `عرض السعر ${quote.document_number}\nالعميل: ${quote.customer_name}\nالإجمالي: ${fmt(quote.total_with_tax)} ر.س\nرابط PDF: ${pdfUrl}`;
         const fromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_FROM || "noreply@modplastic.com";
 
@@ -2839,7 +2849,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
             
             await sgMail.send({
               to: email,
-              from: { email: fromEmail, name: "مصنع الأكياس البلاستيكية الحديثة" },
+              from: { email: fromEmail, name: emailCompanyName },
               subject: subjectLine,
               text: plainText,
               html: htmlBody,
@@ -2885,7 +2895,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
             const transporter = nodemailer.createTransport(transportConfig);
             
             await transporter.sendMail({
-              from: `"مصنع الأكياس البلاستيكية الحديثة" <${fromEmail}>`,
+              from: `"${emailCompanyName}" <${fromEmail}>`,
               to: email,
               subject: subjectLine,
               html: htmlBody,
