@@ -155,13 +155,19 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 - Twilio webhooks: `x-twilio-signature` header presence check when `TWILIO_AUTH_TOKEN` env var is set
 - All verification is opt-in — if the env var is not set, webhooks remain open for development
 
-### AI Agent Database Tools (`server/ai-agent-routes.ts`)
-The AI smart agent now has full database interaction capabilities:
+### AI Agent Comprehensive Redesign (`server/ai-agent-routes.ts`)
+The AI agent is a comprehensive executive digital assistant with full system capabilities:
+- **Company Info Auto-Injection**: All generated documents (PDF/Excel/CSV/Word) automatically include factory header (name, address, phone, email, tax number, CR number) fetched from `company_profile` table and `system_settings`
+- **`get_company_info`**: Tool to fetch factory details from DB for document headers (cached 5 min)
+- **`generate_document`**: Supports PDF, Excel, CSV, Word formats with auto-injected company header
+- **CSV Generation**: Full CSV support with BOM for Arabic, formula injection protection (prefixes `=+\-@` cells with `'`)
+- **Knowledge Base Categories**: products, policies, customers, pricing, production, hr, maintenance, quality, warehouse, general
+- **System Prompt**: Comprehensive action-oriented prompt that instructs the agent to execute commands from knowledge base and feature instructions, not just answer theoretically
+- **MAX_TOOL_ROUNDS**: 10 (increased from 6) to support more complex multi-step operations
 - **`execute_database_query`**: Run any SQL query (SELECT/INSERT/UPDATE). DROP/DELETE/TRUNCATE/ALTER are blocked for safety. Results limited to 100 rows for SELECT queries.
 - **`generate_attendance_data`**: Bulk-create attendance records with configurable check-in/out times, absent days, excluded weekdays, and shift types.
 - **`get_database_schema`**: Inspect table structure (columns, types, defaults) or list all tables.
 - **`get_section_users`**: Find users by section ID or section name (Arabic/English search).
-- The system prompt guides the agent to use these tools for any data creation, reporting, or schema exploration requests.
 
 ## Database Schema (60+ Tables)
 
@@ -433,7 +439,8 @@ The AI smart agent now has full database interaction capabilities:
   - `generate_attendance_data` — Bulk attendance record creation with customizable parameters
   - `get_database_schema` — Inspect all tables, columns, and data types
   - `get_section_users` — Find users by section ID or name
-  - `generate_document` — Professional PDF/Excel/Word document generation (reports, forms, invoices, contracts, payroll sheets, attendance reports, etc.) with download links
+  - `get_company_info` — Fetch factory details from DB for document headers
+  - `generate_document` — Professional PDF/Excel/CSV/Word document generation with auto-injected company header (reports, forms, invoices, contracts, payroll sheets, attendance reports, etc.) with download links
 - `GET /api/ai-agent/download/:filename` — Download generated documents (authenticated)
 
 ## Authentication & Authorization

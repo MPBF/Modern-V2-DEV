@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { requireAuth } from "./middleware/auth";
 import OpenAI from "openai";
 import { db } from "./db";
-import { orders, production_orders, rolls, quotes, quote_items, customers, customer_products, categories, ai_agent_settings, ai_agent_knowledge, ai_agent_feature_instructions, quote_templates, users, machines, inventory, maintenance_requests, items } from "@shared/schema";
+import { orders, production_orders, rolls, quotes, quote_items, customers, customer_products, categories, ai_agent_settings, ai_agent_knowledge, ai_agent_feature_instructions, quote_templates, users, machines, inventory, maintenance_requests, items, company_profile, system_settings } from "@shared/schema";
 import { eq, desc, and, gte, lte, count, sum, like, or, sql, ilike } from "drizzle-orm";
 import multer, { FileFilterCallback } from "multer";
 import * as XLSX from "exceljs";
@@ -20,7 +20,7 @@ import { processArabicText, isArabicText } from "./services/arabic-text-service"
 
 const AI_MODEL = "gpt-4.1" as const;
 const AI_MODEL_VISION = "gpt-4.1" as const;
-const MAX_TOOL_ROUNDS = 6;
+const MAX_TOOL_ROUNDS = 10;
 const SSE_PING_INTERVAL_MS = 15000;
 const MAX_CHAT_HISTORY = 20;
 const DOCS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -541,6 +541,32 @@ async function searchKnowledgeBase(query: string): Promise<Array<{ title: string
   }
 }
 
+let companyInfoCache: { data: any; timestamp: number } | null = null;
+const COMPANY_INFO_CACHE_TTL = 300000;
+
+async function getCompanyInfo(): Promise<any> {
+  if (companyInfoCache && Date.now() - companyInfoCache.timestamp < COMPANY_INFO_CACHE_TTL) {
+    return companyInfoCache.data;
+  }
+  const [profile] = await db.select().from(company_profile).limit(1);
+  const settingsRows = await db.select().from(system_settings);
+  const getSetting = (key: string) => settingsRows.find(s => s.setting_key === key)?.setting_value || "";
+  
+  const info = {
+    name: profile?.name || getSetting("company_name") || "مصنع الأكياس البلاستيكية",
+    name_ar: profile?.name_ar || getSetting("company_name_ar") || "",
+    address: profile?.address || getSetting("company_address") || "",
+    phone: profile?.phone || getSetting("company_phone") || "",
+    email: profile?.email || getSetting("company_email") || "",
+    tax_number: profile?.tax_number || getSetting("company_tax_number") || "",
+    logo_url: profile?.logo_url || "",
+    cr_number: getSetting("company_cr") || "",
+    website: getSetting("company_website") || "www.modplastic.com",
+  };
+  companyInfoCache = { data: info, timestamp: Date.now() };
+  return info;
+}
+
 let systemPromptCache: { prompt: string; timestamp: number } | null = null;
 const SYSTEM_PROMPT_CACHE_TTL = 60000;
 
@@ -551,9 +577,10 @@ async function getSystemPrompt(): Promise<string> {
   const settings = await db.select().from(ai_agent_settings);
   const knowledge = await db.select().from(ai_agent_knowledge).where(eq(ai_agent_knowledge.is_active, true));
   const featureInstructions = await db.select().from(ai_agent_feature_instructions).where(eq(ai_agent_feature_instructions.is_active, true)).orderBy(desc(ai_agent_feature_instructions.priority));
+  const companyInfo = await getCompanyInfo();
   
   const agentName = settings.find(s => s.key === "agent_name")?.value || "المساعد الذكي";
-  const companyName = settings.find(s => s.key === "company_name")?.value || "مصنع الأكياس البلاستيكية";
+  const companyName = settings.find(s => s.key === "company_name")?.value || companyInfo.name;
   const defaultGreeting = settings.find(s => s.key === "default_greeting")?.value || "";
   const responseStyle = settings.find(s => s.key === "response_style")?.value || "ودي ومحترف";
   const customInstructions = settings.find(s => s.key === "custom_instructions")?.value || "";
@@ -561,138 +588,171 @@ async function getSystemPrompt(): Promise<string> {
   
   let knowledgeText = "";
   if (knowledge.length > 0) {
-    knowledgeText = "\n\n### المعلومات المتاحة من قاعدة المعرفة:\n" + 
-      knowledge.map(k => `**${k.title}** (${k.category}): ${k.content}`).join("\n\n");
+    const knowledgeByCategory: Record<string, typeof knowledge> = {};
+    for (const k of knowledge) {
+      const cat = k.category || "general";
+      if (!knowledgeByCategory[cat]) knowledgeByCategory[cat] = [];
+      knowledgeByCategory[cat].push(k);
+    }
+    knowledgeText = "\n\n### قاعدة المعرفة الشاملة:\n**هام جداً**: يجب عليك الالتزام بكل ما هو مذكور في قاعدة المعرفة أدناه. هذه تعليمات وسياسات ومعلومات يجب تطبيقها عند تنفيذ أي أمر ذي صلة.\n\n";
+    for (const [category, items] of Object.entries(knowledgeByCategory)) {
+      const categoryNames: Record<string, string> = {
+        products: "المنتجات والمواصفات",
+        policies: "السياسات والإجراءات",
+        customers: "العملاء والتعاملات",
+        pricing: "التسعير والأسعار",
+        production: "الإنتاج والتصنيع",
+        hr: "الموارد البشرية",
+        maintenance: "الصيانة",
+        quality: "الجودة",
+        warehouse: "المستودعات",
+        general: "معلومات عامة"
+      };
+      knowledgeText += `#### ${categoryNames[category] || category}:\n`;
+      for (const k of items) {
+        knowledgeText += `- **${k.title}**: ${k.content}\n`;
+      }
+      knowledgeText += "\n";
+    }
   }
 
-  const result = `أنت ${agentName}، مساعد ذكي متقدم ومتكامل مع نظام إدارة الإنتاج لشركة ${companyName} (www.modplastic.com).
+  let featureInstructionsText = "";
+  if (featureInstructions.length > 0) {
+    featureInstructionsText = "\n\n### تعليمات الخصائص الإلزامية:\n**هام جداً**: التعليمات التالية إلزامية ويجب تنفيذها حرفياً عند التعامل مع الخاصية المذكورة. لا تتجاهل أي تعليمة.\n\n";
+    for (const fi of featureInstructions) {
+      featureInstructionsText += `#### 📌 ${fi.feature_name}:\n${fi.instructions}\n\n`;
+    }
+  }
 
-### قدراتك الكاملة:
-1. **الطلبات والإنتاج**: الاستعلام عن الطلبات وأوامر الإنتاج والكميات المنتجة، وعرض قوائم الطلبات المفصلة مع التصفية والبحث
-2. **إنشاء وإدارة الطلبات**: إنشاء طلبات جديدة مع توليد رقم تلقائي، وتحديث حالة الطلبات (انتظار/إنتاج/متوقف/ملغي/مكتمل)
-3. **العملاء**: الاستعلام عن بيانات العملاء وقوائمهم الكاملة، وتسجيل عملاء جدد مع بياناتهم
-4. **منتجات العملاء**: تسجيل منتجات جديدة للعملاء مع تحديد المواصفات (أبعاد، مادة خام، تخريم، طباعة)
-5. **المستخدمون والموظفون**: عرض معلومات الموظفين وأدوارهم وحالتهم
-6. **المكائن**: متابعة حالة مكائن المصنع (بثق، طباعة، قطع) وطلبات الصيانة
-7. **المخزون**: الاستعلام عن مستويات المواد الخام والمنتجات
-8. **الحسابات الذكية**:
-   - حساب عدد الأكياس من الأبعاد والوزن (عرض × طول × سُمك × كثافة المادة)
-   - حساب الوزن المطلوب لعدد أكياس معين
-   - حساب تكلفة الكليشهات الطباعية بناء على عدد الألوان وأبعاد الكليشه
-9. **عروض الأسعار**: إنشاء عروض احترافية بـ PDF ثنائي اللغة (عربي/إنجليزي)
-10. **إرسال العروض**: عبر الواتساب أو البريد الإلكتروني
-11. **تحويل العملات**: بين العملات الرئيسية (الأساس: الريال السعودي)
-12. **تحليل الملفات**: صور، Excel، CSV، PDF
-13. **الرسائل الصوتية**: تحويل الصوت إلى نص
-14. **قاعدة المعرفة**: البحث والتعلم وحفظ المعلومات
-15. **استعلامات قاعدة البيانات المباشرة**: تنفيذ أي استعلام SQL (SELECT/INSERT/UPDATE) على أي جدول في النظام. يمكنك قراءة البيانات وإنشاء بيانات جديدة وتحديثها
-16. **إنشاء بيانات حضور وهمية**: إنشاء سجلات حضور وانصراف تلقائية لأي مجموعة مستخدمين ولأي فترة زمنية مع تخصيص أوقات الحضور والانصراف وأيام الغياب
-17. **استكشاف هيكل قاعدة البيانات**: عرض جميع الجداول وأعمدتها وأنواع البيانات
-18. **البحث عن مستخدمي الأقسام**: عرض المستخدمين في أي قسم بالاسم أو الرقم
-19. **إنشاء مستندات احترافية**: إنشاء ملفات PDF و Excel و Word بتصميم احترافي. يمكن إنشاء أي نوع من المستندات: تقارير، نماذج، جداول، فواتير، عقود، خطابات رسمية، كشوف رواتب، تقارير حضور، نماذج إجازات، وغيرها. كل مستند يُنشأ مع رابط تحميل مباشر
+  const result = `أنت ${agentName}، وكيل ذكي شامل ومتكامل لنظام إدارة المصنع لشركة ${companyName}. أنت لست مجرد مساعد بل مدير تنفيذي رقمي قادر على تنفيذ جميع العمليات في النظام.
 
-### معلومات المصنع:
-- الموقع: www.modplastic.com | متخصصون في الأكياس البلاستيكية والأفلام البلاستيكية
+### هويتك ومبادئك:
+- أنت وكيل تنفيذي متكامل: تقرأ وتنفذ وتُنشئ وتُعدّل أي شيء في النظام
+- تلتزم حرفياً بكل ما هو مذكور في قاعدة المعرفة وتعليمات الخصائص
+- عند أي طلب، ابحث أولاً في قاعدة المعرفة وتعليمات الخصائص عن تعليمات ذات صلة ونفّذها
+- لا تكتفِ بالإجابة النظرية بل نفّذ فعلياً باستخدام الأدوات المتاحة
+
+### بيانات المصنع (تُستخدم تلقائياً في جميع المستندات):
+- اسم الشركة: ${companyInfo.name}${companyInfo.name_ar ? ` | ${companyInfo.name_ar}` : ""}
+- العنوان: ${companyInfo.address || "غير محدد"}
+- الهاتف: ${companyInfo.phone || "غير محدد"}
+- البريد: ${companyInfo.email || "غير محدد"}
+- الرقم الضريبي: ${companyInfo.tax_number || "غير محدد"}
+- السجل التجاري: ${companyInfo.cr_number || "غير محدد"}
+- الموقع: ${companyInfo.website}
 - المواد: HDPE (كثافة 0.95)، LDPE (كثافة 0.92)، LLDPE (كثافة 0.93)، PP (كثافة 0.91)
+
+### قدراتك الشاملة:
+
+**📋 إدارة الطلبات والإنتاج:**
+- استعلام عن الطلبات وأوامر الإنتاج والكميات المنتجة مع التصفية والبحث
+- إنشاء طلبات جديدة مع توليد رقم تلقائي
+- تحديث حالة الطلبات (انتظار/إنتاج/متوقف/ملغي/مكتمل)
+- متابعة اللفات عبر مراحل الإنتاج (بثق، طباعة، قطع)
+
+**👥 إدارة العملاء والمنتجات:**
+- تسجيل عملاء جدد وتعديل بياناتهم
+- تسجيل منتجات مخصصة لكل عميل (أبعاد، مادة خام، تخريم، طباعة)
+- البحث واسترجاع بيانات العملاء
+
+**👨‍💼 الموارد البشرية:**
+- عرض معلومات الموظفين وأدوارهم
+- إدارة سجلات الحضور والانصراف
+- إنشاء بيانات حضور تلقائية
+- تتبع الإجازات والتدريب والأداء
+
+**🏭 المصنع والإنتاج:**
+- متابعة حالة المكائن (بثق، طباعة، قطع)
+- الاستعلام عن المخزون (مواد خام ومنتجات)
+- طلبات الصيانة ومتابعتها
+- خلطات المواد وألوان الماستر باتش
+
+**💰 الحسابات والتسعير:**
+- حساب عدد الأكياس من الأبعاد والوزن
+- حساب تكلفة الكليشهات الطباعية
+- إنشاء عروض أسعار احترافية بـ PDF
+- تحويل العملات
+
+**📄 إنشاء المستندات الاحترافية:**
+- **PDF**: تقارير، فواتير، عقود، خطابات رسمية، شهادات، نماذج
+- **Excel/CSV**: جداول بيانات، تقارير، كشوف، إحصائيات
+- **Word**: مستندات رسمية، خطابات، عقود
+- **هام**: جميع المستندات تتضمن تلقائياً هيدر ببيانات المصنع الكاملة (الاسم، العنوان، الهاتف، الرقم الضريبي، السجل التجاري)
+- يمكنك إنشاء أي نوع من المستندات: كشف رواتب، تقرير حضور، تقرير إنتاج، تقرير جودة، كشف مخزون، تقرير صيانة، إلخ
+
+**📊 استعلامات قاعدة البيانات:**
+- تنفيذ استعلامات SQL متقدمة (SELECT/INSERT/UPDATE)
+- تحليلات وتقارير مباشرة من قاعدة البيانات
+- استكشاف هيكل أي جدول
+
+**📱 التواصل:**
+- إرسال رسائل واتساب
+- إرسال عروض أسعار عبر الواتساب أو البريد
+
+**🧠 قاعدة المعرفة:**
+- البحث في المعلومات المحفوظة
+- إضافة معلومات جديدة للتعلم
 
 ${defaultGreeting ? `رسالة الترحيب: ${defaultGreeting}\n` : ""}
 أسلوب الرد: ${responseStyle}
 العملة الأساسية: الريال السعودي (ر.س). ضريبة القيمة المضافة: ${parseFloat(vatRate) * 100}%
 
-### إرشادات العمل المتكاملة:
+### إرشادات العمل الشاملة:
+
+**🔑 قاعدة ذهبية لإنشاء أي مستند:**
+1. دائماً اجلب بيانات المصنع تلقائياً باستخدام get_company_info لوضعها في الهيدر
+2. اجلب البيانات المطلوبة من قاعدة البيانات باستخدام execute_database_query
+3. أنشئ المستند بصيغة generate_document مع هيدر كامل ببيانات المصنع
+4. قدّم رابط التحميل المباشر للمستخدم
+5. الهيدر يجب أن يتضمن دائماً: اسم الشركة، العنوان، الهاتف، البريد، الرقم الضريبي
+
+**عند طلب إنشاء أي تقرير أو جدول أو مستند:**
+1. استخدم get_company_info لجلب بيانات المصنع للهيدر
+2. استخدم execute_database_query لجلب البيانات من قاعدة البيانات
+3. رتّب البيانات في أقسام منظمة مع عناوين واضحة
+4. أنشئ المستند بـ generate_document بالصيغة المطلوبة (PDF/Excel/CSV/Word)
+5. قدّم رابط التحميل مباشرة
+
+**عند تنفيذ أي أمر من قاعدة المعرفة أو تعليمات الخصائص:**
+1. اقرأ التعليمات بعناية ونفّذها خطوة بخطوة
+2. استخدم الأدوات المناسبة لكل خطوة
+3. تأكد من إكمال جميع الخطوات المذكورة
+4. أبلغ المستخدم بكل خطوة تم تنفيذها
 
 **عند سؤال عن حساب أكياس:**
-1. اطلب: العرض (سم)، الطول (سم)، السُمك (ميكرون)، نوع المادة (HDPE/LDPE/LLDPE/PP)
-2. اطلب: الوزن المتاح (كيلو) أو العدد المطلوب
-3. استخدم calculate_bag_quantity وقدّم النتيجة بوضوح مع الصيغة المستخدمة
-
-**عند سؤال عن تكلفة الكليشهات:**
-1. اطلب: عدد الألوان، عرض الكليشه (سم)، محيط الكليشه (سم)
-2. استخدم calculate_printing_costs وقدّم تفصيل التكلفة
+1. اطلب: العرض (سم)، الطول (سم)، السُمك (ميكرون)، نوع المادة
+2. استخدم calculate_bag_quantity وقدّم النتيجة مع الصيغة
 
 **عند إنشاء عرض سعر:**
-1. استخدم calculate_bag_quantity وcalculate_printing_costs للحسابات الدقيقة
-2. استخدم get_quote_templates لمعرفة الأسعار المتاحة
-3. اجمع: اسم العميل، الرقم الضريبي (14 رقم)، الأصناف مع أبعادها
-4. أنشئ العرض بـ create_quote ثم PDF بـ generate_quote_pdf
-5. اسأل المستخدم: هل يريد الإرسال عبر واتساب أو بريد إلكتروني؟
-
-**عند إرسال رسالة واتساب عامة:**
-1. اطلب رقم الجوال ونص الرسالة
-2. استخدم send_whatsapp_message
-
-**عند إرسال عرض سعر عبر الواتساب:**
-1. تأكد من وجود PDF (generate_quote_pdf أولاً)
-2. اطلب رقم الجوال مع رمز الدولة
-3. استخدم send_quote_whatsapp
-
-**عند الإرسال عبر البريد الإلكتروني:**
-1. اطلب عنوان البريد الإلكتروني
-2. استخدم send_quote_email
-
-**عند عرض الطلبات المسجلة:**
-1. استخدم list_orders لعرض قائمة مفصلة
-2. يمكن التصفية حسب الحالة أو العميل أو البحث في رقم الطلب
-3. النتائج تتضمن أوامر الإنتاج المرتبطة بكل طلب
+1. استخدم calculate_bag_quantity وcalculate_printing_costs للحسابات
+2. اجمع: اسم العميل، الرقم الضريبي، الأصناف
+3. أنشئ العرض بـ create_quote ثم PDF بـ generate_quote_pdf
+4. اسأل المستخدم: هل يريد الإرسال عبر واتساب أو بريد؟
 
 **عند إنشاء طلب جديد:**
-1. تحقق من وجود العميل أولاً باستخدام get_customer_info أو get_customers_list
-2. إذا العميل غير مسجل، سجله بـ create_customer ثم أنشئ الطلب
-3. استخدم create_order مع معرف العميل - رقم الطلب يُولَّد تلقائياً
-4. يمكن تحديد أيام التسليم وتاريخ التسليم وملاحظات
-
-**عند تحديث حالة طلب:**
-1. تأكد من رقم الطلب أو معرفه باستخدام list_orders أو get_order_status
-2. استخدم update_order_status مع الحالة الجديدة
-3. الحالات: waiting (انتظار)، in_production (إنتاج)، paused (متوقف)، cancelled (ملغي)، completed (مكتمل)
-
-**عند تسجيل عميل جديد:**
-1. اجمع البيانات: الاسم (مطلوب)، الاسم بالعربية، رقم الجوال، المدينة
-2. اختياري: الرقم الضريبي (14 رقم)، الاسم التجاري، الرقم الموحد (يبدأ بـ 7 ومكون من 10 أرقام)
-3. استخدم create_customer - يتم توليد معرف العميل تلقائياً
-
-**عند تسجيل منتج لعميل:**
-1. تأكد من وجود العميل أولاً
-2. اجمع مواصفات المنتج: الأبعاد، المادة الخام، نوع التخريم، هل مطبوع
-3. استخدم create_customer_product
-
-**عند الاستعلام عن العملاء:**
-- بحث محدد: get_customer_info | قائمة كاملة: get_customers_list
-
-**عند الاستعلام عن الموظفين/المستخدمين:**
-استخدم get_users_info
-
-**عند الاستعلام عن المكائن:**
-استخدم get_machines_status مع تحديد النوع إن أمكن
-
-**عند الاستعلام عن المخزون:**
-استخدم get_inventory_status (يمكن تصفية المواد منخفضة المخزون)
-
-**عند طلب إنشاء بيانات حضور وهمية:**
-1. حدد المستخدمين المطلوبين باستخدام get_section_users
-2. استخدم generate_attendance_data مع المعلمات المناسبة (أوقات الحضور/الانصراف، أيام الغياب، الأيام المستبعدة)
-3. أو استخدم execute_database_query لعمل INSERT مباشرة
-
-**عند طلب إنشاء أي بيانات أو جداول أو تقارير:**
-1. استخدم get_database_schema لمعرفة هيكل الجدول المطلوب
-2. استخدم execute_database_query لتنفيذ SELECT للقراءة أو INSERT/UPDATE للكتابة
-3. يمكنك تنفيذ عدة استعلامات متتالية لإنجاز المهمة
-4. لا تحذف بيانات (DELETE غير مسموح) - يمكنك فقط القراءة والإضافة والتحديث
+1. تحقق من وجود العميل أولاً
+2. إذا غير مسجل، سجله بـ create_customer
+3. أنشئ الطلب بـ create_order
 
 **عند الاستعلام عن بيانات معقدة:**
-1. استخدم execute_database_query مع استعلامات SQL متقدمة (JOIN, GROUP BY, COUNT, SUM, AVG)
+1. استخدم execute_database_query مع استعلامات SQL متقدمة
 2. يمكنك عمل تحليلات وتقارير مباشرة من قاعدة البيانات
 
 **عند سؤال عام:**
 1. ابحث في قاعدة المعرفة بـ search_knowledge_base أولاً
-2. ثم get_website_info للموقع إن لزم
+2. نفّذ ما تجده من تعليمات
 3. احفظ المعلومات المهمة بـ add_to_knowledge_base
 
-${customInstructions ? `### تعليمات إضافية:\n${customInstructions}\n` : ""}
-${featureInstructions.length > 0 ? `### تعليمات الخصائص المسبقة:\n${featureInstructions.map(fi => `**${fi.feature_name}:**\n${fi.instructions}`).join("\n\n")}\n` : ""}
+${customInstructions ? `### تعليمات إضافية مخصصة:\n${customInstructions}\n` : ""}
+${featureInstructionsText}
 ${knowledgeText}
 
-قم بالرد باللغة نفسها التي يستخدمها المستخدم (عربي أو إنجليزي). كن دقيقاً في الحسابات ومفيداً واحترافياً.`;
+### ملاحظات نهائية:
+- قم بالرد باللغة نفسها التي يستخدمها المستخدم (عربي أو إنجليزي)
+- كن دقيقاً في الحسابات ومفيداً واحترافياً
+- نفّذ الأوامر فعلياً ولا تكتفِ بالشرح النظري
+- عند إنشاء أي مستند، ضع دائماً هيدر احترافي ببيانات المصنع
+- تأكد من تطبيق جميع تعليمات الخصائص وقاعدة المعرفة ذات الصلة بالطلب`;
   systemPromptCache = { prompt: result, timestamp: Date.now() };
   return result;
 }
@@ -920,7 +980,7 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
         properties: {
           title: { type: "string", description: "عنوان المعلومة" },
           content: { type: "string", description: "محتوى المعلومة" },
-          category: { type: "string", enum: ["products", "policies", "customers", "pricing", "general"], description: "تصنيف المعلومة" }
+          category: { type: "string", enum: ["products", "policies", "customers", "pricing", "production", "hr", "maintenance", "quality", "warehouse", "general"], description: "تصنيف المعلومة (products=المنتجات، policies=السياسات، customers=العملاء، pricing=التسعير، production=الإنتاج، hr=الموارد البشرية، maintenance=الصيانة، quality=الجودة، warehouse=المستودعات، general=عام)" }
         },
         required: ["title", "content", "category"]
       }
@@ -1215,14 +1275,22 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "get_company_info",
+      description: "جلب بيانات المصنع الكاملة (الاسم، العنوان، الهاتف، البريد، الرقم الضريبي، السجل التجاري). استخدم هذه الأداة دائماً قبل إنشاء أي مستند لوضع بيانات المصنع في الهيدر",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "generate_document",
-      description: `إنشاء ملف مستند احترافي (PDF أو Excel أو Word). يمكن إنشاء أي نوع من التقارير والنماذج والجداول.
-أمثلة: تقرير حضور شهري، كشف رواتب، قائمة مخزون، تقرير إنتاج، نموذج طلب إجازة، تقرير جودة، كشف صيانة، فاتورة، عقد عمل، خطاب رسمي.
-استخدم execute_database_query أولاً لجلب البيانات المطلوبة ثم مرّرها هنا.`,
+      description: `إنشاء ملف مستند احترافي (PDF أو Excel أو CSV أو Word) مع هيدر تلقائي ببيانات المصنع.
+أمثلة: تقرير حضور شهري، كشف رواتب، قائمة مخزون، تقرير إنتاج، نموذج طلب إجازة، تقرير جودة، كشف صيانة، فاتورة، عقد عمل، خطاب رسمي، كشف عملاء، تقرير مبيعات.
+**هام**: استخدم get_company_info أولاً لجلب بيانات المصنع، ثم execute_database_query لجلب البيانات، ثم أنشئ المستند هنا مع وضع بيانات المصنع في header.`,
       parameters: {
         type: "object",
         properties: {
-          format: { type: "string", enum: ["pdf", "excel", "word"], description: "صيغة الملف" },
+          format: { type: "string", enum: ["pdf", "excel", "csv", "word"], description: "صيغة الملف (pdf/excel/csv/word)" },
           title: { type: "string", description: "عنوان المستند (مثل: تقرير الحضور الشهري - يناير 2026)" },
           filename: { type: "string", description: "اسم الملف بدون امتداد (مثل: attendance_report_jan_2026)" },
           content: {
@@ -1613,6 +1681,69 @@ async function generateWordDocument(title: string, filename: string, content: an
 
   const buffer = await docx.Packer.toBuffer(document);
   fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
+
+async function generateCsvDocument(title: string, filename: string, content: any): Promise<string> {
+  const filePath = path.join(DOCS_DIR, `${filename}.csv`);
+  const sections = content.sections || [];
+  const lines: string[] = [];
+
+  const header = content.header || {};
+  if (header.company_name) lines.push(header.company_name);
+  if (header.subtitle) lines.push(header.subtitle);
+  if (header.date) lines.push(header.date);
+  if (header.extra_info && Array.isArray(header.extra_info)) {
+    header.extra_info.forEach((info: string) => lines.push(info));
+  }
+  if (lines.length > 0) lines.push("");
+  lines.push(title);
+  lines.push("");
+
+  const escapeCsv = (val: string) => {
+    let s = String(val || "");
+    if (/^[=+\-@\t\r]/.test(s)) {
+      s = "'" + s;
+    }
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  for (const section of sections) {
+    if (section.title) {
+      lines.push(escapeCsv(section.title));
+    }
+
+    if (section.type === "table" && section.columns && section.rows) {
+      lines.push(section.columns.map(escapeCsv).join(","));
+      for (const row of section.rows) {
+        lines.push(row.map((cell: string) => escapeCsv(String(cell || ""))).join(","));
+      }
+    }
+
+    if (section.type === "key_value" && section.data) {
+      for (const [key, value] of Object.entries(section.data)) {
+        lines.push(`${escapeCsv(key)},${escapeCsv(String(value))}`);
+      }
+    }
+
+    if (section.type === "summary" && section.items) {
+      for (const item of section.items) {
+        lines.push(`${escapeCsv(item.label)},${escapeCsv(String(item.value))}`);
+      }
+    }
+
+    if (section.type === "text" && section.text) {
+      lines.push(escapeCsv(section.text));
+    }
+
+    lines.push("");
+  }
+
+  const bom = "\uFEFF";
+  fs.writeFileSync(filePath, bom + lines.join("\n"), "utf-8");
   return filePath;
 }
 
@@ -3293,11 +3424,50 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         });
       }
 
+      case "get_company_info": {
+        const info = await getCompanyInfo();
+        return JSON.stringify({
+          company_name: info.name,
+          company_name_ar: info.name_ar,
+          address: info.address,
+          phone: info.phone,
+          email: info.email,
+          tax_number: info.tax_number,
+          cr_number: info.cr_number,
+          website: info.website,
+          logo_url: info.logo_url,
+          note: "استخدم هذه البيانات في header المستند عند إنشاء أي ملف"
+        });
+      }
+
       case "generate_document": {
         const format = args.format as string;
         const docTitle = args.title as string;
         const docFilename = (args.filename as string || "document").replace(/[^a-zA-Z0-9_\-]/g, "_");
         const docContent = args.content as any || {};
+
+        const companyInfo = await getCompanyInfo();
+        if (!docContent.header) docContent.header = {};
+        if (!docContent.header.company_name) {
+          docContent.header.company_name = companyInfo.name_ar || companyInfo.name;
+        }
+        if (!Array.isArray(docContent.header.extra_info)) docContent.header.extra_info = [];
+        const existingInfo = docContent.header.extra_info.map(String).join(" ");
+        if (companyInfo.address && !existingInfo.includes(companyInfo.address)) {
+          docContent.header.extra_info.push(companyInfo.address);
+        }
+        if (companyInfo.phone && !existingInfo.includes(companyInfo.phone)) {
+          docContent.header.extra_info.push(`هاتف: ${companyInfo.phone}`);
+        }
+        if (companyInfo.email && !existingInfo.includes(companyInfo.email)) {
+          docContent.header.extra_info.push(`بريد: ${companyInfo.email}`);
+        }
+        if (companyInfo.tax_number && !existingInfo.includes(companyInfo.tax_number)) {
+          docContent.header.extra_info.push(`الرقم الضريبي: ${companyInfo.tax_number}`);
+        }
+        if (companyInfo.cr_number && !existingInfo.includes(companyInfo.cr_number)) {
+          docContent.header.extra_info.push(`السجل التجاري: ${companyInfo.cr_number}`);
+        }
 
         let filePath: string;
         let ext: string;
@@ -3308,11 +3478,14 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         } else if (format === "excel") {
           filePath = await generateExcelDocument(docTitle, docFilename, docContent);
           ext = "xlsx";
+        } else if (format === "csv") {
+          filePath = await generateCsvDocument(docTitle, docFilename, docContent);
+          ext = "csv";
         } else if (format === "word") {
           filePath = await generateWordDocument(docTitle, docFilename, docContent);
           ext = "docx";
         } else {
-          return JSON.stringify({ error: "صيغة غير مدعومة. الصيغ المدعومة: pdf, excel, word" });
+          return JSON.stringify({ error: "صيغة غير مدعومة. الصيغ المدعومة: pdf, excel, csv, word" });
         }
 
         const baseUrl = getAppBaseUrl();
@@ -3359,6 +3532,7 @@ export function registerAiAgentRoutes(app: Express): void {
       ".pdf": "application/pdf",
       ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".csv": "text/csv; charset=utf-8",
     };
 
     res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");

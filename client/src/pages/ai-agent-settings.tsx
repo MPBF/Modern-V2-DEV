@@ -216,7 +216,12 @@ export default function AiAgentSettings() {
     products: t("aiAgent.categories.products"),
     pricing: t("aiAgent.categories.pricing"),
     policies: t("aiAgent.categories.policies"),
-    customers: t("aiAgent.categories.customers")
+    customers: t("aiAgent.categories.customers"),
+    production: "الإنتاج والتصنيع",
+    hr: "الموارد البشرية",
+    maintenance: "الصيانة",
+    quality: "الجودة",
+    warehouse: "المستودعات"
   };
 
   const defaultSettings = [
