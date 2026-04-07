@@ -706,6 +706,7 @@ export interface IStorage {
   deleteQuickNote(id: number): Promise<void>;
   createNoteAttachment(attachment: InsertNoteAttachment): Promise<NoteAttachment>;
   getNoteAttachments(noteId: number): Promise<NoteAttachment[]>;
+  getNoteAttachmentById(id: number): Promise<NoteAttachment | undefined>;
   
   // Machine Queues
   getMachineQueue(machineId: number): Promise<MachineQueue[]>;
@@ -738,6 +739,10 @@ export interface IStorage {
   getFinishedGoodsVouchersOut(): Promise<FinishedGoodsVoucherOut[]>;
   getFinishedGoodsVoucherOutById(id: number): Promise<FinishedGoodsVoucherOut | undefined>;
   createFinishedGoodsVoucherOut(voucher: any): Promise<FinishedGoodsVoucherOut>;
+  deleteFinishedGoodsVoucherIn(id: number): Promise<void>;
+  deleteFinishedGoodsVoucherOut(id: number): Promise<void>;
+  getDeliveryHallOrders(): Promise<any[]>;
+  getProductionHallOrders(): Promise<any[]>;
   getProductionOrdersForReceipt(): Promise<any[]>;
   updateProductionOrderReceivedKg(id: number, additionalKg: number): Promise<void>;
   getFinishedGoodsStock(): Promise<any[]>;
@@ -2533,6 +2538,11 @@ export class DatabaseStorage implements IStorage {
 
   async getNoteAttachments(noteId: number): Promise<NoteAttachment[]> {
     return await db.select().from(note_attachments).where(eq(note_attachments.note_id, noteId));
+  }
+
+  async getNoteAttachmentById(id: number): Promise<NoteAttachment | undefined> {
+    const [attachment] = await db.select().from(note_attachments).where(eq(note_attachments.id, id));
+    return attachment;
   }
 
   async getMachineQueue(machineId: number): Promise<MachineQueue[]> {

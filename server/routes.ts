@@ -9015,9 +9015,7 @@ Do not include quotes or explanations.`;
   // Production hall - get production orders ready for warehouse receipt
   app.get("/api/warehouse/production-hall", requireAuth, async (req, res) => {
     try {
-      const productionOrders = (storage as any).getProductionHallOrders
-        ? await (storage as any).getProductionHallOrders()
-        : await storage.getProductionOrdersForReceipt();
+      const productionOrders = await storage.getProductionHallOrders();
       res.json(productionOrders);
     } catch (error) {
       console.error("Error fetching production hall data:", error);
@@ -9875,11 +9873,18 @@ Do not include quotes or explanations.`;
     try {
       const id = parseRouteParam(req.params.id, "id");
       
-      // Get attachment to find its note
-      const attachments = await storage.getNoteAttachments(0); // This won't work, need to get by ID
-      // For now, only managers can delete attachments
-      if (req.user!.role_id !== 1) {
-        return res.status(403).json({ message: "فقط المدراء يمكنهم حذف المرفقات" });
+      const attachment = await storage.getNoteAttachmentById(id);
+      if (!attachment) {
+        return res.status(404).json({ message: "المرفق غير موجود" });
+      }
+
+      const note = await storage.getQuickNoteById(attachment.note_id);
+      if (!note) {
+        return res.status(404).json({ message: "الملاحظة غير موجودة" });
+      }
+
+      if (note.created_by !== req.user!.id && req.user!.role_id !== 1) {
+        return res.status(403).json({ message: "غير مصرح لك بحذف هذا المرفق" });
       }
 
       await storage.deleteNoteAttachment(id);
@@ -10233,7 +10238,7 @@ Do not include quotes or explanations.`;
   });
 
   // حذف سند إدخال مواد خام
-  app.delete("/api/warehouse/vouchers/raw-material-in/:id", requireAuth, async (req, res) => {
+  app.delete("/api/warehouse/vouchers/raw-material-in/:id", requireAuth, requirePermission('manage_warehouse'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
       await storage.deleteRawMaterialVoucherIn(id);
@@ -10245,7 +10250,7 @@ Do not include quotes or explanations.`;
   });
 
   // حذف سند إخراج مواد خام
-  app.delete("/api/warehouse/vouchers/raw-material-out/:id", requireAuth, async (req, res) => {
+  app.delete("/api/warehouse/vouchers/raw-material-out/:id", requireAuth, requirePermission('manage_warehouse'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
       await storage.deleteRawMaterialVoucherOut(id);
@@ -10314,10 +10319,10 @@ Do not include quotes or explanations.`;
     }
   });
 
-  app.delete("/api/warehouse/vouchers/finished-goods-in/:id", requireAuth, async (req, res) => {
+  app.delete("/api/warehouse/vouchers/finished-goods-in/:id", requireAuth, requirePermission('manage_warehouse'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
-      await (storage as any).deleteFinishedGoodsVoucherIn(id);
+      await storage.deleteFinishedGoodsVoucherIn(id);
       res.json({ message: "تم حذف السند وإرجاع الكميات بنجاح" });
     } catch (error: any) {
       console.error("Error deleting finished goods in voucher:", error);
@@ -10328,7 +10333,7 @@ Do not include quotes or explanations.`;
   // سندات إخراج المواد التامة
   app.get("/api/warehouse/delivery-hall", requireAuth, async (req, res) => {
     try {
-      const orders = await (storage as any).getDeliveryHallOrders();
+      const orders = await storage.getDeliveryHallOrders();
       res.json(orders);
     } catch (error) {
       console.error("Error fetching delivery hall data:", error);
@@ -10381,10 +10386,10 @@ Do not include quotes or explanations.`;
     }
   });
 
-  app.delete("/api/warehouse/vouchers/finished-goods-out/:id", requireAuth, async (req, res) => {
+  app.delete("/api/warehouse/vouchers/finished-goods-out/:id", requireAuth, requirePermission('manage_warehouse'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
-      await (storage as any).deleteFinishedGoodsVoucherOut(id);
+      await storage.deleteFinishedGoodsVoucherOut(id);
       res.json({ message: "تم حذف السند بنجاح" });
     } catch (error: any) {
       console.error("Error deleting finished goods out voucher:", error);
