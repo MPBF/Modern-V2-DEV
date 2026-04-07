@@ -64,6 +64,33 @@ if (!fs.existsSync(DOCS_DIR)) {
   fs.mkdirSync(DOCS_DIR, { recursive: true });
 }
 
+async function ensureAiSandboxTables() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ai_sandbox_attendance (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER NOT NULL,
+        employee_name VARCHAR(255),
+        date DATE NOT NULL,
+        status VARCHAR(50) DEFAULT 'حاضر',
+        check_in_time TIMESTAMP,
+        check_out_time TIMESTAMP,
+        work_hours NUMERIC(5,2) DEFAULT 0,
+        overtime_hours NUMERIC(5,2) DEFAULT 0,
+        shift_type VARCHAR(50) DEFAULT 'صباحي',
+        late_minutes INTEGER DEFAULT 0,
+        department VARCHAR(255),
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("✅ AI sandbox attendance table ready");
+  } catch (error) {
+    console.error("Error creating AI sandbox tables:", error);
+  }
+}
+ensureAiSandboxTables();
+
 function cleanupOldDocs() {
   try {
     const now = Date.now();
@@ -1262,11 +1289,11 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "generate_attendance_data",
-      description: "إنشاء بيانات حضور وانصراف وهمية لمستخدمين محددين لفترة زمنية معينة",
+      description: "إنشاء بيانات حضور وانصراف في جدول منفصل (sandbox) لا يؤثر على بيانات التطبيق الأساسية. يمكن إنشاء بيانات لأي موظف حتى لو لم يكن مسجلاً في النظام.",
       parameters: {
         type: "object",
         properties: {
-          user_ids: { type: "array", items: { type: "number" }, description: "أرقام معرفات المستخدمين" },
+          employees: { type: "array", items: { type: "object", properties: { id: { type: "number", description: "رقم الموظف" }, name: { type: "string", description: "اسم الموظف" }, department: { type: "string", description: "القسم" } }, required: ["id"] }, description: "قائمة الموظفين (رقم، اسم، قسم)" },
           start_date: { type: "string", description: "تاريخ البداية (YYYY-MM-DD)" },
           end_date: { type: "string", description: "تاريخ النهاية (YYYY-MM-DD)" },
           check_in_start_hour: { type: "number", description: "بداية ساعة الحضور (مثل 8 أو 9)" },
@@ -1275,9 +1302,10 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           check_out_end_hour: { type: "number", description: "نهاية ساعة الانصراف (مثل 17 أو 18)" },
           absent_days_per_month: { type: "number", description: "عدد أيام الغياب لكل شهر (افتراضي 0)" },
           exclude_days: { type: "array", items: { type: "number" }, description: "أيام الأسبوع المستبعدة (0=أحد، 5=جمعة، 6=سبت). افتراضي [5,6]" },
-          shift_type: { type: "string", description: "نوع الوردية (صباحي/مسائي/ليلي). افتراضي: صباحي" }
+          shift_type: { type: "string", description: "نوع الوردية (صباحي/مسائي/ليلي). افتراضي: صباحي" },
+          clear_previous: { type: "boolean", description: "مسح البيانات السابقة لنفس الموظفين قبل الإنشاء (افتراضي: false)" }
         },
-        required: ["user_ids", "start_date", "end_date"]
+        required: ["employees", "start_date", "end_date"]
       }
     }
   },
@@ -3324,7 +3352,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
       }
 
       case "generate_attendance_data": {
-        const userIds = args.user_ids as number[];
+        const employees = args.employees as Array<{ id: number; name?: string; department?: string }>;
         const startDate = new Date(args.start_date as string);
         const endDate = new Date(args.end_date as string);
         const checkInStartHour = (args.check_in_start_hour as number) || 8;
@@ -3334,23 +3362,18 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
         const absentDaysPerMonth = (args.absent_days_per_month as number) || 0;
         const excludeDays = (args.exclude_days as number[]) || [5, 6];
         const shiftType = (args.shift_type as string) || "صباحي";
+        const clearPrevious = (args.clear_previous as boolean) || false;
 
-        const existingUsers = await db.execute(sql`SELECT id FROM users WHERE id = ANY(${userIds})`);
-        const existingUserIds = new Set((existingUsers.rows as any[]).map((r: any) => r.id));
-        const invalidIds = userIds.filter(id => !existingUserIds.has(id));
-        if (invalidIds.length > 0) {
-          return JSON.stringify({
-            error: `المستخدمون التالية أرقامهم غير موجودين في النظام: ${invalidIds.join(", ")}. يرجى التحقق من أرقام المستخدمين أولاً باستخدام execute_database_query للاستعلام عن جدول users.`,
-            invalid_user_ids: invalidIds,
-            valid_user_ids: Array.from(existingUserIds)
-          });
+        if (clearPrevious) {
+          const empIds = employees.map(e => e.id);
+          await db.execute(sql`DELETE FROM ai_sandbox_attendance WHERE employee_id = ANY(${empIds})`);
         }
 
         let totalRecords = 0;
         let absentRecords = 0;
         let presentRecords = 0;
 
-        for (const userId of userIds) {
+        for (const emp of employees) {
           const currentDate = new Date(startDate);
           let currentMonth = -1;
           let absentDaysThisMonth = new Set<string>();
@@ -3380,9 +3403,11 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
 
             if (!excludeDays.includes(dayOfWeek)) {
               const isAbsent = absentDaysThisMonth.has(dateStr);
+              const empName = emp.name || null;
+              const empDept = emp.department || null;
 
               if (isAbsent) {
-                await db.execute(sql`INSERT INTO attendance (user_id, date, status, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, ${dateStr}, 'غائب', 0, 0, ${shiftType}, 0)`);
+                await db.execute(sql`INSERT INTO ai_sandbox_attendance (employee_id, employee_name, department, date, status, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${emp.id}, ${empName}, ${empDept}, ${dateStr}, 'غائب', 0, 0, ${shiftType}, 0)`);
                 absentRecords++;
               } else {
                 const ciHour = checkInStartHour + Math.floor(Math.random() * (checkInEndHour - checkInStartHour));
@@ -3400,7 +3425,7 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
                 const overtime = workHours > 8 ? Math.round((workHours - 8) * 100) / 100 : 0;
                 const lateMin = ciMin > 0 && ciHour >= checkInStartHour ? ciMin : 0;
 
-                await db.execute(sql`INSERT INTO attendance (user_id, date, status, check_in_time, check_out_time, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${userId}, ${dateStr}, 'حاضر', ${checkIn}, ${checkOut}, ${Math.round(workHours * 100) / 100}, ${overtime}, ${shiftType}, ${lateMin})`);
+                await db.execute(sql`INSERT INTO ai_sandbox_attendance (employee_id, employee_name, department, date, status, check_in_time, check_out_time, work_hours, overtime_hours, shift_type, late_minutes) VALUES (${emp.id}, ${empName}, ${empDept}, ${dateStr}, 'حاضر', ${checkIn}, ${checkOut}, ${Math.round(workHours * 100) / 100}, ${overtime}, ${shiftType}, ${lateMin})`);
                 presentRecords++;
               }
               totalRecords++;
@@ -3412,11 +3437,13 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
 
         return JSON.stringify({
           success: true,
-          message: `تم إنشاء ${totalRecords} سجل حضور (${presentRecords} حضور، ${absentRecords} غياب) لـ ${userIds.length} مستخدم`,
+          message: `تم إنشاء ${totalRecords} سجل حضور (${presentRecords} حضور، ${absentRecords} غياب) لـ ${employees.length} موظف في الجدول المنفصل (ai_sandbox_attendance)`,
           total_records: totalRecords,
           present_records: presentRecords,
           absent_records: absentRecords,
-          users_count: userIds.length
+          employees_count: employees.length,
+          table: "ai_sandbox_attendance",
+          note: "البيانات محفوظة في جدول منفصل ولا تؤثر على بيانات التطبيق الأساسية. يمكنك الاستعلام عنها باستخدام: SELECT * FROM ai_sandbox_attendance"
         });
       }
 
