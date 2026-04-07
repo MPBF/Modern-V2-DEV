@@ -84,7 +84,19 @@ async function ensureAiSandboxTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log("✅ AI sandbox attendance table ready");
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ai_sandbox_data (
+        id SERIAL PRIMARY KEY,
+        data_type VARCHAR(100) NOT NULL,
+        data_label VARCHAR(255),
+        data JSONB NOT NULL DEFAULT '{}',
+        batch_id VARCHAR(100),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_sandbox_data_type ON ai_sandbox_data(data_type)`);
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ai_sandbox_data_batch ON ai_sandbox_data(batch_id)`);
+    console.log("✅ AI sandbox tables ready (attendance + generic data)");
   } catch (error) {
     console.error("Error creating AI sandbox tables:", error);
   }
@@ -801,6 +813,14 @@ ${defaultGreeting ? `رسالة الترحيب: ${defaultGreeting}\n` : ""}
 1. استخدم execute_database_query مع استعلامات SQL متقدمة
 2. يمكنك عمل تحليلات وتقارير مباشرة من قاعدة البيانات
 
+**عند إنشاء بيانات تجريبية/وهمية (sandbox):**
+1. استخدم generate_sandbox_data لأي نوع بيانات (طلبات، فواتير، منتجات، عملاء، مخزون، إنتاج، رواتب، صيانة، جودة، مبيعات، إلخ)
+2. استخدم generate_attendance_data لبيانات الحضور خصيصاً
+3. **مهم جداً**: هذه البيانات تُخزن في جداول منفصلة (ai_sandbox_data / ai_sandbox_attendance) ولا تؤثر على بيانات التطبيق الأساسية
+4. بعد الإنشاء، استخدم verify_sandbox_data للتأكد من سلامة البيانات
+5. استخدم query_sandbox_data لعرض واستعلام البيانات
+6. استخدم delete_sandbox_data لحذف البيانات عند الحاجة
+
 **عند سؤال عام:**
 1. ابحث في قاعدة المعرفة بـ search_knowledge_base أولاً
 2. نفّذ ما تجده من تعليمات
@@ -1306,6 +1326,73 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           clear_previous: { type: "boolean", description: "مسح البيانات السابقة لنفس الموظفين قبل الإنشاء (افتراضي: false)" }
         },
         required: ["employees", "start_date", "end_date"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_sandbox_data",
+      description: `إنشاء أي نوع من البيانات في جدول sandbox منفصل لا يؤثر على بيانات التطبيق الأساسية.
+يمكن إنشاء: طلبات، فواتير، منتجات، عملاء، مخزون، إنتاج، رواتب، صيانة، جودة، مبيعات، مشتريات، أو أي نوع بيانات آخر.
+البيانات تُخزن كـ JSON مرن في جدول ai_sandbox_data. بعد الإنشاء استخدم verify_sandbox_data للتحقق من سلامة البيانات.`,
+      parameters: {
+        type: "object",
+        properties: {
+          data_type: { type: "string", description: "نوع البيانات (مثل: orders, invoices, products, customers, inventory, production, salaries, maintenance, quality, sales)" },
+          label: { type: "string", description: "وصف مختصر لمجموعة البيانات (مثل: طلبات شهر يناير 2026)" },
+          records: { type: "array", items: { type: "object" }, description: "مصفوفة من السجلات. كل سجل كائن JSON بالحقول المطلوبة حسب نوع البيانات" },
+          clear_previous: { type: "boolean", description: "مسح البيانات السابقة من نفس النوع قبل الإنشاء (افتراضي: false)" }
+        },
+        required: ["data_type", "records"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_sandbox_data",
+      description: "استعلام وعرض البيانات المخزنة في sandbox. يمكن تصفيتها حسب النوع أو معرف الدفعة أو شروط JSON محددة.",
+      parameters: {
+        type: "object",
+        properties: {
+          data_type: { type: "string", description: "نوع البيانات للتصفية (مثل: orders, salaries)" },
+          batch_id: { type: "string", description: "معرف الدفعة للتصفية" },
+          filter: { type: "object", description: "شروط تصفية إضافية على حقول data (مثل: {\"status\": \"completed\"})" },
+          limit: { type: "number", description: "عدد السجلات (افتراضي: 50)" },
+          summary: { type: "boolean", description: "عرض ملخص إحصائي بدلاً من البيانات التفصيلية (افتراضي: false)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "verify_sandbox_data",
+      description: "التحقق من سلامة وصحة البيانات المُنشأة في sandbox. يفحص: عدد السجلات، الحقول المطلوبة، القيم الفارغة، التكرارات، الاتساق، ويُرجع تقرير تفصيلي.",
+      parameters: {
+        type: "object",
+        properties: {
+          data_type: { type: "string", description: "نوع البيانات للفحص" },
+          batch_id: { type: "string", description: "معرف الدفعة للفحص" },
+          required_fields: { type: "array", items: { type: "string" }, description: "قائمة الحقول المطلوبة للتحقق من وجودها (مثل: [\"name\", \"amount\", \"date\"])" },
+          check_attendance: { type: "boolean", description: "فحص جدول ai_sandbox_attendance بدلاً من ai_sandbox_data (افتراضي: false)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_sandbox_data",
+      description: "حذف بيانات من sandbox حسب النوع أو معرف الدفعة أو حذف الكل",
+      parameters: {
+        type: "object",
+        properties: {
+          data_type: { type: "string", description: "نوع البيانات للحذف" },
+          batch_id: { type: "string", description: "معرف الدفعة للحذف" },
+          delete_all: { type: "boolean", description: "حذف جميع بيانات sandbox (افتراضي: false)" }
+        }
       }
     }
   },
@@ -3444,6 +3531,250 @@ async function executeFunction(name: string, args: Record<string, unknown>, user
           employees_count: employees.length,
           table: "ai_sandbox_attendance",
           note: "البيانات محفوظة في جدول منفصل ولا تؤثر على بيانات التطبيق الأساسية. يمكنك الاستعلام عنها باستخدام: SELECT * FROM ai_sandbox_attendance"
+        });
+      }
+
+      case "generate_sandbox_data": {
+        const dataType = args.data_type as string;
+        const label = (args.label as string) || dataType;
+        const records = args.records as any[];
+        const clearPrev = (args.clear_previous as boolean) || false;
+        const batchId = `${dataType}_${Date.now()}`;
+
+        if (!records || records.length === 0) {
+          return JSON.stringify({ error: "يجب توفير سجل واحد على الأقل في records" });
+        }
+
+        if (clearPrev) {
+          await db.execute(sql`DELETE FROM ai_sandbox_data WHERE data_type = ${dataType}`);
+        }
+
+        let inserted = 0;
+        for (const record of records) {
+          await db.execute(sql`INSERT INTO ai_sandbox_data (data_type, data_label, data, batch_id) VALUES (${dataType}, ${label}, ${JSON.stringify(record)}::jsonb, ${batchId})`);
+          inserted++;
+        }
+
+        return JSON.stringify({
+          success: true,
+          message: `تم إنشاء ${inserted} سجل من نوع "${dataType}" في sandbox`,
+          data_type: dataType,
+          batch_id: batchId,
+          records_count: inserted,
+          table: "ai_sandbox_data",
+          note: "البيانات محفوظة في جدول منفصل (ai_sandbox_data) ولا تؤثر على بيانات التطبيق. استخدم verify_sandbox_data للتحقق من سلامتها."
+        });
+      }
+
+      case "query_sandbox_data": {
+        const qType = args.data_type as string;
+        const qBatch = args.batch_id as string;
+        const qLimit = (args.limit as number) || 50;
+        const qSummary = (args.summary as boolean) || false;
+        const safeLimit = Math.min(qLimit, 200);
+
+        if (qSummary) {
+          const summaryResult = qType
+            ? await db.execute(sql`SELECT data_type, COUNT(*) as count, MIN(created_at) as first_created, MAX(created_at) as last_created FROM ai_sandbox_data WHERE data_type = ${qType} GROUP BY data_type ORDER BY count DESC`)
+            : await db.execute(sql`SELECT data_type, COUNT(*) as count, MIN(created_at) as first_created, MAX(created_at) as last_created FROM ai_sandbox_data GROUP BY data_type ORDER BY count DESC`);
+
+          const attCount = await db.execute(sql`SELECT COUNT(*) as count FROM ai_sandbox_attendance`);
+
+          return JSON.stringify({
+            sandbox_data_summary: summaryResult.rows,
+            sandbox_attendance_count: (attCount.rows[0] as any)?.count || 0,
+            note: "ملخص البيانات المخزنة في sandbox"
+          });
+        }
+
+        let result;
+        if (qType && qBatch) {
+          result = await db.execute(sql`SELECT id, data_type, data_label, data, batch_id, created_at FROM ai_sandbox_data WHERE data_type = ${qType} AND batch_id = ${qBatch} ORDER BY created_at DESC LIMIT ${safeLimit}`);
+        } else if (qType) {
+          result = await db.execute(sql`SELECT id, data_type, data_label, data, batch_id, created_at FROM ai_sandbox_data WHERE data_type = ${qType} ORDER BY created_at DESC LIMIT ${safeLimit}`);
+        } else if (qBatch) {
+          result = await db.execute(sql`SELECT id, data_type, data_label, data, batch_id, created_at FROM ai_sandbox_data WHERE batch_id = ${qBatch} ORDER BY created_at DESC LIMIT ${safeLimit}`);
+        } else {
+          result = await db.execute(sql`SELECT id, data_type, data_label, data, batch_id, created_at FROM ai_sandbox_data ORDER BY created_at DESC LIMIT ${safeLimit}`);
+        }
+
+        return JSON.stringify({
+          records: result.rows,
+          count: result.rows.length,
+          data_type: qType || "all"
+        });
+      }
+
+      case "verify_sandbox_data": {
+        const vType = args.data_type as string;
+        const vBatch = args.batch_id as string;
+        const requiredFields = (args.required_fields as string[]) || [];
+        const checkAttendance = (args.check_attendance as boolean) || false;
+
+        const report: any = {
+          status: "✅ سليم",
+          checks: [],
+          issues: [],
+          warnings: []
+        };
+
+        if (checkAttendance) {
+          let attQuery = sql`SELECT * FROM ai_sandbox_attendance`;
+          if (vType) {
+            attQuery = sql`SELECT * FROM ai_sandbox_attendance WHERE department = ${vType}`;
+          }
+          const attData = await db.execute(attQuery);
+          const rows = attData.rows as any[];
+          report.table = "ai_sandbox_attendance";
+          report.total_records = rows.length;
+
+          report.checks.push(`✅ عدد السجلات: ${rows.length}`);
+
+          if (rows.length === 0) {
+            report.status = "⚠️ لا توجد بيانات";
+            report.issues.push("لا توجد سجلات حضور في sandbox");
+            return JSON.stringify(report);
+          }
+
+          const nullCheckins = rows.filter(r => r.status === 'حاضر' && !r.check_in_time).length;
+          if (nullCheckins > 0) {
+            report.issues.push(`❌ ${nullCheckins} سجل حاضر بدون وقت حضور`);
+          } else {
+            report.checks.push("✅ جميع سجلات الحضور لها وقت دخول");
+          }
+
+          const negativeHours = rows.filter(r => parseFloat(r.work_hours) < 0).length;
+          if (negativeHours > 0) {
+            report.issues.push(`❌ ${negativeHours} سجل بساعات عمل سالبة`);
+          } else {
+            report.checks.push("✅ لا توجد ساعات عمل سالبة");
+          }
+
+          const employees = new Set(rows.map(r => r.employee_id));
+          const dates = rows.map(r => r.date);
+          const duplicates = rows.length - new Set(rows.map(r => `${r.employee_id}_${r.date}`)).size;
+          if (duplicates > 0) {
+            report.warnings.push(`⚠️ ${duplicates} سجل مكرر (نفس الموظف ونفس التاريخ)`);
+          } else {
+            report.checks.push("✅ لا توجد سجلات مكررة");
+          }
+
+          report.summary = {
+            employees_count: employees.size,
+            date_range: { from: dates.sort()[0], to: dates.sort().reverse()[0] },
+            present: rows.filter(r => r.status === 'حاضر').length,
+            absent: rows.filter(r => r.status === 'غائب').length,
+            avg_work_hours: (rows.reduce((s, r) => s + parseFloat(r.work_hours || 0), 0) / rows.filter(r => r.status === 'حاضر').length).toFixed(2)
+          };
+
+          if (report.issues.length > 0) report.status = "❌ يوجد مشاكل";
+          else if (report.warnings.length > 0) report.status = "⚠️ يوجد تنبيهات";
+          return JSON.stringify(report);
+        }
+
+        let dataQuery = sql`SELECT * FROM ai_sandbox_data`;
+        if (vType && vBatch) {
+          dataQuery = sql`SELECT * FROM ai_sandbox_data WHERE data_type = ${vType} AND batch_id = ${vBatch}`;
+        } else if (vType) {
+          dataQuery = sql`SELECT * FROM ai_sandbox_data WHERE data_type = ${vType}`;
+        } else if (vBatch) {
+          dataQuery = sql`SELECT * FROM ai_sandbox_data WHERE batch_id = ${vBatch}`;
+        }
+
+        const dataResult = await db.execute(dataQuery);
+        const dataRows = dataResult.rows as any[];
+        report.table = "ai_sandbox_data";
+        report.total_records = dataRows.length;
+        report.data_type = vType || "all";
+
+        if (dataRows.length === 0) {
+          report.status = "⚠️ لا توجد بيانات";
+          report.issues.push("لا توجد سجلات في sandbox");
+          return JSON.stringify(report);
+        }
+
+        report.checks.push(`✅ عدد السجلات: ${dataRows.length}`);
+
+        if (requiredFields.length > 0) {
+          let missingCount = 0;
+          const missingDetails: string[] = [];
+          for (const row of dataRows) {
+            const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+            for (const field of requiredFields) {
+              if (data[field] === undefined || data[field] === null || data[field] === '') {
+                missingCount++;
+                if (missingDetails.length < 5) {
+                  missingDetails.push(`سجل #${row.id}: حقل "${field}" مفقود`);
+                }
+              }
+            }
+          }
+          if (missingCount > 0) {
+            report.issues.push(`❌ ${missingCount} قيمة مفقودة في الحقول المطلوبة`);
+            report.missing_details = missingDetails;
+          } else {
+            report.checks.push(`✅ جميع الحقول المطلوبة (${requiredFields.join(", ")}) موجودة`);
+          }
+        }
+
+        const emptyData = dataRows.filter(r => {
+          const d = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+          return Object.keys(d).length === 0;
+        }).length;
+        if (emptyData > 0) {
+          report.issues.push(`❌ ${emptyData} سجل بدون بيانات`);
+        } else {
+          report.checks.push("✅ جميع السجلات تحتوي على بيانات");
+        }
+
+        const allFields = new Set<string>();
+        for (const row of dataRows) {
+          const d = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+          Object.keys(d).forEach(k => allFields.add(k));
+        }
+        report.fields_found = Array.from(allFields);
+
+        const batches = new Set(dataRows.map(r => r.batch_id));
+        report.batches = Array.from(batches);
+
+        if (report.issues.length > 0) report.status = "❌ يوجد مشاكل";
+        else if (report.warnings.length > 0) report.status = "⚠️ يوجد تنبيهات";
+
+        return JSON.stringify(report);
+      }
+
+      case "delete_sandbox_data": {
+        const dType = args.data_type as string;
+        const dBatch = args.batch_id as string;
+        const deleteAll = (args.delete_all as boolean) || false;
+
+        let deletedGeneric = 0;
+        let deletedAttendance = 0;
+
+        if (deleteAll) {
+          const r1 = await db.execute(sql`DELETE FROM ai_sandbox_data`);
+          const r2 = await db.execute(sql`DELETE FROM ai_sandbox_attendance`);
+          deletedGeneric = (r1 as any).rowCount || 0;
+          deletedAttendance = (r2 as any).rowCount || 0;
+        } else if (dBatch) {
+          const r1 = await db.execute(sql`DELETE FROM ai_sandbox_data WHERE batch_id = ${dBatch}`);
+          deletedGeneric = (r1 as any).rowCount || 0;
+        } else if (dType) {
+          const r1 = await db.execute(sql`DELETE FROM ai_sandbox_data WHERE data_type = ${dType}`);
+          deletedGeneric = (r1 as any).rowCount || 0;
+          if (dType === 'attendance') {
+            const r2 = await db.execute(sql`DELETE FROM ai_sandbox_attendance`);
+            deletedAttendance = (r2 as any).rowCount || 0;
+          }
+        } else {
+          return JSON.stringify({ error: "يجب تحديد data_type أو batch_id أو delete_all" });
+        }
+
+        return JSON.stringify({
+          success: true,
+          message: `تم حذف البيانات من sandbox`,
+          deleted_generic: deletedGeneric,
+          deleted_attendance: deletedAttendance
         });
       }
 
