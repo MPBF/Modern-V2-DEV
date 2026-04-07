@@ -770,13 +770,14 @@ function DatabaseSection() {
         body: JSON.stringify({ backupData: data }),
       });
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/database/stats"] });
-      toast({ title: "تم استعادة النسخة الاحتياطية بنجاح" });
+      const result = data as any;
+      toast({ title: result?.message || "تم استعادة النسخة الاحتياطية بنجاح" });
       setSelectedBackupFile(null);
       setPendingBackupData(null);
     },
-    onError: () => toast({ title: "فشل استعادة النسخة", variant: "destructive" }),
+    onError: (error: any) => toast({ title: error?.message || "فشل استعادة النسخة", variant: "destructive" }),
   });
 
   const confirmRestore = () => {
@@ -989,8 +990,9 @@ function DatabaseSection() {
               {pendingBackupData?.metadata && (
                 <div className="mt-2 p-2 bg-muted rounded text-sm">
                   <p>الملف: {selectedBackupFile?.name}</p>
-                  <p>عدد الجداول: {pendingBackupData.metadata.totalTables}</p>
-                  <p>التاريخ: {new Date(pendingBackupData.metadata.timestamp).toLocaleString("ar-SA")}</p>
+                  <p>عدد الجداول: {pendingBackupData.metadata.table_count || pendingBackupData.metadata.totalTables || Object.keys(pendingBackupData).filter(k => Array.isArray(pendingBackupData[k])).length}</p>
+                  <p>عدد السجلات: {Object.values(pendingBackupData).reduce((sum: number, val: any) => sum + (Array.isArray(val) ? val.length : 0), 0)}</p>
+                  <p>التاريخ: {new Date(pendingBackupData.metadata.created_at || pendingBackupData.metadata.timestamp).toLocaleString("ar-SA")}</p>
                 </div>
               )}
             </AlertDialogDescription>

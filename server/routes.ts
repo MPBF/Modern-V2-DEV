@@ -6858,11 +6858,14 @@ Do not include quotes or explanations.`;
   app.post("/api/database/restore", requireAdmin, async (req, res) => {
     try {
       const { backupData } = req.body;
+      if (!backupData || typeof backupData !== 'object') {
+        return res.status(400).json({ message: "بيانات النسخة الاحتياطية مطلوبة" });
+      }
       const result = await storage.restoreDatabaseBackup(backupData);
-      res.json({ message: "تم استعادة قاعدة البيانات بنجاح", result });
-    } catch (error) {
+      res.json({ message: result.message || "تم استعادة قاعدة البيانات بنجاح", ...result });
+    } catch (error: any) {
       console.error("Error restoring database:", error);
-      res.status(500).json({ message: "خطأ في استعادة قاعدة البيانات" });
+      res.status(500).json({ message: error.message || "خطأ في استعادة قاعدة البيانات" });
     }
   });
 

@@ -4631,76 +4631,40 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
-    const safeQuery = async (table: any): Promise<any[]> => {
-      try {
-        return await db.select().from(table);
-      } catch {
-        try {
-          const tbl = table as any;
-          const tableName = tbl[Symbol.for('drizzle:Name')] || tbl?._.name;
-          if (tableName) {
-            const result = await db.execute(sql.raw(`SELECT * FROM "${tableName}"`));
-            return result.rows as any[];
-          }
-          return [];
-        } catch {
-          return [];
-        }
-      }
-    };
-
-    let safeUsers: any[] = [];
-    try {
-      const allUsers = await db.select().from(users);
-      safeUsers = allUsers.map(({ password, ...rest }) => rest);
-    } catch {
-      try {
-        const result = await db.execute(sql`SELECT * FROM users`);
-        safeUsers = (result.rows as any[]).map(({ password, ...rest }) => rest);
-      } catch { safeUsers = []; }
-    }
-
-    const tableQueries: Record<string, any> = {
-      roles, sections, customers, customer_products, orders,
-      production_orders, rolls, cuts, machines, items,
-      categories, locations, inventory, inventory_movements,
-      warehouse_receipts, warehouse_transactions,
-      maintenance_requests, maintenance_actions, maintenance_reports,
-      operator_negligence_reports, spare_parts, consumable_parts,
-      consumable_parts_transactions, quality_checks, attendance, waste,
-      notifications, notification_templates,
-      training_records, training_programs, training_materials,
-      training_enrollments, training_evaluations, training_certificates,
-      performance_reviews, performance_criteria, performance_ratings,
-      leave_types, leave_requests, leave_balances,
-      system_settings, user_settings, factory_locations,
-      admin_decisions, quick_notes, note_attachments,
-      quality_issues, quality_issue_responsibles, quality_issue_actions,
-      mixing_batches, batch_ingredients, master_batch_colors,
-      machine_queues, system_alerts, alert_rules, system_health_checks,
-      user_requests, suppliers,
-      raw_material_vouchers_in, raw_material_vouchers_out,
-      finished_goods_vouchers_in, finished_goods_vouchers_out,
-      notification_event_settings, notification_event_logs,
-      display_slides,
-    };
-
-    const tableNames = Object.keys(tableQueries);
-    const results = await Promise.all(
-      tableNames.map(name => safeQuery(tableQueries[name]))
-    );
+    const tablesResult = await db.execute(sql`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' 
+      ORDER BY tablename
+    `);
+    const allTableNames = (tablesResult.rows as any[]).map(r => r.tablename);
+    const skipTables = ['session', 'sessions', '__drizzle_migrations'];
 
     const backupData: Record<string, any> = {
       metadata: {
-        version: "1.0",
+        version: "2.0",
         created_at: now.toISOString(),
         system: "MPBF Manufacturing System",
+        table_count: 0,
       },
-      users: safeUsers,
     };
-    tableNames.forEach((name, i) => {
-      backupData[name] = results[i];
-    });
+
+    for (const tableName of allTableNames) {
+      if (skipTables.includes(tableName)) continue;
+      try {
+        const result = await db.execute(sql.raw(`SELECT * FROM "${tableName}"`));
+        const rows = result.rows as any[];
+        if (tableName === 'users') {
+          backupData[tableName] = rows.map(({ password, ...rest }) => rest);
+        } else {
+          backupData[tableName] = rows;
+        }
+      } catch (err) {
+        console.error(`خطأ في نسخ جدول ${tableName}:`, err);
+        backupData[tableName] = [];
+      }
+    }
+
+    backupData.metadata.table_count = allTableNames.filter(t => !skipTables.includes(t)).length;
 
     const tableStats: Record<string, number> = {};
     for (const [key, value] of Object.entries(backupData)) {
@@ -4716,8 +4680,185 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async restoreDatabaseBackup(backupId: string): Promise<any> {
-    return { restored: true };
+  async restoreDatabaseBackup(backupDataInput: any): Promise<any> {
+    let backupData: Record<string, any>;
+    try {
+      backupData = typeof backupDataInput === 'string' ? JSON.parse(backupDataInput) : backupDataInput;
+    } catch {
+      throw new Error("بيانات النسخة الاحتياطية غير صالحة - تنسيق JSON غير صحيح");
+    }
+
+    if (!backupData.metadata) {
+      throw new Error("بيانات النسخة الاحتياطية غير صالحة - لا توجد بيانات وصفية");
+    }
+
+    const skipTables = ['session', 'sessions', '__drizzle_migrations', 'metadata'];
+
+    const tablesResult = await db.execute(sql`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' 
+      ORDER BY tablename
+    `);
+    const existingTables = new Set((tablesResult.rows as any[]).map(r => r.tablename));
+
+    const tablesToRestore = Object.keys(backupData).filter(
+      key => !skipTables.includes(key) && Array.isArray(backupData[key]) && existingTables.has(key)
+    );
+
+    const results: { table: string; records: number; status: string }[] = [];
+    let totalRestored = 0;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET session_replication_role = replica');
+
+      for (const tableName of tablesToRestore) {
+        try {
+          await client.query(`DELETE FROM "${tableName}"`);
+        } catch (err: any) {
+          console.warn(`تحذير: تعذر حذف بيانات ${tableName}:`, err.message);
+        }
+      }
+
+      const orderedTables = this.getInsertionOrder(tablesToRestore);
+
+      for (const tableName of orderedTables) {
+        const rows = backupData[tableName];
+        if (!rows || rows.length === 0) {
+          results.push({ table: tableName, records: 0, status: "فارغ" });
+          continue;
+        }
+
+        try {
+          let insertedCount = 0;
+          for (const row of rows) {
+            const columns = Object.keys(row);
+            if (columns.length === 0) continue;
+
+            const quotedCols = columns.map(c => `"${c}"`).join(', ');
+            const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+            const values = columns.map(c => {
+              const val = row[c];
+              if (val === null || val === undefined) return null;
+              if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
+                return JSON.stringify(val);
+              }
+              if (Array.isArray(val)) {
+                return JSON.stringify(val);
+              }
+              return val;
+            });
+
+            try {
+              await client.query(
+                `INSERT INTO "${tableName}" (${quotedCols}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`,
+                values
+              );
+              insertedCount++;
+            } catch (rowErr: any) {
+              console.warn(`تحذير: تعذر إدراج سجل في ${tableName}:`, rowErr.message);
+            }
+          }
+
+          totalRestored += insertedCount;
+          results.push({ table: tableName, records: insertedCount, status: "تم" });
+        } catch (tableErr: any) {
+          console.error(`خطأ في استعادة جدول ${tableName}:`, tableErr.message);
+          results.push({ table: tableName, records: 0, status: `خطأ: ${tableErr.message}` });
+        }
+      }
+
+      for (const tableName of orderedTables) {
+        try {
+          const seqResult = await client.query(`
+            SELECT column_name, column_default 
+            FROM information_schema.columns 
+            WHERE table_name = $1 
+            AND table_schema = 'public'
+            AND column_default LIKE 'nextval%'
+          `, [tableName]);
+
+          for (const seq of seqResult.rows) {
+            const seqMatch = seq.column_default.match(/nextval\('([^']+)'/);
+            if (seqMatch) {
+              await client.query(`
+                SELECT setval('${seqMatch[1]}', COALESCE((SELECT MAX("${seq.column_name}") FROM "${tableName}"), 0) + 1, false)
+              `);
+            }
+          }
+        } catch {
+        }
+      }
+
+      await client.query('SET session_replication_role = DEFAULT');
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      client.release();
+      throw err;
+    }
+    client.release();
+
+    return {
+      restored: true,
+      totalRecords: totalRestored,
+      tables: results,
+      message: `تم استعادة ${totalRestored} سجل في ${results.filter(r => r.records > 0).length} جدول بنجاح`,
+    };
+  }
+
+  private getInsertionOrder(tables: string[]): string[] {
+    const priorityOrder = [
+      'roles', 'sections', 'company_profile',
+      'users',
+      'categories', 'items', 'locations', 'suppliers',
+      'customers', 'customer_products',
+      'machines', 'factory_locations',
+      'orders', 'production_orders',
+      'rolls', 'cuts',
+      'mixing_batches', 'batch_ingredients',
+      'master_batch_colors',
+      'inventory', 'inventory_movements',
+      'warehouse_receipts', 'warehouse_transactions',
+      'raw_material_vouchers_in', 'raw_material_vouchers_out',
+      'finished_goods_vouchers_in', 'finished_goods_vouchers_out',
+      'inventory_counts', 'inventory_count_items',
+      'maintenance_requests', 'maintenance_actions', 'maintenance_reports',
+      'operator_negligence_reports', 'spare_parts',
+      'consumable_parts', 'consumable_parts_transactions',
+      'quality_checks', 'quality_issues', 'quality_issue_responsibles', 'quality_issue_actions',
+      'attendance', 'waste', 'violations',
+      'training_programs', 'training_materials', 'training_records',
+      'training_enrollments', 'training_evaluations', 'training_certificates',
+      'performance_reviews', 'performance_criteria', 'performance_ratings',
+      'leave_types', 'leave_requests', 'leave_balances',
+      'notifications', 'notification_templates',
+      'notification_event_settings', 'notification_event_logs',
+      'admin_decisions', 'user_requests',
+      'quick_notes', 'note_attachments',
+      'system_settings', 'user_settings',
+      'machine_queues', 'production_settings',
+      'system_alerts', 'alert_rules', 'system_health_checks',
+      'system_performance_metrics', 'corrective_actions', 'system_analytics',
+      'quotes', 'quote_items', 'quote_templates',
+      'ai_agent_settings', 'ai_agent_knowledge', 'ai_agent_feature_instructions',
+      'display_slides', 'factory_snapshots', 'factory_layouts',
+      'face_registrations', 'mobile_device_tokens', 'mobile_sessions', 'mobile_sync_queue',
+    ];
+
+    const ordered: string[] = [];
+    for (const t of priorityOrder) {
+      if (tables.includes(t)) {
+        ordered.push(t);
+      }
+    }
+    for (const t of tables) {
+      if (!ordered.includes(t)) {
+        ordered.push(t);
+      }
+    }
+    return ordered;
   }
 
   async checkDatabaseIntegrity(): Promise<any> {
