@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Plus, Trash2, RefreshCw, ChevronDown, Archive } from "lucide-react";
+import { Plus, Trash2, RefreshCw, ChevronDown, Archive, ArchiveRestore } from "lucide-react";
 import OrdersSearch from "./OrdersSearch";
 import OrdersTable from "./OrdersTable";
 import OrdersForm from "./OrdersForm";
@@ -47,6 +47,7 @@ interface OrdersTabsProps {
   onBulkDelete?: (orderIds: number[]) => Promise<void>;
   onBulkStatusChange?: (orderIds: number[], status: string) => Promise<void>;
   onBulkArchive?: (orderIds: number[]) => Promise<void>;
+  onBulkUnarchive?: (orderIds: number[]) => Promise<void>;
   onArchiveOrder?: (order: any) => void;
   onUnarchiveOrder?: (order: any) => void;
   currentUser?: any;
@@ -84,6 +85,7 @@ export default function OrdersTabs({
   onBulkDelete,
   onBulkStatusChange,
   onBulkArchive,
+  onBulkUnarchive,
   onArchiveOrder,
   onUnarchiveOrder,
   currentUser,
@@ -159,6 +161,30 @@ export default function OrdersTabs({
       console.error("خطأ في الأرشفة الجماعية:", error);
     }
   };
+
+  const handleBulkUnarchive = async () => {
+    if (!onBulkUnarchive || selectedOrders.length === 0) return;
+
+    const confirmMessage = t('orders.confirmBulkUnarchive', { count: selectedOrders.length });
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await onBulkUnarchive(selectedOrders);
+      setSelectedOrders([]);
+    } catch (error) {
+      console.error("خطأ في إلغاء الأرشفة الجماعية:", error);
+    }
+  };
+
+  const hasArchivedSelected = selectedOrders.some((id) => {
+    const order = filteredOrders.find((o: any) => o.id === id);
+    return order?.status === "archived";
+  });
+
+  const allSelectedArchived = selectedOrders.length > 0 && selectedOrders.every((id) => {
+    const order = filteredOrders.find((o: any) => o.id === id);
+    return order?.status === "archived";
+  });
 
   return (
     <Tabs defaultValue="orders" className="space-y-4 w-full">
@@ -248,16 +274,29 @@ export default function OrdersTabs({
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleBulkArchive}
-                        className="text-gray-600 border-gray-400 hover:bg-gray-100"
-                        data-testid="button-bulk-archive"
-                      >
-                        <Archive className="h-4 w-4 mr-1" />
-                        {t('orders.archiveSelected')} ({selectedOrders.length})
-                      </Button>
+                      {allSelectedArchived ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkUnarchive}
+                          className="text-green-600 border-green-500 hover:bg-green-50"
+                          data-testid="button-bulk-unarchive"
+                        >
+                          <ArchiveRestore className="h-4 w-4 mr-1" />
+                          {t('orders.unarchiveSelected')} ({selectedOrders.length})
+                        </Button>
+                      ) : !hasArchivedSelected ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkArchive}
+                          className="text-gray-600 border-gray-400 hover:bg-gray-100"
+                          data-testid="button-bulk-archive"
+                        >
+                          <Archive className="h-4 w-4 mr-1" />
+                          {t('orders.archiveSelected')} ({selectedOrders.length})
+                        </Button>
+                      ) : null}
                       {isAdmin && (
                         <Button
                           variant="destructive"

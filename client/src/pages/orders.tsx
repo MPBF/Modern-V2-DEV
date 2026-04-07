@@ -794,6 +794,39 @@ export default function Orders() {
     }
   };
 
+  const handleBulkUnarchive = async (orderIds: number[]) => {
+    try {
+      const response = await fetch("/api/orders/unarchive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: orderIds }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        toast({
+          title: t('messages.error'),
+          description: result.message || t('messages.error'),
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: t('orders.unarchiveSuccess'),
+        description: result.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/production/hierarchical-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    } catch (error) {
+      toast({
+        title: t('messages.error'),
+        description: error instanceof Error ? error.message : t('messages.error'),
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleViewOrder = (order: any) => {
     setViewingOrder(order);
     setIsViewOrderDialogOpen(true);
@@ -887,6 +920,7 @@ export default function Orders() {
                   onBulkDelete={handleBulkDelete}
                   onBulkStatusChange={handleBulkStatusChange}
                   onBulkArchive={handleBulkArchive}
+                  onBulkUnarchive={handleBulkUnarchive}
                   onArchiveOrder={handleArchiveOrder}
                   onUnarchiveOrder={handleUnarchiveOrder}
                   currentUser={user}
