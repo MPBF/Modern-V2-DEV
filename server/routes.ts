@@ -6618,11 +6618,11 @@ Do not include quotes or explanations.`;
 
         // Define valid state transitions based on business logic
         const validTransitions: Record<string, string[]> = {
-          waiting: ["in_production", "cancelled", "archived"],
+          waiting: ["in_production", "paused", "cancelled", "archived"],
           in_production: ["paused", "completed", "cancelled", "archived"],
-          paused: ["in_production", "cancelled", "archived"],
-          completed: ["archived"],
-          cancelled: ["archived"],
+          paused: ["waiting", "in_production", "cancelled", "archived"],
+          completed: ["in_production", "archived"],
+          cancelled: ["waiting", "archived"],
           archived: ["waiting", "in_production", "paused", "completed", "cancelled"],
         };
 
