@@ -584,12 +584,6 @@ function sanitizeResponseForLogging(response: any): any {
   // Security check: Verify no plaintext passwords remain
   await performPasswordSecurityCheck();
 
-  // API-specific middleware to ensure JSON responses (MUST be before routes)
-  app.use("/api/*", (req: Request, res: Response, next: NextFunction) => {
-    // Set JSON content type for all API responses
-    res.setHeader("Content-Type", "application/json");
-    next();
-  });
 
   // 📊 Start memory monitoring
   MemoryMonitor.startMonitoring(30000); // Every 30 seconds

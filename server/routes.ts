@@ -605,7 +605,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Dashboard config - per-user widget configuration
   app.get("/api/dashboard/config", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.session?.userId;
+      const userId = getAuthUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const setting = await db
@@ -690,7 +690,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   app.put("/api/dashboard/config", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.session?.userId;
+      const userId = getAuthUserId(req);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const { widgets } = req.body;
@@ -1287,7 +1287,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         );
       }
 
-      const userId = req.session?.userId;
+      const userId = getAuthUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "غير مصرح به" });
       }
@@ -1432,7 +1432,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     requireAuth,
     async (req, res) => {
       try {
-        const userId = req.session?.userId;
+        const userId = getAuthUserId(req);
         if (!userId) {
           return res.status(401).json({ message: "غير مصرح به" });
         }
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Get user notifications with real-time support
   app.get("/api/notifications/user", requireAuth, async (req, res) => {
     try {
-      const userId = req.session?.userId;
+      const userId = getAuthUserId(req);
       if (!userId) {
         return res.status(401).json({ message: "غير مصرح به" });
       }
@@ -6344,14 +6344,15 @@ Do not include quotes or explanations.`;
         });
       }
 
-      if (!req.session?.userId) {
+      const assignUserId = getAuthUserId(req);
+      if (!assignUserId) {
         return res.status(401).json({ message: "يجب تسجيل الدخول" });
       }
       const queueEntry = await storage.assignToMachineQueue(
         productionOrderId, 
         machineId, 
         position,
-        getAuthUserId(req)
+        assignUserId
       );
       
       res.json({ 
@@ -6444,12 +6445,13 @@ Do not include quotes or explanations.`;
         });
       }
       
-      if (!req.session?.userId) {
+      const distributeUserId = getAuthUserId(req);
+      if (!distributeUserId) {
         return res.status(401).json({ message: "يجب تسجيل الدخول" });
       }
       const result = await storage.smartDistributeOrders(algorithm, {
         ...params,
-        userId: getAuthUserId(req)
+        userId: distributeUserId
       });
       
       res.json({
