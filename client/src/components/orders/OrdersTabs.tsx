@@ -140,8 +140,20 @@ export default function OrdersTabs({
   const handleBulkStatusChange = async (status: string) => {
     if (!onBulkStatusChange || selectedOrders.length === 0) return;
 
+    const eligibleOrders = selectedOrders.filter((id) => {
+      const order = safeOrders.find((o: any) => o.id === id);
+      return order && order.status !== status;
+    });
+
+    if (eligibleOrders.length === 0) {
+      return;
+    }
+
+    const confirmMessage = t('orders.confirmBulkStatusChange', { count: eligibleOrders.length });
+    if (!confirm(confirmMessage)) return;
+
     try {
-      await onBulkStatusChange(selectedOrders, status);
+      await onBulkStatusChange(eligibleOrders, status);
       setSelectedOrders([]);
     } catch (error) {
       console.error("خطأ في تغيير الحالة الجماعية:", error);

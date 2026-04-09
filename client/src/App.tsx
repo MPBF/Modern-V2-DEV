@@ -9,55 +9,81 @@ import { useTranslation } from "react-i18next";
 import InstallPrompt from "./components/pwa/InstallPrompt";
 import { MobileAutoRedirect } from "./hooks/use-mobile-redirect";
 
-const Dashboard = lazy(() => import("./pages/dashboard"));
-const Orders = lazy(() => import("./pages/orders"));
-const Production = lazy(() => import("./pages/production"));
-const ProductionOrdersManagement = lazy(() => import("./pages/ProductionOrdersManagement"));
-const ProductionQueues = lazy(() => import("./pages/ProductionQueues"));
-const Quality = lazy(() => import("./pages/quality"));
-const Warehouse = lazy(() => import("./pages/warehouse"));
-const Maintenance = lazy(() => import("./pages/maintenance"));
-const HR = lazy(() => import("./pages/hr"));
-const Reports = lazy(() => import("./pages/reports"));
-const Settings = lazy(() => import("./pages/settings"));
-const Definitions = lazy(() => import("./pages/definitions"));
-const UserDashboard = lazy(() => import("./pages/user-dashboard"));
-const NotFound = lazy(() => import("./pages/not-found"));
-const Notifications = lazy(() => import("./pages/notifications"));
-const AlertsCenter = lazy(() => import("./pages/AlertsCenter"));
-const SystemHealth = lazy(() => import("./pages/SystemHealth"));
-const ProductionMonitoring = lazy(() => import("./pages/production-monitoring"));
-const MetaWhatsAppSetup = lazy(() => import("./pages/meta-whatsapp-setup"));
-const WhatsAppSetup = lazy(() => import("./pages/whatsapp-setup"));
-const WhatsAppTest = lazy(() => import("./pages/whatsapp-test"));
-const WhatsAppTroubleshoot = lazy(() => import("./pages/whatsapp-troubleshoot"));
-const WhatsAppProductionSetup = lazy(() => import("./pages/whatsapp-production-setup"));
-const WhatsAppFinalSetup = lazy(() => import("./pages/whatsapp-final-setup"));
-const TwilioContentTemplate = lazy(() => import("./pages/twilio-content-template"));
-const WhatsAppTemplateTest = lazy(() => import("./pages/whatsapp-template-test"));
-const WhatsAppWebhooks = lazy(() => import("./pages/whatsapp-webhooks"));
-const ToolsPage = lazy(() => import("./pages/tools_page"));
-const FilmOperatorDashboard = lazy(() => import("./pages/FilmOperatorDashboard"));
-const PrintingOperatorDashboard = lazy(() => import("./pages/PrintingOperatorDashboard"));
-const CuttingOperatorDashboard = lazy(() => import("./pages/CuttingOperatorDashboard"));
-const ProductionDashboard = lazy(() => import("./pages/ProductionDashboard"));
-const RollSearch = lazy(() => import("./pages/RollSearch"));
-const ProductionReports = lazy(() => import("./pages/ProductionReports"));
-const SystemMonitoring = lazy(() => import("./pages/system-monitoring"));
-const AiAgent = lazy(() => import("./pages/ai-agent"));
-const AiAgentSettings = lazy(() => import("./pages/ai-agent-settings"));
-const FactorySimulation3D = lazy(() => import("./pages/FactorySimulation3D"));
-const CompanySetup = lazy(() => import("./pages/company-setup"));
-const DisplayScreen = lazy(() => import("./pages/DisplayScreen"));
-const DisplayControlPanel = lazy(() => import("./pages/DisplayControlPanel"));
-const FactoryFloor = lazy(() => import("./pages/FactoryFloor"));
-const MaterialMixing = lazy(() => import("./pages/material-mixing"));
-const WarehouseMobile = lazy(() => import("./pages/warehouse-mobile"));
-const ProductionMobile = lazy(() => import("./pages/production-mobile"));
-const UserDashboardMobile = lazy(() => import("./pages/user-dashboard-mobile"));
-const MyOrders = lazy(() => import("./pages/my-orders"));
-const OrdersMobile = lazy(() => import("./pages/orders-mobile"));
-const ProductionDashboardMobile = lazy(() => import("./pages/production-dashboard-mobile"));
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch((error: any) => {
+      const isChunkError =
+        error?.message?.includes("Failed to fetch dynamically imported module") ||
+        error?.message?.includes("Loading chunk") ||
+        error?.message?.includes("Loading CSS chunk") ||
+        error?.name === "ChunkLoadError";
+
+      if (isChunkError) {
+        const reloadKey = "chunk_reload_" + window.location.pathname;
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+
+        if (!lastReload || now - parseInt(lastReload) > 10000) {
+          sessionStorage.setItem(reloadKey, now.toString());
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      }
+
+      throw error;
+    })
+  );
+}
+
+const Dashboard = lazyWithRetry(() => import("./pages/dashboard"));
+const Orders = lazyWithRetry(() => import("./pages/orders"));
+const Production = lazyWithRetry(() => import("./pages/production"));
+const ProductionOrdersManagement = lazyWithRetry(() => import("./pages/ProductionOrdersManagement"));
+const ProductionQueues = lazyWithRetry(() => import("./pages/ProductionQueues"));
+const Quality = lazyWithRetry(() => import("./pages/quality"));
+const Warehouse = lazyWithRetry(() => import("./pages/warehouse"));
+const Maintenance = lazyWithRetry(() => import("./pages/maintenance"));
+const HR = lazyWithRetry(() => import("./pages/hr"));
+const Reports = lazyWithRetry(() => import("./pages/reports"));
+const Settings = lazyWithRetry(() => import("./pages/settings"));
+const Definitions = lazyWithRetry(() => import("./pages/definitions"));
+const UserDashboard = lazyWithRetry(() => import("./pages/user-dashboard"));
+const NotFound = lazyWithRetry(() => import("./pages/not-found"));
+const Notifications = lazyWithRetry(() => import("./pages/notifications"));
+const AlertsCenter = lazyWithRetry(() => import("./pages/AlertsCenter"));
+const SystemHealth = lazyWithRetry(() => import("./pages/SystemHealth"));
+const ProductionMonitoring = lazyWithRetry(() => import("./pages/production-monitoring"));
+const MetaWhatsAppSetup = lazyWithRetry(() => import("./pages/meta-whatsapp-setup"));
+const WhatsAppSetup = lazyWithRetry(() => import("./pages/whatsapp-setup"));
+const WhatsAppTest = lazyWithRetry(() => import("./pages/whatsapp-test"));
+const WhatsAppTroubleshoot = lazyWithRetry(() => import("./pages/whatsapp-troubleshoot"));
+const WhatsAppProductionSetup = lazyWithRetry(() => import("./pages/whatsapp-production-setup"));
+const WhatsAppFinalSetup = lazyWithRetry(() => import("./pages/whatsapp-final-setup"));
+const TwilioContentTemplate = lazyWithRetry(() => import("./pages/twilio-content-template"));
+const WhatsAppTemplateTest = lazyWithRetry(() => import("./pages/whatsapp-template-test"));
+const WhatsAppWebhooks = lazyWithRetry(() => import("./pages/whatsapp-webhooks"));
+const ToolsPage = lazyWithRetry(() => import("./pages/tools_page"));
+const FilmOperatorDashboard = lazyWithRetry(() => import("./pages/FilmOperatorDashboard"));
+const PrintingOperatorDashboard = lazyWithRetry(() => import("./pages/PrintingOperatorDashboard"));
+const CuttingOperatorDashboard = lazyWithRetry(() => import("./pages/CuttingOperatorDashboard"));
+const ProductionDashboard = lazyWithRetry(() => import("./pages/ProductionDashboard"));
+const RollSearch = lazyWithRetry(() => import("./pages/RollSearch"));
+const ProductionReports = lazyWithRetry(() => import("./pages/ProductionReports"));
+const SystemMonitoring = lazyWithRetry(() => import("./pages/system-monitoring"));
+const AiAgent = lazyWithRetry(() => import("./pages/ai-agent"));
+const AiAgentSettings = lazyWithRetry(() => import("./pages/ai-agent-settings"));
+const FactorySimulation3D = lazyWithRetry(() => import("./pages/FactorySimulation3D"));
+const CompanySetup = lazyWithRetry(() => import("./pages/company-setup"));
+const DisplayScreen = lazyWithRetry(() => import("./pages/DisplayScreen"));
+const DisplayControlPanel = lazyWithRetry(() => import("./pages/DisplayControlPanel"));
+const FactoryFloor = lazyWithRetry(() => import("./pages/FactoryFloor"));
+const MaterialMixing = lazyWithRetry(() => import("./pages/material-mixing"));
+const WarehouseMobile = lazyWithRetry(() => import("./pages/warehouse-mobile"));
+const ProductionMobile = lazyWithRetry(() => import("./pages/production-mobile"));
+const UserDashboardMobile = lazyWithRetry(() => import("./pages/user-dashboard-mobile"));
+const MyOrders = lazyWithRetry(() => import("./pages/my-orders"));
+const OrdersMobile = lazyWithRetry(() => import("./pages/orders-mobile"));
+const ProductionDashboardMobile = lazyWithRetry(() => import("./pages/production-dashboard-mobile"));
 
 function PageLoadingFallback() {
   return (

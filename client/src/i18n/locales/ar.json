@@ -263,6 +263,7 @@
     "quantityKg": "الكمية (كجم)",
     "finalQuantityKg": "الكمية النهائية (كجم)",
     "confirmBulkDelete": "هل تريد حذف الطلبات المحددة؟",
+    "confirmBulkStatusChange": "هل تريد تغيير حالة {{count}} طلب؟",
     "selectedCount": "عدد المحدد",
     "rolls": {
       "stages": {

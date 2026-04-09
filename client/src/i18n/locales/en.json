@@ -255,6 +255,7 @@
     "quantityKg": "Quantity Kg",
     "finalQuantityKg": "Final Quantity Kg",
     "confirmBulkDelete": "Confirm Bulk Delete",
+    "confirmBulkStatusChange": "Are you sure you want to change the status of {{count}} orders?",
     "selectedCount": "Selected Count",
     "rolls": {
       "stages": {

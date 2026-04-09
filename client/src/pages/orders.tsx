@@ -14,8 +14,27 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ClipboardCheck, Package } from "lucide-react";
 
-// استيراد كسول للصفحات
-const ProductionOrdersManagement = lazy(() => import("./ProductionOrdersManagement"));
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch((error: any) => {
+      if (error?.message?.includes("Failed to fetch dynamically imported module") ||
+          error?.message?.includes("Loading chunk") ||
+          error?.name === "ChunkLoadError") {
+        const reloadKey = "chunk_reload_" + window.location.pathname;
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload) > 10000) {
+          sessionStorage.setItem(reloadKey, now.toString());
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      }
+      throw error;
+    })
+  );
+}
+
+const ProductionOrdersManagement = lazyWithRetry(() => import("./ProductionOrdersManagement"));
 
 export default function Orders() {
   const { t } = useTranslation();

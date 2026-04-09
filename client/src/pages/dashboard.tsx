@@ -12,15 +12,35 @@ import { Card, CardContent } from "../components/ui/card";
 import { Settings2 } from "lucide-react";
 import { apiRequest, queryClient } from "../lib/queryClient";
 
-const MachineStatus = lazy(() => import("../components/dashboard/MachineStatus"));
-const RecentRolls = lazy(() => import("../components/dashboard/RecentRolls"));
-const AttendanceStats = lazy(() => import("../components/dashboard/AttendanceStats"));
-const InventoryWidget = lazy(() => import("../components/dashboard/widgets/InventoryWidget"));
-const QuotesWidget = lazy(() => import("../components/dashboard/widgets/QuotesWidget"));
-const AttendanceWidget = lazy(() => import("../components/dashboard/widgets/AttendanceWidget"));
-const RecentOrdersWidget = lazy(() => import("../components/dashboard/widgets/RecentOrdersWidget"));
-const ProductionProgressWidget = lazy(() => import("../components/dashboard/widgets/ProductionProgressWidget"));
-const MaintenanceWidget = lazy(() => import("../components/dashboard/widgets/MaintenanceWidget"));
+function lazyWithRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch((error: any) => {
+      if (error?.message?.includes("Failed to fetch dynamically imported module") ||
+          error?.message?.includes("Loading chunk") ||
+          error?.name === "ChunkLoadError") {
+        const reloadKey = "chunk_reload_" + window.location.pathname;
+        const lastReload = sessionStorage.getItem(reloadKey);
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload) > 10000) {
+          sessionStorage.setItem(reloadKey, now.toString());
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      }
+      throw error;
+    })
+  );
+}
+
+const MachineStatus = lazyWithRetry(() => import("../components/dashboard/MachineStatus"));
+const RecentRolls = lazyWithRetry(() => import("../components/dashboard/RecentRolls"));
+const AttendanceStats = lazyWithRetry(() => import("../components/dashboard/AttendanceStats"));
+const InventoryWidget = lazyWithRetry(() => import("../components/dashboard/widgets/InventoryWidget"));
+const QuotesWidget = lazyWithRetry(() => import("../components/dashboard/widgets/QuotesWidget"));
+const AttendanceWidget = lazyWithRetry(() => import("../components/dashboard/widgets/AttendanceWidget"));
+const RecentOrdersWidget = lazyWithRetry(() => import("../components/dashboard/widgets/RecentOrdersWidget"));
+const ProductionProgressWidget = lazyWithRetry(() => import("../components/dashboard/widgets/ProductionProgressWidget"));
+const MaintenanceWidget = lazyWithRetry(() => import("../components/dashboard/widgets/MaintenanceWidget"));
 
 function WidgetSkeleton() {
   return (

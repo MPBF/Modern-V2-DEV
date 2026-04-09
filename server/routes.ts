@@ -6619,6 +6619,16 @@ Do not include quotes or explanations.`;
         const currentStatus = currentOrder.status;
         const newStatus = status;
 
+        if (currentStatus === newStatus) {
+          return res.json({
+            data: currentOrder,
+            message: "الطلب بالفعل في هذه الحالة",
+            success: true,
+            previousStatus: currentStatus,
+            currentStatus: newStatus,
+          });
+        }
+
         // Define valid state transitions based on business logic
         const validTransitions: Record<string, string[]> = {
           waiting: ["on_hold", "in_production", "paused", "cancelled", "archived"],

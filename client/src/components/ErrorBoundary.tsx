@@ -39,6 +39,25 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    const isChunkError =
+      error?.message?.includes("Failed to fetch dynamically imported module") ||
+      error?.message?.includes("Loading chunk") ||
+      error?.message?.includes("Loading CSS chunk") ||
+      error?.name === "ChunkLoadError";
+
+    if (isChunkError && typeof window !== "undefined") {
+      const reloadKey = "chunk_error_reload";
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+
+      if (!lastReload || now - parseInt(lastReload) > 10000) {
+        sessionStorage.setItem(reloadKey, now.toString());
+        window.location.reload();
+        return;
+      }
+    }
+
     this.setState({
       error,
       errorInfo,
