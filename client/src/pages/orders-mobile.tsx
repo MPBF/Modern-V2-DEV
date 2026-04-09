@@ -111,6 +111,7 @@ function OrdersListView({ onViewOrder }: { onViewOrder: (order: any) => void }) 
   const statusFilters = [
     { val: "all", label: t('mobilePages.orders.all'), count: nonArchivedCount },
     { val: "waiting", label: t('mobilePages.orders.waiting'), count: statusCounts["waiting"] || 0 },
+    { val: "on_hold", label: t('mobilePages.orders.onHold'), count: statusCounts["on_hold"] || 0 },
     { val: "in_production", label: t('mobilePages.orders.inProduction'), count: statusCounts["in_production"] || 0 },
     { val: "completed", label: t('mobilePages.orders.completed'), count: statusCounts["completed"] || 0 },
     { val: "delivered", label: t('mobilePages.orders.delivered'), count: statusCounts["delivered"] || 0 },
@@ -119,6 +120,7 @@ function OrdersListView({ onViewOrder }: { onViewOrder: (order: any) => void }) 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       waiting: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      on_hold: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
       in_production: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
       completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
       delivered: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",

@@ -44,6 +44,7 @@ export default function ViewOrderDialog({
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
       waiting: t('orders.statuses.waiting'),
+      on_hold: t('orders.statuses.on_hold'),
       in_production: t('orders.statuses.in_production'),
       paused: t('orders.statuses.paused'),
       completed: t('orders.statuses.completed'),
@@ -55,6 +56,7 @@ export default function ViewOrderDialog({
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       waiting: "bg-yellow-100 text-yellow-800",
+      on_hold: "bg-purple-100 text-purple-800",
       in_production: "bg-blue-100 text-blue-800",
       paused: "bg-orange-100 text-orange-800",
       completed: "bg-green-100 text-green-800",

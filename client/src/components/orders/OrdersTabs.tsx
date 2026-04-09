@@ -249,6 +249,14 @@ export default function OrdersTabs({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem
+                            onClick={() => handleBulkStatusChange("on_hold")}
+                          >
+                            <div className="flex items-center w-full">
+                              <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                              {t('orders.statuses.on_hold')}
+                            </div>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => handleBulkStatusChange("in_production")}
                           >
                             <div className="flex items-center w-full">

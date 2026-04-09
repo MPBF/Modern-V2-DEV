@@ -113,6 +113,11 @@ export default function OrdersTable({
         variant: "secondary",
         color: "bg-yellow-100 text-yellow-800",
       },
+      on_hold: {
+        label: t('orders.statuses.on_hold'),
+        variant: "secondary",
+        color: "bg-purple-100 text-purple-800",
+      },
       in_production: {
         label: t('orders.statuses.in_production'),
         variant: "default",
@@ -411,6 +416,13 @@ export default function OrdersTable({
                       <DropdownMenuLabel className="text-xs text-muted-foreground">
                         {t('orders.changeStatus')}
                       </DropdownMenuLabel>
+                      <DropdownMenuItem
+                        onClick={() => onStatusChange(order, "on_hold")}
+                        className="cursor-pointer"
+                      >
+                        <div className="w-2.5 h-2.5 bg-purple-500 rounded-full ml-2"></div>
+                        <span>{t('orders.statuses.on_hold')}</span>
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => onStatusChange(order, "in_production")}
                         className="cursor-pointer"

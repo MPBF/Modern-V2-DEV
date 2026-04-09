@@ -6594,6 +6594,7 @@ Do not include quotes or explanations.`;
 
         const validStatuses = [
           "waiting",
+          "on_hold",
           "in_production",
           "paused",
           "completed",
@@ -6620,12 +6621,13 @@ Do not include quotes or explanations.`;
 
         // Define valid state transitions based on business logic
         const validTransitions: Record<string, string[]> = {
-          waiting: ["in_production", "paused", "cancelled", "archived"],
-          in_production: ["paused", "completed", "cancelled", "archived"],
-          paused: ["waiting", "in_production", "cancelled", "archived"],
+          waiting: ["on_hold", "in_production", "paused", "cancelled", "archived"],
+          on_hold: ["waiting", "in_production", "paused", "cancelled", "archived"],
+          in_production: ["on_hold", "paused", "completed", "cancelled", "archived"],
+          paused: ["waiting", "on_hold", "in_production", "cancelled", "archived"],
           completed: ["in_production", "archived"],
           cancelled: ["waiting", "archived"],
-          archived: ["waiting", "in_production", "paused", "completed", "cancelled"],
+          archived: ["waiting", "on_hold", "in_production", "paused", "completed", "cancelled"],
         };
 
         // Check if transition is allowed

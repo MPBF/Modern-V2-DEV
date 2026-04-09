@@ -55,6 +55,7 @@ export default function OrdersSearch({
             <>
               <SelectItem value="all">{t('common.all')}</SelectItem>
               <SelectItem value="waiting">{t('orders.statuses.waiting')}</SelectItem>
+              <SelectItem value="on_hold">{t('orders.statuses.on_hold')}</SelectItem>
               <SelectItem value="in_production">{t('orders.statuses.in_production')}</SelectItem>
               <SelectItem value="paused">{t('orders.statuses.paused')}</SelectItem>
               <SelectItem value="completed">{t('orders.statuses.completed')}</SelectItem>
