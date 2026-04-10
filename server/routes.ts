@@ -269,6 +269,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Register AI Agent routes
   registerAiAgentRoutes(app);
 
+  // Register MCP server routes
+  const { registerMcpRoutes } = await import("./mcp-routes");
+  registerMcpRoutes(app);
+
   // Register Object Storage routes (serves /objects/* for uploaded files)
   const { registerObjectStorageRoutes } = await import("./replit_integrations/object_storage");
   registerObjectStorageRoutes(app);

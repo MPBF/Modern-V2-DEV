@@ -443,6 +443,29 @@ The AI agent is a comprehensive executive digital assistant with full system cap
   - `generate_document` — Professional PDF/Excel/CSV/Word document generation with auto-injected company header (reports, forms, invoices, contracts, payroll sheets, attendance reports, etc.) with download links
 - `GET /api/ai-agent/download/:filename` — Download generated documents (authenticated)
 
+### MCP Server (ChatGPT Integration)
+- `POST /mcp` — MCP Streamable HTTP transport endpoint (requires Bearer API Key)
+- `GET /mcp` — MCP SSE stream for session reconnection
+- `DELETE /mcp` — Close MCP session
+- `GET /api/mcp/api-keys` — List API keys (admin only)
+- `POST /api/mcp/api-keys` — Create new API key (admin only, returns key once)
+- `DELETE /api/mcp/api-keys/:id` — Delete API key (admin only)
+- `PATCH /api/mcp/api-keys/:id/toggle` — Enable/disable API key (admin only)
+- **MCP Tools** (read-only, available to ChatGPT):
+  - `get_dashboard_stats` — Factory statistics overview
+  - `get_orders` — Search/list customer orders with filters
+  - `get_production_status` — Production order status and completion
+  - `get_inventory` — Inventory levels with low-stock detection
+  - `get_machines_status` — Machine status (active/maintenance/down)
+  - `get_maintenance_requests` — Maintenance request tracking
+  - `get_attendance_summary` — Employee attendance data
+  - `get_customers` — Customer search and listing
+  - `get_quality_issues` — Quality issue tracking
+  - `search_rolls` — Roll search by number/stage/order
+- **Settings Page**: `/mcp-settings` — Admin page for API key management and ChatGPT connection instructions
+- **Auth**: Bearer Token (API Key hashed with SHA-256, stored in `mcp_api_keys` table)
+- **Schema**: `mcp_api_keys` table (id, name, key_hash, key_prefix, created_by, is_active, last_used_at, created_at)
+
 ## Authentication & Authorization
 
 ### Auth Flow

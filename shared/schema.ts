@@ -3725,3 +3725,18 @@ export const mobile_sync_queue = pgTable("mobile_sync_queue", {
   error_message: text("error_message"),
   resolved_at: timestamp("resolved_at"),
 });
+
+export const mcp_api_keys = pgTable("mcp_api_keys", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  key_hash: varchar("key_hash", { length: 128 }).notNull(),
+  key_prefix: varchar("key_prefix", { length: 12 }).notNull(),
+  created_by: integer("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  is_active: boolean("is_active").default(true),
+  last_used_at: timestamp("last_used_at"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export type McpApiKey = typeof mcp_api_keys.$inferSelect;
+export type InsertMcpApiKey = typeof mcp_api_keys.$inferInsert;
+export const insertMcpApiKeySchema = createInsertSchema(mcp_api_keys).omit({ id: true, created_at: true, last_used_at: true });

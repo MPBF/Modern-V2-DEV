@@ -1,4 +1,4 @@
-import { LucideIcon, Home, LayoutDashboard, FileText, Activity, Monitor, ClipboardCheck, Wrench, Users, Warehouse, Database, BarChart3, Settings, Gauge, Bot, Box, Tv, ShoppingBag } from "lucide-react";
+import { LucideIcon, Home, LayoutDashboard, FileText, Activity, Monitor, ClipboardCheck, Wrench, Users, Warehouse, Database, BarChart3, Settings, Gauge, Bot, Box, Tv, ShoppingBag, Plug } from "lucide-react";
 
 export interface NavigationItem {
   name: string;
@@ -162,6 +162,15 @@ export const navigationItems: NavigationItem[] = [
     icon: Gauge,
     path: "/system-monitoring",
     priority: 14,
+    group: 'admin',
+  },
+  {
+    name: "إعدادات MCP",
+    name_ar: "إعدادات MCP",
+    name_en: "MCP Settings",
+    icon: Plug,
+    path: "/mcp-settings",
+    priority: 15,
     group: 'admin',
   },
   {

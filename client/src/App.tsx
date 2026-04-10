@@ -84,6 +84,7 @@ const UserDashboardMobile = lazyWithRetry(() => import("./pages/user-dashboard-m
 const MyOrders = lazyWithRetry(() => import("./pages/my-orders"));
 const OrdersMobile = lazyWithRetry(() => import("./pages/orders-mobile"));
 const ProductionDashboardMobile = lazyWithRetry(() => import("./pages/production-dashboard-mobile"));
+const McpSettings = lazyWithRetry(() => import("./pages/mcp-settings"));
 
 function PageLoadingFallback() {
   return (
@@ -392,6 +393,12 @@ function AppRoutes() {
         <Route path="/production-dashboard-mobile">
           <ProtectedRoute path="/production-dashboard-mobile">
             <ProductionDashboardMobile />
+          </ProtectedRoute>
+        </Route>
+
+        <Route path="/mcp-settings">
+          <ProtectedRoute path="/mcp-settings">
+            <McpSettings />
           </ProtectedRoute>
         </Route>
 
