@@ -6,7 +6,7 @@ import { createMcpServer } from "./mcp-server";
 import { db } from "./db";
 import { mcp_api_keys } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireAdmin } from "./middleware/auth";
+import { requireAuth, requireAdmin, type AuthRequest } from "./middleware/auth";
 
 function hashApiKey(key: string): string {
   return crypto.createHash("sha256").update(key).digest("hex");
@@ -166,7 +166,7 @@ export function registerMcpRoutes(app: Express) {
       const keyHash = hashApiKey(rawKey);
       const keyPrefix = rawKey.slice(0, 12);
 
-      const userId = (req as any).user?.id;
+      const userId = (req as AuthRequest).user?.id;
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }

@@ -1,8 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq, and, desc, gte, lte } from "drizzle-orm";
+import { sql, eq, and, desc, gte, lte, type SQL } from "drizzle-orm";
 import {
   orders,
   production_orders,
@@ -14,8 +13,11 @@ import {
   inventory,
   items,
   quality_issues,
-  users,
 } from "@shared/schema";
+
+function buildWhere(conditions: SQL[]): SQL | undefined {
+  return conditions.length > 0 ? and(...conditions) : undefined;
+}
 
 export function createMcpServer() {
   const server = new McpServer(
@@ -35,14 +37,9 @@ export function createMcpServer() {
     "Get factory dashboard statistics including order counts, production stats, machine status, and inventory overview",
     {},
     async () => {
-      const [orderRows] = await Promise.all([
-        db.select({ count: sql<number>`count(*)`, status: orders.status }).from(orders).groupBy(orders.status),
-      ]);
-
+      const orderRows = await db.select({ count: sql<number>`count(*)`, status: orders.status }).from(orders).groupBy(orders.status);
       const prodRows = await db.select({ count: sql<number>`count(*)`, status: production_orders.status }).from(production_orders).groupBy(production_orders.status);
-
       const machineRows = await db.select({ count: sql<number>`count(*)`, status: machines.status }).from(machines).groupBy(machines.status);
-
       const rollCount = await db.select({ count: sql<number>`count(*)` }).from(rolls);
 
       return {
@@ -71,11 +68,11 @@ export function createMcpServer() {
       offset: z.number().optional().default(0).describe("Offset for pagination"),
     },
     async ({ status, customer_id, limit, offset }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (status) conditions.push(eq(orders.status, status));
       if (customer_id) conditions.push(eq(orders.customer_id, customer_id));
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const where = buildWhere(conditions);
 
       const results = await db
         .select()
@@ -110,16 +107,14 @@ export function createMcpServer() {
       limit: z.number().optional().default(50).describe("Maximum results"),
     },
     async ({ status, order_id, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (status) conditions.push(eq(production_orders.status, status));
       if (order_id) conditions.push(eq(production_orders.order_id, order_id));
-
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await db
         .select()
         .from(production_orders)
-        .where(where)
+        .where(buildWhere(conditions))
         .orderBy(desc(production_orders.created_at))
         .limit(limit ?? 50);
 
@@ -143,7 +138,13 @@ export function createMcpServer() {
       limit: z.number().optional().default(100).describe("Maximum results"),
     },
     async ({ item_id, low_stock, limit }) => {
-      let query = db
+      const conditions: SQL[] = [];
+      if (item_id) conditions.push(eq(inventory.item_id, item_id));
+      if (low_stock) conditions.push(sql`${inventory.current_stock} < ${inventory.min_stock}`);
+
+      const where = buildWhere(conditions);
+
+      const query = db
         .select({
           inventory_id: inventory.id,
           item_id: inventory.item_id,
@@ -156,12 +157,6 @@ export function createMcpServer() {
         })
         .from(inventory)
         .leftJoin(items, eq(inventory.item_id, items.id));
-
-      const conditions: any[] = [];
-      if (item_id) conditions.push(eq(inventory.item_id, item_id));
-      if (low_stock) conditions.push(sql`${inventory.current_stock} < ${inventory.min_stock}`);
-
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await (where ? query.where(where) : query).limit(limit ?? 100);
 
@@ -184,13 +179,11 @@ export function createMcpServer() {
       status: z.string().optional().describe("Filter by status: active, maintenance, down"),
     },
     async ({ type, status }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (type) conditions.push(eq(machines.type, type));
       if (status) conditions.push(eq(machines.status, status));
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-      const results = await db.select().from(machines).where(where);
+      const results = await db.select().from(machines).where(buildWhere(conditions));
 
       return {
         content: [
@@ -212,16 +205,14 @@ export function createMcpServer() {
       limit: z.number().optional().default(50).describe("Maximum results"),
     },
     async ({ status, machine_id, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (status) conditions.push(eq(maintenance_requests.status, status));
       if (machine_id) conditions.push(eq(maintenance_requests.machine_id, machine_id));
-
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await db
         .select()
         .from(maintenance_requests)
-        .where(where)
+        .where(buildWhere(conditions))
         .orderBy(desc(maintenance_requests.created_at))
         .limit(limit ?? 50);
 
@@ -246,12 +237,10 @@ export function createMcpServer() {
       limit: z.number().optional().default(100).describe("Maximum results"),
     },
     async ({ user_id, date_from, date_to, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (user_id) conditions.push(eq(attendance.user_id, user_id));
       if (date_from) conditions.push(gte(attendance.date, date_from));
       if (date_to) conditions.push(lte(attendance.date, date_to));
-
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await db
         .select({
@@ -267,7 +256,7 @@ export function createMcpServer() {
           date: attendance.date,
         })
         .from(attendance)
-        .where(where)
+        .where(buildWhere(conditions))
         .orderBy(desc(attendance.date))
         .limit(limit ?? 100);
 
@@ -291,7 +280,7 @@ export function createMcpServer() {
       limit: z.number().optional().default(50).describe("Maximum results"),
     },
     async ({ search, is_active, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (search) {
         conditions.push(
           sql`(${customers.name} ILIKE ${"%" + search + "%"} OR ${customers.name_ar} ILIKE ${"%" + search + "%"})`
@@ -299,12 +288,10 @@ export function createMcpServer() {
       }
       if (is_active !== undefined) conditions.push(eq(customers.is_active, is_active));
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
-
       const results = await db
         .select()
         .from(customers)
-        .where(where)
+        .where(buildWhere(conditions))
         .limit(limit ?? 50);
 
       return {
@@ -327,16 +314,14 @@ export function createMcpServer() {
       limit: z.number().optional().default(50).describe("Maximum results"),
     },
     async ({ status, severity, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (status) conditions.push(eq(quality_issues.status, status));
       if (severity) conditions.push(eq(quality_issues.severity, severity));
-
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       const results = await db
         .select()
         .from(quality_issues)
-        .where(where)
+        .where(buildWhere(conditions))
         .orderBy(desc(quality_issues.created_at))
         .limit(limit ?? 50);
 
@@ -361,7 +346,7 @@ export function createMcpServer() {
       limit: z.number().optional().default(50).describe("Maximum results"),
     },
     async ({ roll_number, production_order_id, stage, limit }) => {
-      const conditions: any[] = [];
+      const conditions: SQL[] = [];
       if (roll_number) {
         conditions.push(
           sql`${rolls.roll_number} ILIKE ${"%" + roll_number + "%"}`
@@ -370,12 +355,10 @@ export function createMcpServer() {
       if (production_order_id) conditions.push(eq(rolls.production_order_id, production_order_id));
       if (stage) conditions.push(eq(rolls.current_stage, stage));
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
-
       const results = await db
         .select()
         .from(rolls)
-        .where(where)
+        .where(buildWhere(conditions))
         .orderBy(desc(rolls.created_at))
         .limit(limit ?? 50);
 
