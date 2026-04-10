@@ -213,7 +213,7 @@ export function createMcpServer() {
         .select()
         .from(maintenance_requests)
         .where(buildWhere(conditions))
-        .orderBy(desc(maintenance_requests.created_at))
+        .orderBy(desc(maintenance_requests.date_reported))
         .limit(limit ?? 50);
 
       return {
@@ -353,7 +353,7 @@ export function createMcpServer() {
         );
       }
       if (production_order_id) conditions.push(eq(rolls.production_order_id, production_order_id));
-      if (stage) conditions.push(eq(rolls.current_stage, stage));
+      if (stage) conditions.push(eq(rolls.stage, stage));
 
       const results = await db
         .select()

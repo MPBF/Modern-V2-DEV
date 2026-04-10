@@ -43,7 +43,7 @@ export default function McpSettings() {
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/mcp/api-keys", { name });
+      const res = await apiRequest("/api/mcp/api-keys", { method: "POST", body: JSON.stringify({ name }) });
       return res.json();
     },
     onSuccess: (data) => {
@@ -66,7 +66,7 @@ export default function McpSettings() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/mcp/api-keys/${id}`);
+      await apiRequest(`/api/mcp/api-keys/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/mcp/api-keys"] });
@@ -80,7 +80,7 @@ export default function McpSettings() {
 
   const toggleMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("PATCH", `/api/mcp/api-keys/${id}/toggle`);
+      await apiRequest(`/api/mcp/api-keys/${id}/toggle`, { method: "PATCH" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/mcp/api-keys"] });
