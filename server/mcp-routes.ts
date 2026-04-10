@@ -45,19 +45,51 @@ function extractAndValidateBearer(req: Request): string | null {
   return authHeader.slice(7);
 }
 
+const authFailures = new Map<string, { count: number; lastAttempt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const MAX_FAILURES = 10;
+
+function isRateLimited(ip: string): boolean {
+  const entry = authFailures.get(ip);
+  if (!entry) return false;
+  if (Date.now() - entry.lastAttempt > RATE_LIMIT_WINDOW_MS) {
+    authFailures.delete(ip);
+    return false;
+  }
+  return entry.count >= MAX_FAILURES;
+}
+
+function recordAuthFailure(ip: string): void {
+  const entry = authFailures.get(ip);
+  if (entry && Date.now() - entry.lastAttempt < RATE_LIMIT_WINDOW_MS) {
+    entry.count++;
+    entry.lastAttempt = Date.now();
+  } else {
+    authFailures.set(ip, { count: 1, lastAttempt: Date.now() });
+  }
+}
+
 export function registerMcpRoutes(app: Express) {
   const transports = new Map<string, StreamableHTTPServerTransport>();
 
   app.post("/mcp", async (req: Request, res: Response) => {
     try {
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      if (isRateLimited(clientIp)) {
+        res.status(429).json({ error: "Too many failed authentication attempts. Try again later." });
+        return;
+      }
+
       const apiKey = extractAndValidateBearer(req);
       if (!apiKey) {
+        recordAuthFailure(clientIp);
         res.status(401).json({ error: "Missing or invalid Authorization header. Use Bearer <API_KEY>" });
         return;
       }
 
       const isValid = await validateApiKey(apiKey);
       if (!isValid) {
+        recordAuthFailure(clientIp);
         res.status(403).json({ error: "Invalid or inactive API key" });
         return;
       }
