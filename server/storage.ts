@@ -4958,7 +4958,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async importTableData(tableName: string, data: any[], format?: string): Promise<any> {
-    return { imported: data.length, count: data.length };
+    const allowedTables = [
+      "customers", "categories", "sections", "items", "machines",
+      "orders", "production_orders", "rolls", "inventory",
+      "inventory_movements", "warehouse_receipts", "warehouse_transactions",
+      "maintenance_requests", "maintenance_actions", "spare_parts", "consumable_parts",
+      "waste", "quality_checks", "attendance", "notifications",
+    ];
+    if (!allowedTables.includes(tableName)) {
+      throw new Error(`الجدول غير مسموح باستيراد البيانات إليه: ${tableName}`);
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return { imported: 0, count: 0 };
+    }
+
+    let imported = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const record = data[i];
+      try {
+        const columns = Object.keys(record).filter(k => record[k] !== undefined);
+        if (columns.length === 0) continue;
+
+        const colNamesSql = sql.raw(columns.map(c => `"${c.replace(/"/g, '""')}"`).join(', '));
+        const valuesSql = sql.join(columns.map(k => sql`${record[k]}`), sql.raw(', '));
+
+        await db.execute(
+          sql`INSERT INTO ${sql.raw(`"${tableName}"`)} (${colNamesSql}) VALUES (${valuesSql})`,
+        );
+        imported++;
+      } catch (err: any) {
+        errors.push(`Row ${i + 1}: ${err.message}`);
+      }
+    }
+
+    return { imported, count: imported, errors: errors.length > 0 ? errors : undefined };
   }
 
   async getBackupFile(backupId: string): Promise<any> {

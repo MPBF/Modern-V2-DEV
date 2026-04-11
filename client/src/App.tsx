@@ -122,12 +122,12 @@ function AppRoutes() {
         <Route path="/setup">
           <CompanySetup />
         </Route>
-<Route path="/tools">
-  <ProtectedRoute path="/tools">
-    <ToolsPage />
-  </ProtectedRoute>
-</Route>
-     
+        <Route path="/tools">
+          <ProtectedRoute path="/tools">
+            <ToolsPage />
+          </ProtectedRoute>
+        </Route>
+
         <Route path="/">
           <ProtectedRoute path="/">
             <Dashboard />

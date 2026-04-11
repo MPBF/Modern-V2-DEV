@@ -10912,7 +10912,7 @@ Do not include quotes or explanations.`;
       res.json(result.rows || []);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
-      res.json([]);
+      res.status(500).json({ message: "خطأ في جلب الموردين" });
     }
   });
 
