@@ -12848,6 +12848,23 @@ Do not include quotes or explanations.`;
     }
   });
 
+  app.put("/api/experimental-blends/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "معرف غير صالح" });
+      const existing = await storage.getExperimentalBlendById(id);
+      if (!existing) return res.status(404).json({ message: "الخلطة غير موجودة" });
+      const { items, ...blendData } = req.body;
+      const itemsWithBlendId = items ? items.map((item: any) => ({ ...item, blend_id: id })) : undefined;
+      const updated = await storage.updateExperimentalBlend(id, blendData, itemsWithBlendId);
+      const updatedItems = await storage.getExperimentalBlendItems(id);
+      res.json({ ...updated, items: updatedItems });
+    } catch (error) {
+      console.error("Error updating experimental blend:", error);
+      res.status(500).json({ message: "خطأ في تحديث الخلطة التجريبية" });
+    }
+  });
+
   app.delete("/api/experimental-blends/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

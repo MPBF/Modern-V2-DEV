@@ -3544,6 +3544,9 @@
       "viewDetails": "عرض التفاصيل",
       "newBlend": "خلطة جديدة",
       "archive": "الأرشيف",
+      "searchBlends": "بحث في الخلطات...",
+      "blendUpdated": "تم تحديث الخلطة بنجاح",
+      "editBlend": "تعديل الخلطة",
       "materials": {
         "HDPE": "HDPE",
         "LDPE": "LDPE",

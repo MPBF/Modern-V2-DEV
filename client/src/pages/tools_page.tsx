@@ -16,7 +16,7 @@ import { apiRequest, queryClient } from "../lib/queryClient";
 import { 
   Scale, Palette, Droplets, Calculator, FileSpreadsheet, 
   Ruler, Clock, Printer, ChevronLeft, ChevronRight,
-  Package, PaintBucket, Barcode, FlaskConical, Plus, Trash2, Eye, Archive, FileText
+  Package, PaintBucket, Barcode, FlaskConical, Plus, Trash2, Eye, Archive, FileText, Pencil, Search
 } from "lucide-react";
 import JsBarcode from "jsbarcode";
 
@@ -1729,6 +1729,8 @@ function BlendsTool(): JSX.Element {
   const { toast } = useToast();
   const [view, setView] = useState<"form" | "archive">("form");
   const [selectedBlendId, setSelectedBlendId] = useState<number | null>(null);
+  const [editingBlendId, setEditingBlendId] = useState<number | null>(null);
+  const [archiveSearch, setArchiveSearch] = useState("");
 
   const [form, setForm] = useState<BlendFormData>({
     machine_id: "",
@@ -1747,7 +1749,8 @@ function BlendsTool(): JSX.Element {
   const extruders = useMemo(() => (machinesData || []).filter((m: any) => m.type === "extruder"), [machinesData]);
 
   const selectedMachine = useMemo(() => extruders.find((m: any) => m.id === form.machine_id), [extruders, form.machine_id]);
-  const isABA = selectedMachine?.screw_type === "ABA" || form.screw_type === "ABA";
+  const derivedScrewType = selectedMachine?.screw_type === "ABA" ? "ABA" : "A";
+  const isABA = derivedScrewType === "ABA";
 
   const { data: blendsData, isLoading: blendsLoading } = useQuery<any[]>({
     queryKey: ["/api/experimental-blends"],
@@ -1785,6 +1788,25 @@ function BlendsTool(): JSX.Element {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest(`/api/experimental-blends/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/experimental-blends"] });
+      toast({ title: t("tools.blends.blendUpdated") });
+      setEditingBlendId(null);
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "خطأ في تحديث الخلطة", variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setForm({
       machine_id: "", screw_type: "A", notes: "",
@@ -1793,6 +1815,34 @@ function BlendsTool(): JSX.Element {
       film_size_cm: "", thickness_u: "",
     });
     setItems([]);
+    setEditingBlendId(null);
+  };
+
+  const loadBlendForEdit = (blend: any) => {
+    setForm({
+      machine_id: blend.machine_id || "",
+      screw_type: blend.screw_type || "A",
+      notes: blend.notes || "",
+      motor_speed_a: blend.motor_speed_a || "",
+      heater1_a: blend.heater1_a || "",
+      heater2_a: blend.heater2_a || "",
+      heater3_a: blend.heater3_a || "",
+      motor_speed_b: blend.motor_speed_b || "",
+      heater1_b: blend.heater1_b || "",
+      heater2_b: blend.heater2_b || "",
+      heater3_b: blend.heater3_b || "",
+      film_size_cm: blend.film_size_cm || "",
+      thickness_u: blend.thickness_u || "",
+    });
+    const blendItems = (blend.items || []).map((i: any) => ({
+      id: String(i.id || Date.now() + Math.random()),
+      screw: i.screw as "A" | "B",
+      material_type: i.material_type,
+      quantity: parseFloat(i.quantity || "0"),
+    }));
+    setItems(blendItems);
+    setEditingBlendId(blend.id);
+    setView("form");
   };
 
   const addItem = (screw: "A" | "B") => {
@@ -1820,11 +1870,19 @@ function BlendsTool(): JSX.Element {
     const validItems = items.filter(i => i.material_type && i.quantity > 0);
     if (validItems.length === 0) return;
 
-    const blendNumber = `EXP-${Date.now().toString(36).toUpperCase()}`;
-    const payload = {
-      blend_number: blendNumber,
+    const itemsPayload = validItems.map(i => {
+      const screwTotal = i.screw === "A" ? totalA : totalB;
+      return {
+        screw: i.screw,
+        material_type: i.material_type,
+        quantity: i.quantity.toString(),
+        percentage: screwTotal > 0 ? ((i.quantity / screwTotal) * 100).toFixed(2) : "0",
+      };
+    });
+
+    const commonPayload = {
       machine_id: form.machine_id,
-      screw_type: form.screw_type,
+      screw_type: derivedScrewType,
       notes: form.notes || null,
       motor_speed_a: form.motor_speed_a || null,
       heater1_a: form.heater1_a || null,
@@ -1836,17 +1894,15 @@ function BlendsTool(): JSX.Element {
       heater3_b: form.heater3_b || null,
       film_size_cm: form.film_size_cm || null,
       thickness_u: form.thickness_u || null,
-      items: validItems.map(i => {
-        const screwTotal = i.screw === "A" ? totalA : totalB;
-        return {
-          screw: i.screw,
-          material_type: i.material_type,
-          quantity: i.quantity.toString(),
-          percentage: screwTotal > 0 ? ((i.quantity / screwTotal) * 100).toFixed(2) : "0",
-        };
-      }),
+      items: itemsPayload,
     };
-    createMutation.mutate(payload);
+
+    if (editingBlendId) {
+      updateMutation.mutate({ id: editingBlendId, data: commonPayload });
+    } else {
+      const blendNumber = `EXP-${Date.now().toString(36).toUpperCase()}`;
+      createMutation.mutate({ ...commonPayload, blend_number: blendNumber });
+    }
   };
 
   const printForm = (filled: boolean, blend?: any) => {
@@ -2288,8 +2344,8 @@ ${evalRowFilled(t("tools.blends.thickness"), filled && blend?.thickness_u)}
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={!form.machine_id || items.filter(i => i.material_type && i.quantity > 0).length === 0 || createMutation.isPending}>
-              {createMutation.isPending ? t("common.saving") : t("tools.blends.saveBlend")}
+            <Button onClick={handleSave} disabled={!form.machine_id || items.filter(i => i.material_type && i.quantity > 0).length === 0 || createMutation.isPending || updateMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending) ? t("common.saving") : editingBlendId ? t("tools.blends.editBlend") : t("tools.blends.saveBlend")}
             </Button>
             <Button variant="outline" onClick={() => printForm(false)}>
               <FileText className="h-4 w-4 ml-1" />
@@ -2322,11 +2378,31 @@ ${evalRowFilled(t("tools.blends.thickness"), filled && blend?.thickness_u)}
 
       {view === "archive" && (
         <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t("tools.blends.searchBlends")}
+              value={archiveSearch}
+              onChange={(e) => setArchiveSearch(e.target.value)}
+              className="pr-9"
+            />
+          </div>
           {blendsLoading && <p className="text-center text-muted-foreground">{t("common.loading")}</p>}
           {!blendsLoading && (!blendsData || blendsData.length === 0) && (
             <p className="text-center text-muted-foreground py-8">{t("tools.blends.noBlends")}</p>
           )}
-          {(blendsData || []).map((blend: any) => {
+          {(blendsData || [])
+            .filter((blend: any) => {
+              if (!archiveSearch.trim()) return true;
+              const q = archiveSearch.toLowerCase();
+              const machName = extruders.find((m: any) => m.id === blend.machine_id)?.name_ar || extruders.find((m: any) => m.id === blend.machine_id)?.name || "";
+              return (
+                (blend.blend_number || "").toLowerCase().includes(q) ||
+                machName.toLowerCase().includes(q) ||
+                (blend.notes || "").toLowerCase().includes(q)
+              );
+            })
+            .map((blend: any) => {
             const blendItems = blend.items || [];
             const tTotal = blendItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0);
             const machName = extruders.find((m: any) => m.id === blend.machine_id)?.name_ar || extruders.find((m: any) => m.id === blend.machine_id)?.name || blend.machine_id;
@@ -2345,6 +2421,9 @@ ${evalRowFilled(t("tools.blends.thickness"), filled && blend?.thickness_u)}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => setSelectedBlendId(blend.id)}>
                   <Eye className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => loadBlendForEdit(blend)}>
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"

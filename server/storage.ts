@@ -801,6 +801,7 @@ export interface IStorage {
   getExperimentalBlends(): Promise<ExperimentalBlend[]>;
   getExperimentalBlendById(id: number): Promise<ExperimentalBlend | undefined>;
   createExperimentalBlend(blend: InsertExperimentalBlend): Promise<ExperimentalBlend>;
+  updateExperimentalBlend(id: number, blend: Partial<InsertExperimentalBlend>, items?: InsertExperimentalBlendItem[]): Promise<ExperimentalBlend>;
   deleteExperimentalBlend(id: number): Promise<void>;
   getExperimentalBlendItems(blendId: number): Promise<ExperimentalBlendItem[]>;
   createExperimentalBlendItems(items: InsertExperimentalBlendItem[]): Promise<ExperimentalBlendItem[]>;
@@ -5918,6 +5919,17 @@ export class DatabaseStorage implements IStorage {
   async createExperimentalBlend(blend: InsertExperimentalBlend): Promise<ExperimentalBlend> {
     const [created] = await db.insert(experimental_blends).values(blend).returning();
     return created;
+  }
+
+  async updateExperimentalBlend(id: number, blend: Partial<InsertExperimentalBlend>, items?: InsertExperimentalBlendItem[]): Promise<ExperimentalBlend> {
+    const [updated] = await db.update(experimental_blends).set(blend).where(eq(experimental_blends.id, id)).returning();
+    if (items) {
+      await db.delete(experimental_blend_items).where(eq(experimental_blend_items.blend_id, id));
+      if (items.length > 0) {
+        await db.insert(experimental_blend_items).values(items).returning();
+      }
+    }
+    return updated;
   }
 
   async deleteExperimentalBlend(id: number): Promise<void> {

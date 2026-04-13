@@ -3026,6 +3026,9 @@
       "viewDetails": "View Details",
       "newBlend": "New Blend",
       "archive": "Archive",
+      "searchBlends": "Search blends...",
+      "blendUpdated": "Blend updated successfully",
+      "editBlend": "Edit Blend",
       "materials": {
         "HDPE": "HDPE",
         "LDPE": "LDPE",
