@@ -67,6 +67,7 @@ import {
   type MachineQueue,
   type InsertMachineQueue,
   
+  violations,
   quality_issues,
   quality_issue_responsibles,
   quality_issue_actions,
@@ -812,10 +813,31 @@ export class DatabaseStorage implements IStorage {
   // In-memory storage for alert rate limiting - persistent during server session
   private alertTimesStorage: Map<string, Date> = new Map();
 
+  private static readonly ALLOWED_TABLES = new Set([
+    'users', 'orders', 'production_orders', 'rolls', 'machines', 'customers',
+    'customer_products', 'sections', 'categories', 'items', 'inventory',
+    'inventory_movements', 'roles', 'attendance', 'violations', 'waste',
+    'quality_checks', 'maintenance_requests', 'leave_types', 'leave_requests',
+    'locations', 'mixing_batches', 'batch_ingredients', 'spare_parts',
+    'consumable_parts', 'training_programs', 'training_records',
+    'performance_reviews', 'warehouse_receipts', 'warehouse_transactions',
+    'system_settings', 'user_settings', 'notifications', 'quick_notes',
+    'master_batch_colors', 'machine_queues', 'cuts', 'factory_locations',
+    'system_alerts', 'alert_rules', 'company_profile',
+  ]);
+
   async exists(table: string, field: string, value: any): Promise<boolean> {
     try {
+      if (!DatabaseStorage.ALLOWED_TABLES.has(table)) {
+        console.error(`exists() called with disallowed table name: ${table}`);
+        return false;
+      }
+      if (!/^[a-z_][a-z0-9_]*$/i.test(field)) {
+        console.error(`exists() called with invalid field name: ${field}`);
+        return false;
+      }
       const result = await pool.query(
-        `SELECT EXISTS(SELECT 1 FROM ${table} WHERE ${field} = $1)`,
+        `SELECT EXISTS(SELECT 1 FROM "${table}" WHERE "${field}" = $1)`,
         [value]
       );
       return result.rows[0].exists;
@@ -3638,7 +3660,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRollHistory(id: number): Promise<any[]> {
-    return [];
+    const roll = await db.select().from(rolls).where(eq(rolls.id, id));
+    if (roll.length === 0) return [];
+    
+    const rollData = roll[0];
+    const history: any[] = [];
+    
+    if (rollData.created_at) {
+      history.push({ stage: 'film', action: 'created', date: rollData.created_at, details: { weight_kg: rollData.weight_kg } });
+    }
+    if (rollData.print_date) {
+      history.push({ stage: 'printing', action: 'printed', date: rollData.print_date });
+    }
+    if (rollData.cutting_completion_date) {
+      history.push({ stage: 'cutting', action: 'completed', date: rollData.cutting_completion_date });
+    }
+    
+    const qualityChecks = await this.getQualityChecksByRoll(id);
+    for (const qc of qualityChecks) {
+      history.push({ stage: 'quality', action: 'quality_check', date: qc.check_date, details: qc });
+    }
+    
+    const wasteRecords = await db.select().from(waste).where(eq(waste.roll_id, id));
+    for (const w of wasteRecords) {
+      history.push({ stage: w.stage || 'unknown', action: 'waste_recorded', date: w.created_at, details: { quantity_kg: w.quantity_kg } });
+    }
+    
+    history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return history;
   }
 
   async getRollByBarcode(barcode: string): Promise<Roll | undefined> {
@@ -4087,18 +4136,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getViolations(): Promise<any[]> {
-    return [];
+    return await db.select().from(violations).orderBy(desc(violations.date));
   }
 
   async createViolation(data: any): Promise<any> {
-    return data;
+    const [v] = await db.insert(violations).values(data).returning();
+    return v;
   }
 
   async updateViolation(id: number, data: any): Promise<any> {
-    return data;
+    const [v] = await db.update(violations).set(data).where(eq(violations.id, id)).returning();
+    return v;
   }
 
-  async deleteViolation(id: number): Promise<void> {}
+  async deleteViolation(id: number): Promise<void> {
+    await db.delete(violations).where(eq(violations.id, id));
+  }
 
   async getUserRequests(): Promise<any[]> {
     return await db.select().from(user_requests).orderBy(desc(user_requests.created_at));
