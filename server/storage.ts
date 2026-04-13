@@ -222,6 +222,14 @@ import {
   display_slides,
   type DisplaySlide,
   type InsertDisplaySlide,
+
+  // Experimental Blends
+  experimental_blends,
+  experimental_blend_items,
+  type ExperimentalBlend,
+  type InsertExperimentalBlend,
+  type ExperimentalBlendItem,
+  type InsertExperimentalBlendItem,
 } from "@shared/schema";
 
 import { db, pool } from "./db";
@@ -788,6 +796,14 @@ export interface IStorage {
   createDisplaySlide(slide: InsertDisplaySlide): Promise<DisplaySlide>;
   updateDisplaySlide(id: number, slide: Partial<DisplaySlide>): Promise<DisplaySlide>;
   deleteDisplaySlide(id: number): Promise<void>;
+
+  // Experimental Blends
+  getExperimentalBlends(): Promise<ExperimentalBlend[]>;
+  getExperimentalBlendById(id: number): Promise<ExperimentalBlend | undefined>;
+  createExperimentalBlend(blend: InsertExperimentalBlend): Promise<ExperimentalBlend>;
+  deleteExperimentalBlend(id: number): Promise<void>;
+  getExperimentalBlendItems(blendId: number): Promise<ExperimentalBlendItem[]>;
+  createExperimentalBlendItems(items: InsertExperimentalBlendItem[]): Promise<ExperimentalBlendItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5888,6 +5904,33 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { total, byStatus, bySeverity, bySource, byCategory };
+  }
+
+  async getExperimentalBlends(): Promise<ExperimentalBlend[]> {
+    return db.select().from(experimental_blends).orderBy(desc(experimental_blends.created_at));
+  }
+
+  async getExperimentalBlendById(id: number): Promise<ExperimentalBlend | undefined> {
+    const [blend] = await db.select().from(experimental_blends).where(eq(experimental_blends.id, id));
+    return blend;
+  }
+
+  async createExperimentalBlend(blend: InsertExperimentalBlend): Promise<ExperimentalBlend> {
+    const [created] = await db.insert(experimental_blends).values(blend).returning();
+    return created;
+  }
+
+  async deleteExperimentalBlend(id: number): Promise<void> {
+    await db.delete(experimental_blends).where(eq(experimental_blends.id, id));
+  }
+
+  async getExperimentalBlendItems(blendId: number): Promise<ExperimentalBlendItem[]> {
+    return db.select().from(experimental_blend_items).where(eq(experimental_blend_items.blend_id, blendId));
+  }
+
+  async createExperimentalBlendItems(items: InsertExperimentalBlendItem[]): Promise<ExperimentalBlendItem[]> {
+    if (items.length === 0) return [];
+    return db.insert(experimental_blend_items).values(items).returning();
   }
 }
 

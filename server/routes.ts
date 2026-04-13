@@ -12796,6 +12796,70 @@ Do not include quotes or explanations.`;
     });
   });
 
+  // ==================== Experimental Blends ====================
+
+  app.get("/api/experimental-blends", requireAuth, async (_req, res) => {
+    try {
+      const blends = await storage.getExperimentalBlends();
+      const result = await Promise.all(blends.map(async (b) => {
+        const items = await storage.getExperimentalBlendItems(b.id);
+        return { ...b, items };
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching experimental blends:", error);
+      res.status(500).json({ message: "خطأ في جلب الخلطات التجريبية" });
+    }
+  });
+
+  app.get("/api/experimental-blends/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "معرف غير صالح" });
+      const blend = await storage.getExperimentalBlendById(id);
+      if (!blend) return res.status(404).json({ message: "الخلطة غير موجودة" });
+      const items = await storage.getExperimentalBlendItems(id);
+      res.json({ ...blend, items });
+    } catch (error) {
+      console.error("Error fetching experimental blend:", error);
+      res.status(500).json({ message: "خطأ في جلب الخلطة" });
+    }
+  });
+
+  app.post("/api/experimental-blends", requireAuth, async (req, res) => {
+    try {
+      const { items, ...blendData } = req.body;
+      if (!blendData.blend_number || !blendData.machine_id) {
+        return res.status(400).json({ message: "بيانات ناقصة: رقم الخلطة والماكينة مطلوبان" });
+      }
+      const blend = await storage.createExperimentalBlend(blendData);
+      let createdItems: any[] = [];
+      if (items && items.length > 0) {
+        const itemsWithBlendId = items.map((item: any) => ({
+          ...item,
+          blend_id: blend.id,
+        }));
+        createdItems = await storage.createExperimentalBlendItems(itemsWithBlendId);
+      }
+      res.json({ ...blend, items: createdItems });
+    } catch (error) {
+      console.error("Error creating experimental blend:", error);
+      res.status(500).json({ message: "خطأ في إنشاء الخلطة التجريبية" });
+    }
+  });
+
+  app.delete("/api/experimental-blends/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "معرف غير صالح" });
+      await storage.deleteExperimentalBlend(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting experimental blend:", error);
+      res.status(500).json({ message: "خطأ في حذف الخلطة" });
+    }
+  });
+
   const httpServer = existingServer || createServer(app);
   return httpServer;
 }

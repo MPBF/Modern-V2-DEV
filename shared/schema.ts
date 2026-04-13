@@ -3740,3 +3740,49 @@ export const mcp_api_keys = pgTable("mcp_api_keys", {
 export type McpApiKey = typeof mcp_api_keys.$inferSelect;
 export type InsertMcpApiKey = typeof mcp_api_keys.$inferInsert;
 export const insertMcpApiKeySchema = createInsertSchema(mcp_api_keys).omit({ id: true, created_at: true, last_used_at: true });
+
+export const experimental_blends = pgTable("experimental_blends", {
+  id: serial("id").primaryKey(),
+  blend_number: varchar("blend_number", { length: 50 }).notNull(),
+  machine_id: varchar("machine_id", { length: 20 }).notNull().references(() => machines.id),
+  screw_type: varchar("screw_type", { length: 10 }).notNull().default("A"),
+  notes: text("notes"),
+  motor_speed_a: decimal("motor_speed_a", { precision: 8, scale: 2 }),
+  heater1_a: decimal("heater1_a", { precision: 8, scale: 2 }),
+  heater2_a: decimal("heater2_a", { precision: 8, scale: 2 }),
+  heater3_a: decimal("heater3_a", { precision: 8, scale: 2 }),
+  motor_speed_b: decimal("motor_speed_b", { precision: 8, scale: 2 }),
+  heater1_b: decimal("heater1_b", { precision: 8, scale: 2 }),
+  heater2_b: decimal("heater2_b", { precision: 8, scale: 2 }),
+  heater3_b: decimal("heater3_b", { precision: 8, scale: 2 }),
+  film_size_cm: decimal("film_size_cm", { precision: 8, scale: 2 }),
+  thickness_u: decimal("thickness_u", { precision: 8, scale: 2 }),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const experimental_blend_items = pgTable("experimental_blend_items", {
+  id: serial("id").primaryKey(),
+  blend_id: integer("blend_id").notNull().references(() => experimental_blends.id, { onDelete: "cascade" }),
+  screw: varchar("screw", { length: 5 }).notNull().default("A"),
+  material_type: varchar("material_type", { length: 50 }).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
+  percentage: decimal("percentage", { precision: 5, scale: 2 }),
+});
+
+export const experimentalBlendsRelations = relations(experimental_blends, ({ many }) => ({
+  items: many(experimental_blend_items),
+}));
+
+export const experimentalBlendItemsRelations = relations(experimental_blend_items, ({ one }) => ({
+  blend: one(experimental_blends, {
+    fields: [experimental_blend_items.blend_id],
+    references: [experimental_blends.id],
+  }),
+}));
+
+export type ExperimentalBlend = typeof experimental_blends.$inferSelect;
+export type InsertExperimentalBlend = typeof experimental_blends.$inferInsert;
+export type ExperimentalBlendItem = typeof experimental_blend_items.$inferSelect;
+export type InsertExperimentalBlendItem = typeof experimental_blend_items.$inferInsert;
+export const insertExperimentalBlendSchema = createInsertSchema(experimental_blends).omit({ id: true, created_at: true });
+export const insertExperimentalBlendItemSchema = createInsertSchema(experimental_blend_items).omit({ id: true });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import PageLayout from "../components/layout/PageLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs } from "../components/ui/tabs";
@@ -9,10 +10,13 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Separator } from "../components/ui/separator";
+import { Textarea } from "../components/ui/textarea";
+import { useToast } from "../hooks/use-toast";
+import { apiRequest, queryClient } from "../lib/queryClient";
 import { 
   Scale, Palette, Droplets, Calculator, FileSpreadsheet, 
   Ruler, Clock, Printer, ChevronLeft, ChevronRight,
-  Package, PaintBucket, Barcode
+  Package, PaintBucket, Barcode, FlaskConical, Plus, Trash2, Eye, Archive, FileText
 } from "lucide-react";
 import JsBarcode from "jsbarcode";
 
@@ -26,7 +30,8 @@ type TabId =
   | "roll"
   | "thickness"
   | "job-time"
-  | "barcode";
+  | "barcode"
+  | "blends";
 
 interface TabDef { 
   id: TabId; 
@@ -46,6 +51,7 @@ const tabDefs: TabDef[] = [
   { id: "thickness", labelKey: "tools.tabs.thickness", descriptionKey: "tools.tabs.thicknessDesc", icon: Ruler },
   { id: "job-time", labelKey: "tools.tabs.jobTime", descriptionKey: "tools.tabs.jobTimeDesc", icon: Clock },
   { id: "barcode", labelKey: "tools.tabs.barcode", descriptionKey: "tools.tabs.barcodeDesc", icon: Barcode },
+  { id: "blends", labelKey: "tools.tabs.blends", descriptionKey: "tools.tabs.blendsDesc", icon: FlaskConical },
 ];
 
 export default function ToolsPage(): JSX.Element {
@@ -178,6 +184,7 @@ function ToolsContent(): JSX.Element {
           {active === "thickness" && <ThicknessConverter />}
           {active === "job-time" && <JobTimePlanner />}
           {active === "barcode" && <BarcodeGenerator />}
+          {active === "blends" && <BlendsTool />}
         </CardContent>
       </Card>
     </div>
@@ -1686,6 +1693,676 @@ function BarcodeGenerator(): JSX.Element {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ===================== 11) أداة الخلطات التجريبية =====================
+
+const MATERIAL_TYPES = ["HDPE", "LDPE", "LLDPE", "Filler", "Filler CLEAR", "Process Aid", "COLOR", "Removal"] as const;
+
+interface BlendItem {
+  id: string;
+  screw: "A" | "B";
+  material_type: string;
+  quantity: number;
+}
+
+interface BlendFormData {
+  machine_id: string;
+  screw_type: "A" | "ABA";
+  notes: string;
+  motor_speed_a: string;
+  heater1_a: string;
+  heater2_a: string;
+  heater3_a: string;
+  motor_speed_b: string;
+  heater1_b: string;
+  heater2_b: string;
+  heater3_b: string;
+  film_size_cm: string;
+  thickness_u: string;
+}
+
+function BlendsTool(): JSX.Element {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const [view, setView] = useState<"form" | "archive">("form");
+  const [selectedBlendId, setSelectedBlendId] = useState<number | null>(null);
+
+  const [form, setForm] = useState<BlendFormData>({
+    machine_id: "",
+    screw_type: "A",
+    notes: "",
+    motor_speed_a: "", heater1_a: "", heater2_a: "", heater3_a: "",
+    motor_speed_b: "", heater1_b: "", heater2_b: "", heater3_b: "",
+    film_size_cm: "", thickness_u: "",
+  });
+
+  const [items, setItems] = useState<BlendItem[]>([]);
+
+  const { data: machinesData } = useQuery<any[]>({
+    queryKey: ["/api/machines"],
+  });
+  const extruders = useMemo(() => (machinesData || []).filter((m: any) => m.type === "extruder"), [machinesData]);
+
+  const selectedMachine = useMemo(() => extruders.find((m: any) => m.id === form.machine_id), [extruders, form.machine_id]);
+  const isABA = selectedMachine?.screw_type === "ABA" || form.screw_type === "ABA";
+
+  const { data: blendsData, isLoading: blendsLoading } = useQuery<any[]>({
+    queryKey: ["/api/experimental-blends"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("/api/experimental-blends", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/experimental-blends"] });
+      toast({ title: t("tools.blends.blendSaved") });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "خطأ في حفظ الخلطة", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/experimental-blends/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/experimental-blends"] });
+      toast({ title: t("tools.blends.blendDeleted") });
+      setSelectedBlendId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: error.message || "خطأ في حذف الخلطة", variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setForm({
+      machine_id: "", screw_type: "A", notes: "",
+      motor_speed_a: "", heater1_a: "", heater2_a: "", heater3_a: "",
+      motor_speed_b: "", heater1_b: "", heater2_b: "", heater3_b: "",
+      film_size_cm: "", thickness_u: "",
+    });
+    setItems([]);
+  };
+
+  const addItem = (screw: "A" | "B") => {
+    setItems(prev => [...prev, { id: Date.now().toString(), screw, material_type: "", quantity: 0 }]);
+  };
+
+  const updateItem = (id: string, field: keyof BlendItem, value: any) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const removeItem = (id: string) => {
+    setItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  const screwAItems = items.filter(i => i.screw === "A");
+  const screwBItems = items.filter(i => i.screw === "B");
+  const totalA = screwAItems.reduce((sum, i) => sum + toNumber(i.quantity), 0);
+  const totalB = screwBItems.reduce((sum, i) => sum + toNumber(i.quantity), 0);
+  const totalAll = totalA + totalB;
+
+  const getPercentage = (qty: number, total: number) => total > 0 ? ((qty / total) * 100).toFixed(1) : "0.0";
+
+  const handleSave = () => {
+    if (!form.machine_id) return;
+    const validItems = items.filter(i => i.material_type && i.quantity > 0);
+    if (validItems.length === 0) return;
+
+    const blendNumber = `EXP-${Date.now().toString(36).toUpperCase()}`;
+    const payload = {
+      blend_number: blendNumber,
+      machine_id: form.machine_id,
+      screw_type: form.screw_type,
+      notes: form.notes || null,
+      motor_speed_a: form.motor_speed_a || null,
+      heater1_a: form.heater1_a || null,
+      heater2_a: form.heater2_a || null,
+      heater3_a: form.heater3_a || null,
+      motor_speed_b: form.motor_speed_b || null,
+      heater1_b: form.heater1_b || null,
+      heater2_b: form.heater2_b || null,
+      heater3_b: form.heater3_b || null,
+      film_size_cm: form.film_size_cm || null,
+      thickness_u: form.thickness_u || null,
+      items: validItems.map(i => {
+        const screwTotal = i.screw === "A" ? totalA : totalB;
+        return {
+          screw: i.screw,
+          material_type: i.material_type,
+          quantity: i.quantity.toString(),
+          percentage: screwTotal > 0 ? ((i.quantity / screwTotal) * 100).toFixed(2) : "0",
+        };
+      }),
+    };
+    createMutation.mutate(payload);
+  };
+
+  const printForm = (filled: boolean, blend?: any) => {
+    const isAr = document.documentElement.dir === "rtl";
+    const dir = isAr ? "rtl" : "ltr";
+
+    const machName = filled && blend ? (extruders.find((m: any) => m.id === blend.machine_id)?.name_ar || blend.machine_id) : "";
+    const blendItems = filled && blend ? (blend.items || []) : [];
+    const aItems = blendItems.filter((i: any) => i.screw === "A");
+    const bItems = blendItems.filter((i: any) => i.screw === "B");
+
+    const materialRows = (rowItems: any[], screwLabel: string) => {
+      if (rowItems.length === 0) return "";
+      const tA = rowItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0);
+      return rowItems.map((i: any) => `
+        <tr>
+          <td>${screwLabel}</td>
+          <td>${i.material_type}</td>
+          <td>${filled ? parseFloat(i.quantity || "0").toFixed(2) : ""}</td>
+          <td>${filled && tA > 0 ? ((parseFloat(i.quantity || "0") / tA) * 100).toFixed(1) + "%" : ""}</td>
+        </tr>
+      `).join("") + `
+        <tr style="background:#e2e8f0;font-weight:bold">
+          <td colspan="2">${t("tools.blends.totalQuantity")} ${screwLabel}</td>
+          <td>${filled ? tA.toFixed(2) : ""}</td>
+          <td>100%</td>
+        </tr>`;
+    };
+
+    const evalRowFilled = (label: string, val: any) =>
+      `<tr><td style="width:40%;font-weight:600">${label}</td><td>${filled ? (val || "") : ""}</td></tr>`;
+
+    const title = filled ? t("tools.blends.evaluationForm") : t("tools.blends.emptyEvaluationForm");
+
+    const html = `<!DOCTYPE html>
+<html dir="${dir}" lang="${isAr ? "ar" : "en"}">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;padding:15mm;background:#fff;color:#333;direction:${dir}}
+h1{text-align:center;font-size:20px;color:#1a365d;margin-bottom:4px}
+.subtitle{text-align:center;font-size:12px;color:#666;margin-bottom:16px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.info-item{display:flex;gap:8px;font-size:13px}
+.info-label{font-weight:600;color:#1a365d;min-width:100px}
+table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+th{background:#1a365d;color:#fff;padding:6px;border:1px solid #ccc}
+td{padding:6px;border:1px solid #ddd;text-align:center}
+tbody tr:nth-child(even){background:#f5f7fa}
+.section-title{font-size:14px;font-weight:700;color:#1a365d;margin:12px 0 6px;border-bottom:2px solid #1a365d;padding-bottom:4px}
+.eval-table td{text-align:${isAr ? "right" : "left"};height:32px}
+.footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa}
+@media print{@page{size:A4;margin:10mm}}
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+<p class="subtitle">${new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US", { year:"numeric", month:"long", day:"numeric" })}${filled && blend ? " — " + blend.blend_number : ""}</p>
+
+<div class="info-grid">
+  <div class="info-item"><span class="info-label">${t("tools.blends.machine")}:</span><span>${filled ? machName : "________________"}</span></div>
+  <div class="info-item"><span class="info-label">${t("tools.blends.screwType")}:</span><span>${filled ? blend?.screw_type : "________________"}</span></div>
+</div>
+
+<div class="section-title">${t("tools.blends.materialComposition")}</div>
+<table>
+<thead><tr><th>${t("tools.blends.screwType")}</th><th>${t("tools.blends.material")}</th><th>${t("tools.blends.quantity")}</th><th>${t("tools.blends.percentage")}</th></tr></thead>
+<tbody>
+${filled ? materialRows(aItems, "A") : `<tr><td>A</td><td></td><td></td><td></td></tr><tr><td>A</td><td></td><td></td><td></td></tr><tr><td>A</td><td></td><td></td><td></td></tr><tr><td>A</td><td></td><td></td><td></td></tr><tr style="background:#e2e8f0;font-weight:bold"><td colspan="2">${t("tools.blends.totalQuantity")} A</td><td></td><td></td></tr>`}
+${filled ? materialRows(bItems, "B") : `<tr><td>B</td><td></td><td></td><td></td></tr><tr><td>B</td><td></td><td></td><td></td></tr><tr style="background:#e2e8f0;font-weight:bold"><td colspan="2">${t("tools.blends.totalQuantity")} B</td><td></td><td></td></tr>`}
+<tr style="background:#cbd5e1;font-weight:bold"><td colspan="2">${t("tools.blends.overallSummary")}</td><td>${filled ? (aItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0) + bItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0)).toFixed(2) : ""}</td><td>100%</td></tr>
+</tbody>
+</table>
+
+<div class="section-title">${t("tools.blends.evaluationCriteria")} - ${t("tools.blends.screwA")}</div>
+<table class="eval-table">
+${evalRowFilled(t("tools.blends.motorSpeed"), filled && blend?.motor_speed_a)}
+${evalRowFilled(t("tools.blends.heater1"), filled && blend?.heater1_a)}
+${evalRowFilled(t("tools.blends.heater2"), filled && blend?.heater2_a)}
+${evalRowFilled(t("tools.blends.heater3"), filled && blend?.heater3_a)}
+</table>
+
+<div class="section-title">${t("tools.blends.evaluationCriteria")} - ${t("tools.blends.screwB")}</div>
+<table class="eval-table">
+${evalRowFilled(t("tools.blends.motorSpeed"), filled && blend?.motor_speed_b)}
+${evalRowFilled(t("tools.blends.heater1"), filled && blend?.heater1_b)}
+${evalRowFilled(t("tools.blends.heater2"), filled && blend?.heater2_b)}
+${evalRowFilled(t("tools.blends.heater3"), filled && blend?.heater3_b)}
+</table>
+
+<div class="section-title">${t("tools.blends.overallSettings")}</div>
+<table class="eval-table">
+${evalRowFilled(t("tools.blends.filmSize"), filled && blend?.film_size_cm)}
+${evalRowFilled(t("tools.blends.thickness"), filled && blend?.thickness_u)}
+</table>
+
+<div class="section-title">${t("tools.blends.notes")}</div>
+<div style="border:1px solid #ddd;min-height:60px;padding:8px;font-size:12px">${filled && blend?.notes ? blend.notes : ""}</div>
+
+<div class="footer">${t("tools.blends.evaluationForm")} — ${new Date().toLocaleDateString()}</div>
+</body></html>`;
+
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => w.print(), 300);
+    }
+  };
+
+  const renderMaterialSection = (screw: "A" | "B", screwItems: BlendItem[], screwTotal: number) => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold text-sm">{screw === "A" ? t("tools.blends.screwA") : t("tools.blends.screwB")}</h4>
+        <Button size="sm" variant="outline" onClick={() => addItem(screw)}>
+          <Plus className="h-3 w-3 ml-1" />
+          {t("tools.blends.addMaterial")}
+        </Button>
+      </div>
+      {screwItems.map(item => (
+        <div key={item.id} className="flex items-center gap-2">
+          <Select value={item.material_type} onValueChange={(v) => updateItem(item.id, "material_type", v)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder={t("tools.blends.material")} />
+            </SelectTrigger>
+            <SelectContent>
+              {MATERIAL_TYPES.map(mt => (
+                <SelectItem key={mt} value={mt}>{mt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="number"
+            placeholder={t("tools.blends.quantity")}
+            value={item.quantity || ""}
+            onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
+            className="w-[100px]"
+          />
+          <Badge variant="secondary" className="min-w-[60px] justify-center">
+            {getPercentage(item.quantity, screwTotal)}%
+          </Badge>
+          <Button size="icon" variant="ghost" onClick={() => removeItem(item.id)} className="h-8 w-8 text-red-500">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      {screwItems.length > 0 && (
+        <div className="flex items-center gap-2 pt-1 border-t">
+          <span className="text-sm font-semibold">{t("tools.blends.totalQuantity")}:</span>
+          <Badge variant="default">{screwTotal.toFixed(2)}</Badge>
+        </div>
+      )}
+    </div>
+  );
+
+  if (selectedBlendId) {
+    const blend = (blendsData || []).find((b: any) => b.id === selectedBlendId);
+    if (!blend) return <div>{t("common.loading")}</div>;
+    const blendItems = blend.items || [];
+    const aItems = blendItems.filter((i: any) => i.screw === "A");
+    const bItems = blendItems.filter((i: any) => i.screw === "B");
+    const tA = aItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0);
+    const tB = bItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0);
+    const machName = extruders.find((m: any) => m.id === blend.machine_id)?.name_ar || extruders.find((m: any) => m.id === blend.machine_id)?.name || blend.machine_id;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSelectedBlendId(null)}>
+            <ChevronRight className="h-4 w-4 ml-1" />
+            {t("common.back")}
+          </Button>
+          <h3 className="font-bold text-lg">{blend.blend_number}</h3>
+          <div className="mr-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => printForm(false)}>
+              <FileText className="h-4 w-4 ml-1" />
+              {t("tools.blends.printEmpty")}
+            </Button>
+            <Button size="sm" variant="default" onClick={() => printForm(true, blend)}>
+              <Printer className="h-4 w-4 ml-1" />
+              {t("tools.blends.printFilled")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+            <p className="text-xs text-muted-foreground">{t("tools.blends.machine")}</p>
+            <p className="font-semibold">{machName}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+            <p className="text-xs text-muted-foreground">{t("tools.blends.date")}</p>
+            <p className="font-semibold">{new Date(blend.created_at).toLocaleDateString()}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="font-semibold">{t("tools.blends.materialComposition")}</h4>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-primary text-primary-foreground">
+                <th className="p-2 border">{t("tools.blends.screwType")}</th>
+                <th className="p-2 border">{t("tools.blends.material")}</th>
+                <th className="p-2 border">{t("tools.blends.quantity")}</th>
+                <th className="p-2 border">{t("tools.blends.percentage")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {aItems.map((i: any, idx: number) => (
+                <tr key={idx} className="even:bg-slate-50 dark:even:bg-slate-800">
+                  <td className="p-2 border text-center">A</td>
+                  <td className="p-2 border text-center">{i.material_type}</td>
+                  <td className="p-2 border text-center">{parseFloat(i.quantity).toFixed(2)}</td>
+                  <td className="p-2 border text-center">{tA > 0 ? ((parseFloat(i.quantity) / tA) * 100).toFixed(1) : 0}%</td>
+                </tr>
+              ))}
+              {aItems.length > 0 && (
+                <tr className="bg-slate-200 dark:bg-slate-700 font-bold">
+                  <td className="p-2 border text-center" colSpan={2}>{t("tools.blends.screwASummary")}</td>
+                  <td className="p-2 border text-center">{tA.toFixed(2)}</td>
+                  <td className="p-2 border text-center">100%</td>
+                </tr>
+              )}
+              {bItems.map((i: any, idx: number) => (
+                <tr key={idx} className="even:bg-slate-50 dark:even:bg-slate-800">
+                  <td className="p-2 border text-center">B</td>
+                  <td className="p-2 border text-center">{i.material_type}</td>
+                  <td className="p-2 border text-center">{parseFloat(i.quantity).toFixed(2)}</td>
+                  <td className="p-2 border text-center">{tB > 0 ? ((parseFloat(i.quantity) / tB) * 100).toFixed(1) : 0}%</td>
+                </tr>
+              ))}
+              {bItems.length > 0 && (
+                <tr className="bg-slate-200 dark:bg-slate-700 font-bold">
+                  <td className="p-2 border text-center" colSpan={2}>{t("tools.blends.screwBSummary")}</td>
+                  <td className="p-2 border text-center">{tB.toFixed(2)}</td>
+                  <td className="p-2 border text-center">100%</td>
+                </tr>
+              )}
+              <tr className="bg-primary/10 font-bold">
+                <td className="p-2 border text-center" colSpan={2}>{t("tools.blends.overallSummary")}</td>
+                <td className="p-2 border text-center">{(tA + tB).toFixed(2)}</td>
+                <td className="p-2 border text-center">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 className="font-semibold mb-2">{t("tools.blends.screwSettings")} - {t("tools.blends.screwA")}</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.motorSpeed")}:</span> <span className="font-medium">{blend.motor_speed_a || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater1")}:</span> <span className="font-medium">{blend.heater1_a || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater2")}:</span> <span className="font-medium">{blend.heater2_a || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater3")}:</span> <span className="font-medium">{blend.heater3_a || "-"}</span></div>
+            </div>
+          </div>
+          <div>
+            <h4 className="font-semibold mb-2">{t("tools.blends.screwSettings")} - {t("tools.blends.screwB")}</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.motorSpeed")}:</span> <span className="font-medium">{blend.motor_speed_b || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater1")}:</span> <span className="font-medium">{blend.heater1_b || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater2")}:</span> <span className="font-medium">{blend.heater2_b || "-"}</span></div>
+              <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.heater3")}:</span> <span className="font-medium">{blend.heater3_b || "-"}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-semibold mb-2">{t("tools.blends.overallSettings")}</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.filmSize")}:</span> <span className="font-medium">{blend.film_size_cm || "-"}</span></div>
+            <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded"><span className="text-muted-foreground">{t("tools.blends.thickness")}:</span> <span className="font-medium">{blend.thickness_u || "-"}</span></div>
+          </div>
+        </div>
+
+        {blend.notes && (
+          <div>
+            <h4 className="font-semibold mb-1">{t("tools.blends.notes")}</h4>
+            <p className="text-sm p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">{blend.notes}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={view === "form" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("form")}
+        >
+          <FlaskConical className="h-4 w-4 ml-1" />
+          {t("tools.blends.newBlend")}
+        </Button>
+        <Button
+          variant={view === "archive" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("archive")}
+        >
+          <Archive className="h-4 w-4 ml-1" />
+          {t("tools.blends.archive")}
+          {blendsData && blendsData.length > 0 && (
+            <Badge variant="secondary" className="mr-1">{blendsData.length}</Badge>
+          )}
+        </Button>
+      </div>
+
+      {view === "form" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">{t("tools.blends.selectMachine")}</Label>
+              <Select value={form.machine_id} onValueChange={(v) => setForm(prev => ({ ...prev, machine_id: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("tools.blends.selectMachine")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {extruders.map((m: any) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name_ar || m.name} ({m.screw_type || "A"})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {renderMaterialSection("A", screwAItems, totalA)}
+
+          {(isABA || screwBItems.length > 0) && (
+            <>
+              <Separator />
+              {renderMaterialSection("B", screwBItems, totalB)}
+            </>
+          )}
+
+          {!isABA && screwBItems.length === 0 && (
+            <Button variant="ghost" size="sm" onClick={() => addItem("B")} className="text-muted-foreground">
+              <Plus className="h-3 w-3 ml-1" />
+              {t("tools.blends.addMaterial")} - {t("tools.blends.screwB")}
+            </Button>
+          )}
+
+          {totalAll > 0 && (
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <h4 className="font-bold text-sm mb-2">{t("tools.blends.overallSummary")}</h4>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">{t("tools.blends.screwA")}</p>
+                  <p className="font-bold">{totalA.toFixed(2)} ({getPercentage(totalA, totalAll)}%)</p>
+                </div>
+                {totalB > 0 && (
+                  <div>
+                    <p className="text-muted-foreground">{t("tools.blends.screwB")}</p>
+                    <p className="font-bold">{totalB.toFixed(2)} ({getPercentage(totalB, totalAll)}%)</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-muted-foreground">{t("tools.blends.totalQuantity")}</p>
+                  <p className="font-bold text-primary">{totalAll.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm">{t("tools.blends.evaluationCriteria")} - {t("tools.blends.screwA")}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.motorSpeed")}</Label>
+                <Input value={form.motor_speed_a} onChange={(e) => setForm(p => ({ ...p, motor_speed_a: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater1")}</Label>
+                <Input value={form.heater1_a} onChange={(e) => setForm(p => ({ ...p, heater1_a: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater2")}</Label>
+                <Input value={form.heater2_a} onChange={(e) => setForm(p => ({ ...p, heater2_a: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater3")}</Label>
+                <Input value={form.heater3_a} onChange={(e) => setForm(p => ({ ...p, heater3_a: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm">{t("tools.blends.evaluationCriteria")} - {t("tools.blends.screwB")}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.motorSpeed")}</Label>
+                <Input value={form.motor_speed_b} onChange={(e) => setForm(p => ({ ...p, motor_speed_b: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater1")}</Label>
+                <Input value={form.heater1_b} onChange={(e) => setForm(p => ({ ...p, heater1_b: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater2")}</Label>
+                <Input value={form.heater2_b} onChange={(e) => setForm(p => ({ ...p, heater2_b: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.heater3")}</Label>
+                <Input value={form.heater3_b} onChange={(e) => setForm(p => ({ ...p, heater3_b: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm">{t("tools.blends.overallSettings")}</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.filmSize")}</Label>
+                <Input value={form.film_size_cm} onChange={(e) => setForm(p => ({ ...p, film_size_cm: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("tools.blends.thickness")}</Label>
+                <Input value={form.thickness_u} onChange={(e) => setForm(p => ({ ...p, thickness_u: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">{t("tools.blends.notes")}</Label>
+            <Textarea
+              value={form.notes}
+              onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))}
+              rows={3}
+              placeholder={t("tools.blends.notes")}
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleSave} disabled={!form.machine_id || items.filter(i => i.material_type && i.quantity > 0).length === 0 || createMutation.isPending}>
+              {createMutation.isPending ? t("common.saving") : t("tools.blends.saveBlend")}
+            </Button>
+            <Button variant="outline" onClick={() => printForm(false)}>
+              <FileText className="h-4 w-4 ml-1" />
+              {t("tools.blends.printEmpty")}
+            </Button>
+            {items.filter(i => i.material_type && i.quantity > 0).length > 0 && (
+              <Button variant="outline" onClick={() => {
+                const currentBlend = {
+                  machine_id: form.machine_id,
+                  screw_type: form.screw_type,
+                  notes: form.notes,
+                  motor_speed_a: form.motor_speed_a,
+                  heater1_a: form.heater1_a, heater2_a: form.heater2_a, heater3_a: form.heater3_a,
+                  motor_speed_b: form.motor_speed_b,
+                  heater1_b: form.heater1_b, heater2_b: form.heater2_b, heater3_b: form.heater3_b,
+                  film_size_cm: form.film_size_cm, thickness_u: form.thickness_u,
+                  items: items.filter(i => i.material_type && i.quantity > 0).map(i => ({
+                    screw: i.screw, material_type: i.material_type, quantity: i.quantity.toString(),
+                  })),
+                };
+                printForm(true, currentBlend);
+              }}>
+                <Printer className="h-4 w-4 ml-1" />
+                {t("tools.blends.printFilled")}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {view === "archive" && (
+        <div className="space-y-3">
+          {blendsLoading && <p className="text-center text-muted-foreground">{t("common.loading")}</p>}
+          {!blendsLoading && (!blendsData || blendsData.length === 0) && (
+            <p className="text-center text-muted-foreground py-8">{t("tools.blends.noBlends")}</p>
+          )}
+          {(blendsData || []).map((blend: any) => {
+            const blendItems = blend.items || [];
+            const tTotal = blendItems.reduce((s: number, i: any) => s + parseFloat(i.quantity || "0"), 0);
+            const machName = extruders.find((m: any) => m.id === blend.machine_id)?.name_ar || extruders.find((m: any) => m.id === blend.machine_id)?.name || blend.machine_id;
+
+            return (
+              <div key={blend.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <FlaskConical className="h-5 w-5 text-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{blend.blend_number}</span>
+                    <Badge variant="outline" className="text-xs">{machName}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {new Date(blend.created_at).toLocaleDateString()} — {blendItems.length} {t("tools.blends.material")} — {tTotal.toFixed(1)} {t("common.kg")}
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedBlendId(blend.id)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-500"
+                  onClick={() => {
+                    if (confirm(t("tools.blends.confirmDelete"))) {
+                      deleteMutation.mutate(blend.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
