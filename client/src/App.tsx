@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Route, Switch, Redirect } from "wouter";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -8,32 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { useTranslation } from "react-i18next";
 import InstallPrompt from "./components/pwa/InstallPrompt";
 import { MobileAutoRedirect } from "./hooks/use-mobile-redirect";
-
-function lazyWithRetry(importFn: () => Promise<any>) {
-  return lazy(() =>
-    importFn().catch((error: any) => {
-      const isChunkError =
-        error?.message?.includes("Failed to fetch dynamically imported module") ||
-        error?.message?.includes("Loading chunk") ||
-        error?.message?.includes("Loading CSS chunk") ||
-        error?.name === "ChunkLoadError";
-
-      if (isChunkError) {
-        const reloadKey = "chunk_reload_" + window.location.pathname;
-        const lastReload = sessionStorage.getItem(reloadKey);
-        const now = Date.now();
-
-        if (!lastReload || now - parseInt(lastReload) > 10000) {
-          sessionStorage.setItem(reloadKey, now.toString());
-          window.location.reload();
-          return new Promise(() => {});
-        }
-      }
-
-      throw error;
-    })
-  );
-}
+import { lazyWithRetry } from "./lib/lazyWithRetry";
 
 const Dashboard = lazyWithRetry(() => import("./pages/dashboard"));
 const Orders = lazyWithRetry(() => import("./pages/orders"));

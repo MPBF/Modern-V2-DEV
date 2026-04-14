@@ -301,11 +301,19 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   const webLoginAttempts = new Map<string, { count: number; lastAttempt: number }>();
   const WEB_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
   const WEB_MAX_ATTEMPTS = 10;
+  const WEB_RATE_LIMIT_MAX_ENTRIES = 10000;
 
   setInterval(() => {
     const now = Date.now();
     for (const [key, value] of webLoginAttempts) {
       if (now - value.lastAttempt > WEB_RATE_LIMIT_WINDOW_MS) {
+        webLoginAttempts.delete(key);
+      }
+    }
+    if (webLoginAttempts.size > WEB_RATE_LIMIT_MAX_ENTRIES) {
+      const entries = [...webLoginAttempts.entries()].sort((a, b) => a[1].lastAttempt - b[1].lastAttempt);
+      const toRemove = entries.slice(0, entries.length - WEB_RATE_LIMIT_MAX_ENTRIES);
+      for (const [key] of toRemove) {
         webLoginAttempts.delete(key);
       }
     }
@@ -6932,6 +6940,11 @@ Do not include quotes or explanations.`;
           return res.status(400).json({ message: "تم إعداد النظام مسبقاً" });
         }
 
+        const existingUser = await storage.getUserByUsername(admin.username);
+        if (existingUser) {
+          return res.status(400).json({ message: "اسم المستخدم مستخدم بالفعل. اختر اسم مستخدم آخر." });
+        }
+
         const companySettings: Record<string, string> = {
           companyName: company.name,
           companyPhone: company.phone || "",
@@ -6957,11 +6970,6 @@ Do not include quotes or explanations.`;
               setting_value: value,
             });
           }
-        }
-
-        const existingUser = await storage.getUserByUsername(admin.username);
-        if (existingUser) {
-          return res.status(400).json({ message: "اسم المستخدم مستخدم بالفعل. اختر اسم مستخدم آخر." });
         }
 
         const hashedPassword = await bcrypt.hash(admin.password, 10);

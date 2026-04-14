@@ -11,26 +11,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Settings2 } from "lucide-react";
 import { apiRequest, queryClient } from "../lib/queryClient";
-
-function lazyWithRetry(importFn: () => Promise<any>) {
-  return lazy(() =>
-    importFn().catch((error: any) => {
-      if (error?.message?.includes("Failed to fetch dynamically imported module") ||
-          error?.message?.includes("Loading chunk") ||
-          error?.name === "ChunkLoadError") {
-        const reloadKey = "chunk_reload_" + window.location.pathname;
-        const lastReload = sessionStorage.getItem(reloadKey);
-        const now = Date.now();
-        if (!lastReload || now - parseInt(lastReload) > 10000) {
-          sessionStorage.setItem(reloadKey, now.toString());
-          window.location.reload();
-          return new Promise(() => {});
-        }
-      }
-      throw error;
-    })
-  );
-}
+import { lazyWithRetry } from "../lib/lazyWithRetry";
 
 const MachineStatus = lazyWithRetry(() => import("../components/dashboard/MachineStatus"));
 const RecentRolls = lazyWithRetry(() => import("../components/dashboard/RecentRolls"));
