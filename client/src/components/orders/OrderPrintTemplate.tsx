@@ -587,16 +587,16 @@ export default function OrderPrintTemplate({
                         </div>
                       )}
                     </td>
-                    <td style={{ ...styles.td, fontSize: "13px", textAlign: "right", fontWeight: 900 }}>{cp?.notes || "-"}</td>
+                    <td style={{ ...styles.td, fontSize: "14px", textAlign: "center", fontWeight: 900, color: cp?.notes ? "#dc2626" : undefined }}>{cp?.notes || "-"}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
 
-          <div style={{ border: "2px solid #ccc", padding: "12px", marginBottom: "15px", borderRadius: "4px", minHeight: "50px", fontFamily: "'Times New Roman', Times, serif", fontWeight: 900 }}>
-            <strong style={{ fontSize: "14px", display: "block", marginBottom: "5px", fontWeight: 900 }}>{t('orders.print.generalNotes')} / General Notes:</strong>
-            <span style={{ fontSize: "14px", fontWeight: 900 }}>{order?.notes || t('orders.print.noNotes')}</span>
+          <div style={{ border: "3px solid #dc2626", padding: "14px", marginBottom: "15px", borderRadius: "6px", minHeight: "50px", fontFamily: "'Times New Roman', Times, serif", fontWeight: 900, background: "#fff5f5", textAlign: "center" }}>
+            <strong style={{ fontSize: "16px", display: "block", marginBottom: "8px", fontWeight: 900, color: "#dc2626" }}>⚠️ {t('orders.print.generalNotes')} / General Notes ⚠️</strong>
+            <span style={{ fontSize: "20px", fontWeight: 900, color: "#dc2626", lineHeight: 1.6 }}>{order?.notes || t('orders.print.noNotes')}</span>
           </div>
 
           <div style={styles.footer}>

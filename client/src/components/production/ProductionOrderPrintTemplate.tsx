@@ -449,9 +449,9 @@ function PrintContentInner({
 
       {/* ملاحظات */}
       {productionOrder.notes && (
-        <div className="print-notes print-avoid-break">
-          <div className="print-notes-title">{t("production.print.notes")}:</div>
-          <div className="print-notes-content">{productionOrder.notes}</div>
+        <div className="print-notes print-avoid-break" style={{ border: "3px solid #dc2626", padding: "14px", marginBottom: "15px", borderRadius: "6px", background: "#fff5f5", textAlign: "center" }}>
+          <div className="print-notes-title" style={{ fontSize: "16px", fontWeight: 900, color: "#dc2626", marginBottom: "8px" }}>⚠️ {t("production.print.notes")} ⚠️</div>
+          <div className="print-notes-content" style={{ fontSize: "20px", fontWeight: 900, color: "#dc2626", lineHeight: 1.6 }}>{productionOrder.notes}</div>
         </div>
       )}
 
