@@ -1,4 +1,4 @@
-import { LucideIcon, Home, LayoutDashboard, FileText, Activity, Monitor, ClipboardCheck, Wrench, Users, Warehouse, Database, BarChart3, Settings, Gauge, Bot, Box, Tv, ShoppingBag, Plug } from "lucide-react";
+import { LucideIcon, Home, LayoutDashboard, FileText, Activity, Monitor, ClipboardCheck, Wrench, Users, Warehouse, Database, BarChart3, Settings, Gauge, Bot, Box, Tv, ShoppingBag, Plug, Wand2 } from "lucide-react";
 
 export interface NavigationItem {
   name: string;
@@ -172,6 +172,15 @@ export const navigationItems: NavigationItem[] = [
     path: "/mcp-settings",
     priority: 15,
     group: 'admin',
+  },
+  {
+    name: "معالج تصميم الأكياس",
+    name_ar: "معالج تصميم الأكياس",
+    name_en: "Bag Configurator",
+    icon: Wand2,
+    path: "/bag-configurator",
+    priority: 3,
+    group: 'primary',
   },
   {
     name: "محاكاة المصنع",

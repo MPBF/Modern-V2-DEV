@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { ChevronRight, ChevronLeft, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronLeft, RotateCcw, Home, CheckCircle2 } from "lucide-react";
+import { Link } from "wouter";
 import { BagTypeStep } from "../components/bag-wizard/BagTypeStep";
 import { PrintStatusStep } from "../components/bag-wizard/PrintStatusStep";
 import { MaterialStep } from "../components/bag-wizard/MaterialStep";
@@ -124,6 +125,7 @@ export default function BagConfigurator() {
 
   const validation = config.bagType ? validateConfiguration(config) : null;
   const currentStepId = visibleSteps[visibleIndex]?.id;
+  const progress = ((visibleIndex) / (visibleSteps.length - 1)) * 100;
 
   const renderStep = () => {
     switch (currentStepId) {
@@ -151,90 +153,135 @@ export default function BagConfigurator() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50" dir="rtl">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">معالج تصميم الأكياس البلاستيكية</h1>
-          <p className="text-gray-500">صمّم كيسك البلاستيكي خطوة بخطوة مع محاكاة بصرية فورية</p>
-        </div>
-
-        <div className="mb-6 overflow-x-auto">
-          <div className="flex items-center justify-center gap-1 min-w-max px-4">
-            {visibleSteps.map((step, i) => (
-              <div key={step.id} className="flex items-center">
-                <button
-                  onClick={() => goToStep(i)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                    i === visibleIndex
-                      ? "bg-blue-600 text-white shadow-lg scale-105"
-                      : i < visibleIndex
-                      ? "bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  }`}
-                  disabled={i > visibleIndex}
-                >
-                  <span>{step.icon}</span>
-                  <span className="hidden sm:inline">{step.label}</span>
-                  <span className="sm:hidden">{i + 1}</span>
-                </button>
-                {i < visibleSteps.length - 1 && (
-                  <ChevronLeft className={`h-4 w-4 mx-1 ${i < visibleIndex ? "text-green-400" : "text-gray-300"}`} />
-                )}
-              </div>
-            ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-emerald-50/20" dir="rtl">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-200">
+              <span className="text-white text-lg">🏭</span>
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">معالج تصميم الأكياس</h1>
+              <p className="text-xs text-gray-400 hidden sm:block">صمّم كيسك البلاستيكي خطوة بخطوة</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={resetWizard} className="text-gray-500 gap-1.5 hover:text-red-500 hover:bg-red-50 transition-colors">
+              <RotateCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">إعادة البدء</span>
+            </Button>
+            <Link href="/" className="inline-flex items-center gap-1.5 px-3 h-9 text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md">
+              <Home className="h-4 w-4" />
+              <span className="hidden sm:inline">الرئيسية</span>
+            </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3">
-            <Card className="shadow-xl border-0">
-              <CardContent className="p-6">
-                {renderStep()}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-3">
+          <div className="relative">
+            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden relative">
+              <div
+                className="absolute top-0 right-0 h-full bg-gradient-to-l from-blue-600 to-emerald-500 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-gray-400">الخطوة {visibleIndex + 1} من {visibleSteps.length}</span>
+              <span className="text-xs font-medium text-blue-600">{Math.round(progress)}%</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
+          {visibleSteps.map((step, i) => {
+            const isActive = i === visibleIndex;
+            const isCompleted = i < visibleIndex;
+            const isDisabled = i > visibleIndex;
+
+            return (
+              <button
+                key={step.id}
+                onClick={() => goToStep(i)}
+                disabled={isDisabled}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-200 scale-[1.02]"
+                    : isCompleted
+                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                    : "bg-white text-gray-300 border border-gray-100 cursor-not-allowed"
+                }`}
+              >
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <span className="text-base leading-none">{step.icon}</span>
+                )}
+                <span className="hidden sm:inline">{step.label}</span>
+                <span className="sm:hidden text-xs">{i + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          <div className="lg:col-span-7 xl:col-span-8">
+            <Card className="shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
+              <CardContent className="p-5 sm:p-6">
+                <div className="min-h-[380px]">
+                  {renderStep()}
+                </div>
 
                 {currentStepId !== "results" && (
-                  <div className="flex items-center justify-between mt-8 pt-4 border-t">
-                    <Button variant="outline" onClick={goBack} disabled={visibleIndex === 0} className="gap-2">
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                    <Button
+                      variant="ghost"
+                      onClick={goBack}
+                      disabled={visibleIndex === 0}
+                      className="gap-2 text-gray-500 hover:text-gray-700"
+                    >
                       <ChevronRight className="h-4 w-4" />
                       السابق
                     </Button>
 
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={resetWizard} className="text-gray-400 gap-1">
-                        <RotateCcw className="h-3 w-3" />
-                        إعادة
-                      </Button>
-                      <Button onClick={goNext} disabled={!canGoNext()} className="gap-2 bg-blue-600 hover:bg-blue-700">
-                        {visibleIndex === visibleSteps.length - 2 ? "عرض النتيجة" : "التالي"}
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={goNext}
+                      disabled={!canGoNext()}
+                      className="gap-2 bg-gradient-to-l from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md shadow-blue-200 px-6 rounded-xl disabled:opacity-50 disabled:shadow-none"
+                    >
+                      {visibleIndex === visibleSteps.length - 2 ? "عرض النتيجة" : "التالي"}
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          <div className="lg:col-span-2">
-            <div className="sticky top-6">
-              <Card className="shadow-xl border-0 overflow-hidden">
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="sticky top-[130px] space-y-4">
+              <Card className="shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
+                <div className="bg-gradient-to-l from-gray-50 to-white px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-600 text-center">المعاينة المباشرة</h3>
+                </div>
                 <CardContent className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-500 mb-3 text-center">المعاينة المباشرة</h3>
                   <BagPreview config={config} />
                 </CardContent>
               </Card>
 
               {validation && (validation.warnings.length > 0 || validation.errors.length > 0) && currentStepId !== "results" && (
-                <Card className="shadow-lg border-0 mt-4">
-                  <CardContent className="p-4">
+                <Card className="shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
+                  <CardContent className="p-4 space-y-2">
                     {validation.errors.map((e, i) => (
-                      <div key={`e-${i}`} className="flex items-start gap-2 text-red-600 text-sm mb-2">
-                        <span className="text-red-500 mt-0.5">⛔</span>
+                      <div key={`e-${i}`} className="flex items-start gap-2.5 bg-red-50 text-red-700 text-sm p-2.5 rounded-lg border border-red-100">
+                        <span className="text-red-500 mt-0.5 shrink-0">⛔</span>
                         <span>{e.message}</span>
                       </div>
                     ))}
                     {validation.warnings.map((w, i) => (
-                      <div key={`w-${i}`} className="flex items-start gap-2 text-amber-600 text-sm mb-2">
-                        <span className="text-amber-500 mt-0.5">⚠️</span>
+                      <div key={`w-${i}`} className="flex items-start gap-2.5 bg-amber-50 text-amber-700 text-sm p-2.5 rounded-lg border border-amber-100">
+                        <span className="text-amber-500 mt-0.5 shrink-0">⚠️</span>
                         <span>{w.message}</span>
                       </div>
                     ))}

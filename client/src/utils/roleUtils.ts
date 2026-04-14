@@ -81,8 +81,8 @@ export function canAccessRoute(
   user: AuthUser | null,
   route: string
 ): boolean {
-  // Home page is allowed for everyone
-  if (route === '/') return true;
+  // Public pages allowed for everyone
+  if (route === '/' || route === '/bag-configurator') return true;
   
   if (!user) return false;
   
