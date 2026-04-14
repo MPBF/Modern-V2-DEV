@@ -10,6 +10,7 @@ import InstallPrompt from "./components/pwa/InstallPrompt";
 import { MobileAutoRedirect } from "./hooks/use-mobile-redirect";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 
+const BagConfigurator = lazyWithRetry(() => import("./pages/bag-configurator"));
 const Dashboard = lazyWithRetry(() => import("./pages/dashboard"));
 const Orders = lazyWithRetry(() => import("./pages/orders"));
 const Production = lazyWithRetry(() => import("./pages/production"));
@@ -92,6 +93,10 @@ function AppRoutes() {
       <Switch>
         <Route path="/login">
           {isAuthenticated ? <Redirect to="/" /> : <Login />}
+        </Route>
+
+        <Route path="/bag-configurator">
+          <BagConfigurator />
         </Route>
 
         <Route path="/setup">

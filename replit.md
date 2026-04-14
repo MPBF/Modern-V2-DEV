@@ -28,6 +28,7 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 │   │   ├── pages/                   # 40+ page components (see Pages section)
 │   │   ├── components/
 │   │   │   ├── ui/                  # 51 shadcn/ui primitives (Button, Dialog, Table, etc.)
+│   │   │   ├── bag-wizard/          # Plastic Bag Configurator Wizard steps & preview
 │   │   │   ├── layout/              # PageLayout, Sidebar, Navbar
 │   │   │   ├── orders/              # Order forms, tables, print templates, roll tabs
 │   │   │   ├── production/          # Production queues, roll cards, stage stats
@@ -278,6 +279,11 @@ The AI agent is a comprehensive executive digital assistant with full system cap
 | `/warehouse` | Warehouse | 5-tab: Production Hall, Finished Goods, Raw Materials, Definitions, Reports |
 | `/quality` | Quality | Quality issues tracking and analytics |
 | `/maintenance` | Maintenance | Machine maintenance requests and tracking |
+
+### Standalone Tools
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/bag-configurator` | BagConfigurator | Standalone multi-step plastic bag design wizard (no auth required). Rules engine validates dimensions, materials, handles, colors, printing. 2.5D SVG bag preview with real-time updates. Exports: PDF, image, JSON |
 
 ### HR & People
 | Route | Page | Purpose |
