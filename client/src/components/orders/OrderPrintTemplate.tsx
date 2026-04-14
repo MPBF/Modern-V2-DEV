@@ -438,9 +438,9 @@ export default function OrderPrintTemplate({
                   <Label2Lines ar={t('orders.customer')} en="Customer" />
                 </td>
 
-                <td style={{ ...styles.td, width: "22%", textAlign: "right", fontWeight: 950 }}>
-                  {customer?.name_ar || "-"}
-                  <div style={{ fontSize: "16px", fontWeight: 900, color: "#333", marginTop: "2px" }}>
+                <td style={{ ...styles.td, width: "26%", textAlign: "right", fontWeight: 950 }}>
+                  <div style={{ fontSize: "22px", fontWeight: 900, lineHeight: 1.3 }}>{customer?.name_ar || "-"}</div>
+                  <div style={{ fontSize: "18px", fontWeight: 900, color: "#333", marginTop: "2px" }}>
                     {customer?.name || customer?.commercial_name || ""}
                   </div>
                   <div style={{ fontSize: "12px", fontWeight: 700, color: "#666" }}>{customer?.phone || ""}</div>
