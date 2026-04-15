@@ -1,5 +1,5 @@
 import { useRef, useCallback } from "react";
-import { type BagConfiguration, type ValidationResult, getBagTypeRules } from "../../lib/bag-rules-engine";
+import { type BagConfiguration, type ValidationResult, getBagTypeRules, getHangerHeight } from "../../lib/bag-rules-engine";
 import { MATERIALS, BAG_COLORS, HANDLES } from "../../lib/bag-rules";
 import { BagPreview } from "./BagPreview";
 import { Button } from "../ui/button";
@@ -25,7 +25,7 @@ export function ResultsStep({ config, validation, onRestart }: ResultsStepProps)
     { label: "الطول", value: `${config.length} سم` },
     { label: "السماكة", value: `${config.thickness} ميكرون` },
     { label: "الدخلة الجانبية", value: config.sideGusset > 0 ? `${config.sideGusset} سم` : "لا يوجد" },
-    { label: "المقبض", value: handle?.label_ar || "بدون" },
+    { label: "المقبض", value: config.handle === "hanger" ? `${handle?.label_ar} (ارتفاع ${getHangerHeight(config)} سم)` : (handle?.label_ar || "بدون") },
     { label: "لون الكيس", value: bagColor?.label_ar || "-" },
     { label: "الطباعة", value: config.isPrinted ? "مطبوع" : "سادة" },
     ...(config.isPrinted ? [
@@ -47,6 +47,7 @@ export function ResultsStep({ config, validation, onRestart }: ResultsStepProps)
         sideGusset: config.sideGusset,
         handle: config.handle,
         handleLabel: handle?.label_ar,
+        handleHeight: config.handle === "hanger" ? getHangerHeight(config) : undefined,
         bagColor: config.bagColor,
         bagColorLabel: bagColor?.label_ar,
         isPrinted: config.isPrinted,

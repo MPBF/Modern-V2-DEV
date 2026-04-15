@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { type BagConfiguration, getBagTypeRules, getPrintArea } from "../../lib/bag-rules-engine";
+import { type BagConfiguration, getBagTypeRules, getPrintArea, getHangerHeight } from "../../lib/bag-rules-engine";
 import { BAG_COLORS, MATERIALS, PRINT_COLORS_PALETTE } from "../../lib/bag-rules";
 
 interface BagPreviewProps {
@@ -140,6 +140,7 @@ export function BagPreview({ config, size = "lg" }: BagPreviewProps) {
             {config.width} × {config.length} سم
             {config.sideGusset > 0 && ` | دخلة ${config.sideGusset} سم`}
             {config.thickness > 0 && ` | ${config.thickness} ميكرون`}
+            {config.handle === "hanger" && ` | يد ${getHangerHeight(config)} سم`}
           </div>
         )}
       </div>
@@ -152,20 +153,23 @@ function renderHandle(config: BagConfiguration, x: number, y: number, w: number,
 
   switch (config.handle) {
     case "hanger": {
-      const earH = h * 0.15;
-      const earW = w * 0.22;
-      const gapW = w * 0.18;
+      const hangerCm = getHangerHeight(config);
+      const totalLength = config.length > 0 ? config.length : 60;
+      const hangerRatio = Math.max(0.1, Math.min(0.35, hangerCm / totalLength));
+      const earH = h * hangerRatio;
+      const gapW = w * 0.2;
+      const cornerR = Math.min(earH * 0.3, w * 0.08);
       return (
         <g>
           <path
-            d={`M${x},${y} L${x},${y - earH * 0.3} Q${x},${y - earH} ${x + earW * 0.5},${y - earH}
+            d={`M${x},${y} L${x},${y - earH + cornerR} Q${x},${y - earH} ${x + cornerR},${y - earH}
                 L${x + w / 2 - gapW / 2},${y - earH}
                 L${x + w / 2 - gapW / 2},${y}`}
             fill={color} fillOpacity={opacity * 0.9} stroke={stroke} strokeWidth="1"
           />
           <path
             d={`M${x + w / 2 + gapW / 2},${y} L${x + w / 2 + gapW / 2},${y - earH}
-                L${x + w - earW * 0.5},${y - earH} Q${x + w},${y - earH} ${x + w},${y - earH * 0.3}
+                L${x + w - cornerR},${y - earH} Q${x + w},${y - earH} ${x + w},${y - earH + cornerR}
                 L${x + w},${y}`}
             fill={color} fillOpacity={opacity * 0.9} stroke={stroke} strokeWidth="1"
           />
@@ -174,11 +178,6 @@ function renderHandle(config: BagConfiguration, x: number, y: number, w: number,
             width={gapW} height={earH}
             fill="white" fillOpacity={0.9}
             stroke={stroke} strokeWidth="0.5" rx="2"
-          />
-          <line
-            x1={x + w / 2 - gapW / 2 + 2} y1={y - earH + 2}
-            x2={x + w / 2 + gapW / 2 - 2} y2={y - earH + 2}
-            stroke={stroke} strokeWidth="0.3" opacity="0.5"
           />
         </g>
       );

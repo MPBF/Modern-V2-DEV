@@ -120,6 +120,23 @@ export function getDimensionLimits(bagType: string, isPrinted: boolean, currentW
   };
 }
 
+export function getHangerHeight(config: BagConfiguration): number {
+  const rules = getBagTypeRules(config.bagType);
+  if (!rules || config.handle !== "hanger") return 0;
+
+  const minH = 12;
+  const maxH = 25;
+
+  const widthMax = config.isPrinted && rules.width_printed ? rules.width_printed.max : rules.width.max;
+  const lengthMax = config.isPrinted ? rules.length_printed.max : rules.length_plain.max;
+
+  const widthRatio = config.width > 0 ? config.width / widthMax : 0.5;
+  const lengthRatio = config.length > 0 ? config.length / lengthMax : 0.5;
+  const sizeRatio = (widthRatio * 0.6 + lengthRatio * 0.4);
+
+  return Math.round(minH + sizeRatio * (maxH - minH));
+}
+
 export function getPrintArea(bagType: string) {
   const rules = getBagTypeRules(bagType);
   if (!rules) return null;
