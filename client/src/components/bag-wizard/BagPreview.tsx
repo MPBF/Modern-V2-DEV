@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { type BagConfiguration, getBagTypeRules, getPrintArea, getHangerHeight } from "../../lib/bag-rules-engine";
+import { type BagConfiguration, getBagTypeRules, getHangerHeight } from "../../lib/bag-rules-engine";
 import { BAG_COLORS, MATERIALS, PRINT_COLORS_PALETTE } from "../../lib/bag-rules";
 
 interface BagPreviewProps {
@@ -221,13 +221,16 @@ function renderPrintDesign(config: BagConfiguration, bagX: number, bagY: number,
   const design = config.printDesign;
   if (!design) return null;
 
-  const printAreaRules = getPrintArea(config.bagType);
-  const pa = printAreaRules?.front || { x: 15, y: 20, width: 70, height: 50 };
+  const marginCm = 1;
+  const actualW = config.width > 0 ? config.width : 50;
+  const actualH = config.length > 0 ? config.length : 60;
+  const marginXPct = Math.min(10, (marginCm / actualW) * 100);
+  const marginYPct = Math.min(10, (marginCm / actualH) * 100);
 
-  const printAreaX = bagX + bagW * (pa.x / 100);
-  const printAreaY = bagY + bagH * (pa.y / 100);
-  const printAreaW = bagW * (pa.width / 100);
-  const printAreaH = bagH * (pa.height / 100);
+  const printAreaX = bagX + bagW * (marginXPct / 100);
+  const printAreaY = bagY + bagH * (marginYPct / 100);
+  const printAreaW = bagW * (1 - 2 * marginXPct / 100);
+  const printAreaH = bagH * (1 - 2 * marginYPct / 100);
 
   const globalOffsetX = (design.offsetX / 100) * printAreaW;
   const globalOffsetY = (design.offsetY / 100) * printAreaH;
