@@ -469,8 +469,18 @@ The AI agent is a comprehensive executive digital assistant with full system cap
   - `get_quality_issues` — Quality issue tracking
   - `search_rolls` — Roll search by number/stage/order
 - **Settings Page**: `/mcp-settings` — Admin page for API key management and ChatGPT connection instructions
+- **OAuth 2.1 Endpoints**:
+  - `GET /.well-known/oauth-authorization-server` — OAuth server metadata discovery
+  - `POST /oauth/register` — Dynamic client registration (returns client_id + client_secret)
+  - `GET /oauth/authorize` — Authorization page (API key entry form)
+  - `POST /oauth/authorize` — Process authorization (validates API key, client, redirect_uri)
+  - `POST /oauth/token` — Token exchange (authorization_code + refresh_token grants)
 - **Auth**: Bearer Token (API Key hashed with SHA-256, stored in `mcp_api_keys` table)
-- **Schema**: `mcp_api_keys` table (id, name, key_hash, key_prefix, created_by, is_active, last_used_at, created_at)
+- **OAuth**: DB-persisted tokens (7-day access, 90-day refresh with rotation), client validation, PKCE support
+- **Schema**:
+  - `mcp_api_keys` table (id, name, key_hash, key_prefix, created_by, is_active, last_used_at, created_at)
+  - `mcp_oauth_tokens` table (id, access_token_hash, refresh_token_hash, api_key_hash, client_id, scope, access_token_expires_at, refresh_token_expires_at, created_at, revoked)
+  - `mcp_oauth_clients` table (id, client_id, client_secret_hash, client_name, redirect_uris, created_at)
 
 ## Authentication & Authorization
 

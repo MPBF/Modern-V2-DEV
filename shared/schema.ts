@@ -3741,6 +3741,28 @@ export type McpApiKey = typeof mcp_api_keys.$inferSelect;
 export type InsertMcpApiKey = typeof mcp_api_keys.$inferInsert;
 export const insertMcpApiKeySchema = createInsertSchema(mcp_api_keys).omit({ id: true, created_at: true, last_used_at: true });
 
+export const mcp_oauth_tokens = pgTable("mcp_oauth_tokens", {
+  id: serial("id").primaryKey(),
+  access_token_hash: varchar("access_token_hash", { length: 128 }).notNull(),
+  refresh_token_hash: varchar("refresh_token_hash", { length: 128 }),
+  api_key_hash: varchar("api_key_hash", { length: 128 }).notNull(),
+  client_id: varchar("client_id", { length: 100 }),
+  scope: varchar("scope", { length: 100 }).default("mcp:read"),
+  access_token_expires_at: timestamp("access_token_expires_at").notNull(),
+  refresh_token_expires_at: timestamp("refresh_token_expires_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  revoked: boolean("revoked").default(false),
+});
+
+export const mcp_oauth_clients = pgTable("mcp_oauth_clients", {
+  id: serial("id").primaryKey(),
+  client_id: varchar("client_id", { length: 100 }).notNull().unique(),
+  client_secret_hash: varchar("client_secret_hash", { length: 128 }).notNull(),
+  client_name: varchar("client_name", { length: 200 }).default("MCP Client"),
+  redirect_uris: json("redirect_uris").$type<string[]>().notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
 export const experimental_blends = pgTable("experimental_blends", {
   id: serial("id").primaryKey(),
   blend_number: varchar("blend_number", { length: 50 }).notNull(),
