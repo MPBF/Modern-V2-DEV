@@ -10,7 +10,6 @@ import { DimensionsStep } from "../components/bag-wizard/DimensionsStep";
 import { HandleStep } from "../components/bag-wizard/HandleStep";
 import { ColorStep } from "../components/bag-wizard/ColorStep";
 import { PrintingStep } from "../components/bag-wizard/PrintingStep";
-import { PrintDesignStep } from "../components/bag-wizard/PrintDesignStep";
 import { ResultsStep } from "../components/bag-wizard/ResultsStep";
 import { BagPreview } from "../components/bag-wizard/BagPreview";
 import {
@@ -29,7 +28,6 @@ const STEPS = [
   { id: "handle", label: "المقبض", icon: "✋" },
   { id: "color", label: "اللون", icon: "🎨" },
   { id: "printing", label: "إعداد الطباعة", icon: "🖼️" },
-  { id: "printDesign", label: "تصميم الطباعة", icon: "✏️" },
   { id: "results", label: "النتيجة", icon: "📋" },
 ];
 
@@ -62,7 +60,7 @@ export default function BagConfigurator() {
 
   const getVisibleSteps = () => {
     if (!config.isPrinted) {
-      return STEPS.filter((s) => s.id !== "printing" && s.id !== "printDesign");
+      return STEPS.filter((s) => s.id !== "printing");
     }
     return STEPS;
   };
@@ -94,8 +92,7 @@ export default function BagConfigurator() {
       }
       case "handle": return !!config.handle;
       case "color": return !!config.bagColor;
-      case "printing": return config.printColorsCount > 0 && config.printColors.length === config.printColorsCount;
-      case "printDesign": return true;
+      case "printing": return config.printColors.length > 0 && config.printColors.length <= (rules?.print_colors.max || 4);
       case "results": return false;
       default: return true;
     }
@@ -144,8 +141,6 @@ export default function BagConfigurator() {
         return <ColorStep config={config} onChange={(c) => updateConfig({ bagColor: c })} />;
       case "printing":
         return <PrintingStep config={config} onChange={updateConfig} />;
-      case "printDesign":
-        return <PrintDesignStep config={config} onChange={updateConfig} />;
       case "results":
         return <ResultsStep config={config} validation={validation!} onRestart={resetWizard} />;
       default:
@@ -230,7 +225,7 @@ export default function BagConfigurator() {
           <div className="lg:col-span-7 xl:col-span-8">
             <Card className="shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
               <CardContent className="p-5 sm:p-6">
-                <div className="min-h-[380px]">
+                <div className="min-h-[380px] max-h-[70vh] overflow-y-auto">
                   {renderStep()}
                 </div>
 

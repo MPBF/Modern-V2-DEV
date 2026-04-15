@@ -281,14 +281,11 @@ export function validateConfiguration(config: BagConfiguration): ValidationResul
     if (!rules.printable) {
       errors.push({ field: "isPrinted", message: "الطباعة غير مدعومة لهذا النوع من الأكياس" });
     }
-    if (config.printColorsCount < rules.print_colors.min) {
+    if (config.printColors.length < rules.print_colors.min) {
       errors.push({ field: "printColors", message: `يجب اختيار ${rules.print_colors.min} لون على الأقل` });
     }
-    if (config.printColorsCount > rules.print_colors.max) {
+    if (config.printColors.length > rules.print_colors.max) {
       errors.push({ field: "printColors", message: `أقصى عدد للألوان ${rules.print_colors.max}` });
-    }
-    if (config.printColors.length !== config.printColorsCount) {
-      errors.push({ field: "printColors", message: `يجب اختيار ${config.printColorsCount} لون بالضبط` });
     }
   }
 

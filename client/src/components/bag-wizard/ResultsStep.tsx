@@ -30,7 +30,7 @@ export function ResultsStep({ config, validation, onRestart }: ResultsStepProps)
     { label: "الطباعة", value: config.isPrinted ? "مطبوع" : "سادة" },
     ...(config.isPrinted ? [
       { label: "جهة الطباعة", value: config.printSide === "both" ? "وجهين" : "وجه واحد" },
-      { label: "عدد ألوان الطباعة", value: `${config.printColorsCount}` },
+      { label: "عدد ألوان الطباعة", value: `${config.printColors.length}` },
     ] : []),
   ];
 
@@ -55,6 +55,8 @@ export function ResultsStep({ config, validation, onRestart }: ResultsStepProps)
         printColorsCount: config.printColorsCount,
         printColors: config.printColors,
         printColorShades: config.printColorShades,
+        hasDesignImage: !!config.printDesign?.logoUrl,
+        designTexts: config.printDesign?.texts?.map(t => ({ text: t.value, color: t.color, size: t.size })) || [],
       },
       validation: {
         isValid: validation.isValid,

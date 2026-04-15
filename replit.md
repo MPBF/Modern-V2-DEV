@@ -283,7 +283,7 @@ The AI agent is a comprehensive executive digital assistant with full system cap
 ### Standalone Tools
 | Route | Page | Purpose |
 |-------|------|---------|
-| `/bag-configurator` | BagConfigurator | Standalone multi-step plastic bag design wizard (no auth required). 5 bag types: علاقي, بدون يد, بنانة, نفايات, نايلون. Materials: HDPE & LDPE only. Dimensions: width 20-100cm (70 printed), length 20-100cm, thickness 35-150 micron, gussets < half width. 18 bag colors. Print: 1-4 colors/side with shade control. 2.5D SVG preview. Exports: PDF, image, JSON |
+| `/bag-configurator` | BagConfigurator | Standalone multi-step plastic bag design wizard (no auth required). 5 bag types: علاقي, بدون يد, بنانة, نفايات, نايلون. Materials: HDPE & LDPE only. Dimensions: width 20-100cm (70 printed), length 20-100cm, thickness 35-150 micron, gussets < half width. 18 bag colors. Unified printing step: manual color selection (up to 4), multiple text elements with per-text color, design image upload with client-side background removal and automatic color extraction. 2.5D SVG preview. Exports: PDF, image, JSON |
 
 ### HR & People
 | Route | Page | Purpose |
