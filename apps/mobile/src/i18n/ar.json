@@ -1,0 +1,88 @@
+{
+  "app": { "name": "MPBF", "tagline": "نظام إدارة مصنع الأكياس البلاستيكية" },
+  "common": {
+    "loading": "جاري التحميل...",
+    "retry": "إعادة المحاولة",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "submit": "إرسال",
+    "search": "بحث",
+    "back": "رجوع",
+    "noData": "لا توجد بيانات",
+    "error": "حدث خطأ",
+    "yes": "نعم",
+    "no": "لا",
+    "ok": "موافق",
+    "comingSoon": "قريباً"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "username": "اسم المستخدم",
+    "password": "كلمة المرور",
+    "loginError": "بيانات الدخول غير صحيحة",
+    "welcome": "مرحباً بك"
+  },
+  "tabs": {
+    "home": "الرئيسية",
+    "orders": "الطلبات",
+    "production": "الإنتاج",
+    "warehouse": "المخزون",
+    "more": "المزيد"
+  },
+  "home": {
+    "totalOrders": "إجمالي الطلبات",
+    "activeProduction": "إنتاج نشط",
+    "openIssues": "مشاكل مفتوحة",
+    "openMaintenance": "صيانة مفتوحة",
+    "quickActions": "إجراءات سريعة",
+    "recentNotifications": "أحدث الإشعارات"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "myOrders": "طلباتي",
+    "orderNumber": "رقم الطلب",
+    "customer": "العميل",
+    "status": "الحالة",
+    "deliveryDate": "تاريخ التسليم",
+    "createdAt": "تاريخ الإنشاء",
+    "details": "تفاصيل الطلب",
+    "noOrders": "لا توجد طلبات",
+    "filterAll": "الكل"
+  },
+  "production": {
+    "title": "الإنتاج",
+    "productionOrders": "أوامر الإنتاج",
+    "rolls": "اللفات",
+    "rollNumber": "رقم اللفة",
+    "stage": "المرحلة",
+    "weight": "الوزن (كجم)",
+    "waste": "الهدر (كجم)",
+    "cutWeight": "الوزن المقطوع (كجم)",
+    "updateRoll": "تحديث اللفة",
+    "markPrinted": "تأشير كمطبوع",
+    "submitWeight": "حفظ الوزن"
+  },
+  "warehouse": {
+    "title": "المخزون",
+    "search": "ابحث عن صنف...",
+    "lowStock": "مخزون منخفض",
+    "quantity": "الكمية",
+    "unit": "الوحدة"
+  },
+  "notifications": { "title": "الإشعارات", "empty": "لا توجد إشعارات" },
+  "more": {
+    "title": "المزيد",
+    "hr": "الموارد البشرية",
+    "maintenance": "الصيانة",
+    "quality": "الجودة",
+    "reports": "التقارير",
+    "settings": "الإعدادات",
+    "profile": "الملف الشخصي",
+    "myOrders": "طلباتي"
+  },
+  "scaffold": {
+    "title": "هذه الشاشة قيد التطوير",
+    "subtitle": "تم إعداد البنية فقط في هذه الجولة. سيتم تنفيذ الواجهة الكاملة لاحقاً مع الحفاظ على نفس قدرات النسخة الويب."
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "app": { "name": "MPBF", "tagline": "Plastic Bag Factory MRP" },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "search": "Search",
+    "back": "Back",
+    "noData": "No data",
+    "error": "An error occurred",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "comingSoon": "Coming soon"
+  },
+  "auth": {
+    "login": "Sign In",
+    "logout": "Sign Out",
+    "username": "Username",
+    "password": "Password",
+    "loginError": "Invalid credentials",
+    "welcome": "Welcome"
+  },
+  "tabs": {
+    "home": "Home",
+    "orders": "Orders",
+    "production": "Production",
+    "warehouse": "Inventory",
+    "more": "More"
+  },
+  "home": {
+    "totalOrders": "Total Orders",
+    "activeProduction": "Active Production",
+    "openIssues": "Open Issues",
+    "openMaintenance": "Open Maintenance",
+    "quickActions": "Quick Actions",
+    "recentNotifications": "Recent Notifications"
+  },
+  "orders": {
+    "title": "Orders",
+    "myOrders": "My Orders",
+    "orderNumber": "Order #",
+    "customer": "Customer",
+    "status": "Status",
+    "deliveryDate": "Delivery Date",
+    "createdAt": "Created",
+    "details": "Order Details",
+    "noOrders": "No orders",
+    "filterAll": "All"
+  },
+  "production": {
+    "title": "Production",
+    "productionOrders": "Production Orders",
+    "rolls": "Rolls",
+    "rollNumber": "Roll #",
+    "stage": "Stage",
+    "weight": "Weight (kg)",
+    "waste": "Waste (kg)",
+    "cutWeight": "Cut weight (kg)",
+    "updateRoll": "Update Roll",
+    "markPrinted": "Mark as Printed",
+    "submitWeight": "Save Weight"
+  },
+  "warehouse": {
+    "title": "Inventory",
+    "search": "Search item...",
+    "lowStock": "Low Stock",
+    "quantity": "Quantity",
+    "unit": "Unit"
+  },
+  "notifications": { "title": "Notifications", "empty": "No notifications" },
+  "more": {
+    "title": "More",
+    "hr": "HR",
+    "maintenance": "Maintenance",
+    "quality": "Quality",
+    "reports": "Reports",
+    "settings": "Settings",
+    "profile": "Profile",
+    "myOrders": "My Orders"
+  },
+  "scaffold": {
+    "title": "Screen under construction",
+    "subtitle": "Architecture is in place; the full mobile experience will be implemented in upcoming rounds while preserving web parity."
+  }
+}

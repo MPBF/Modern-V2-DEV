@@ -590,7 +590,9 @@ Customer Order → Production Order(s) → Film Stage → Printing Stage → Cut
 
 ## Mobile Apps
 
-All mobile pages use internal view state instead of sub-routes, gradient headers with distinct colors, and card-based layouts optimized for touch.
+### Web (mobile-friendly pages inside the React app)
+
+All web mobile pages use internal view state instead of sub-routes, gradient headers with distinct colors, and card-based layouts optimized for touch.
 
 | Page | Route | File | Color | Features |
 |------|-------|------|-------|----------|
@@ -602,6 +604,32 @@ All mobile pages use internal view state instead of sub-routes, gradient headers
 - **Library**: `html5-qrcode` for camera barcode scanning (warehouse only)
 - **Translation keys**: `warehouse.mobile.*` and `mobilePages.*` namespaces
 - **API calls**: Uses `apiRequest` from `lib/queryClient` for all mutations
+
+### Native Expo app (`apps/mobile/`)
+
+Standalone Expo Router 4 / React Native 0.76 client that mirrors the web app's
+capabilities with mobile-native UX. Lives in a monorepo alongside `packages/shared/`
+which holds cross-platform types, endpoint maps, status labels, and permission helpers.
+
+- **Auth**: Bearer-token via `/api/mobile/login` + `/api/mobile/refresh-token`. Tokens
+  persisted in `expo-secure-store`. Axios interceptor performs silent refresh on 401.
+- **State**: TanStack Query v5 with normalized hooks for orders, my-orders, production
+  orders, rolls (filtered by stage), inventory, notifications, maintenance, quality.
+- **i18n / RTL**: i18next (Arabic default, English fallback) + `I18nManager.forceRTL(true)`.
+- **Theme**: light + dark derived from OS via `useColorScheme`.
+- **Routing**:
+  - `(auth)/login`
+  - `(app)/home` (KPI tiles + quick actions + recent notifications)
+  - `(app)/orders/{index,[id],my-orders}`
+  - `(app)/production/{index,rolls,roll-update}` (PATCH `/api/rolls/:id`, POST mark-printed)
+  - `(app)/warehouse/index` (inventory lookup w/ low-stock badge)
+  - `(app)/maintenance/index`, `(app)/quality/index`
+  - `(app)/notifications`, `(app)/profile`
+  - `(app)/more/{index,reports,settings}`, `(app)/hr/index` (scaffolded)
+- **Build/Run**: `cd apps/mobile && npm install && npx expo start`. Backend URL is
+  configured via `EXPO_PUBLIC_API_BASE_URL` (default `http://localhost:5000`).
+- **Constraint**: Web app files (`client/`, `server/`, `shared/`) are never modified by
+  the mobile build. The native client only consumes existing documented APIs.
 
 ## External Service Integrations
 
