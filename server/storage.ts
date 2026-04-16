@@ -3669,21 +3669,21 @@ export class DatabaseStorage implements IStorage {
     if (rollData.created_at) {
       history.push({ stage: 'film', action: 'created', date: rollData.created_at, details: { weight_kg: rollData.weight_kg } });
     }
-    if (rollData.print_date) {
-      history.push({ stage: 'printing', action: 'printed', date: rollData.print_date });
+    if (rollData.printed_at) {
+      history.push({ stage: 'printing', action: 'printed', date: rollData.printed_at });
     }
-    if (rollData.cutting_completion_date) {
-      history.push({ stage: 'cutting', action: 'completed', date: rollData.cutting_completion_date });
+    if (rollData.cut_completed_at) {
+      history.push({ stage: 'cutting', action: 'completed', date: rollData.cut_completed_at });
     }
     
     const qualityChecks = await this.getQualityChecksByRoll(id);
     for (const qc of qualityChecks) {
-      history.push({ stage: 'quality', action: 'quality_check', date: qc.check_date, details: qc });
+      history.push({ stage: 'quality', action: 'quality_check', date: qc.created_at, details: qc });
     }
     
     const wasteRecords = await db.select().from(waste).where(eq(waste.roll_id, id));
     for (const w of wasteRecords) {
-      history.push({ stage: w.stage || 'unknown', action: 'waste_recorded', date: w.created_at, details: { quantity_kg: w.quantity_kg } });
+      history.push({ stage: w.stage || 'unknown', action: 'waste_recorded', date: w.created_at, details: { quantity_kg: w.quantity_wasted } });
     }
     
     history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -4240,7 +4240,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCut(data: InsertCut): Promise<Cut> {
-    const [c] = await db.insert(cuts).values(data).returning();
+    const insertData: any = {
+      ...data,
+      cut_weight_kg: typeof data.cut_weight_kg === 'number'
+        ? data.cut_weight_kg.toString()
+        : data.cut_weight_kg,
+    };
+    const [c] = await db.insert(cuts).values(insertData).returning();
     return c;
   }
 
