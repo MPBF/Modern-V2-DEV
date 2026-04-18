@@ -244,7 +244,7 @@ export default function BagConfigurator() {
             <div className="bg-gradient-to-l from-gray-50 to-white px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-600 text-center">المعاينة المباشرة</h3>
             </div>
-            <CardContent className="p-4">
+            <CardContent className="p-4 border-t-[#2063f7] border-r-[#2063f7] border-b-[#2063f7] border-l-[#2063f7] pt-[0px] pb-[0px] pl-[0px] pr-[0px] font-bold text-[20px] text-left">
               <BagPreview config={config} size="xl" showDimensions />
             </CardContent>
           </Card>
