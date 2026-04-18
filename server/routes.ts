@@ -7173,10 +7173,21 @@ Do not include quotes or explanations.`;
     }
   });
 
+  let companyLogoCache: { logo_url: string | null; expiresAt: number } | null = null;
+  const COMPANY_LOGO_CACHE_TTL_MS = 5 * 60 * 1000;
+
   app.get("/api/company/logo", async (_req, res) => {
     try {
+      const now = Date.now();
+      if (companyLogoCache && companyLogoCache.expiresAt > now) {
+        res.set("Cache-Control", "public, max-age=300");
+        return res.json({ logo_url: companyLogoCache.logo_url });
+      }
       const [profile] = await db.select({ logo_url: company_profile.logo_url }).from(company_profile).limit(1);
-      res.json({ logo_url: profile?.logo_url || null });
+      const logo_url = profile?.logo_url || null;
+      companyLogoCache = { logo_url, expiresAt: now + COMPANY_LOGO_CACHE_TTL_MS };
+      res.set("Cache-Control", "public, max-age=300");
+      res.json({ logo_url });
     } catch (error) {
       console.error("Error fetching company logo:", error);
       res.status(500).json({ message: "خطأ في جلب شعار الشركة" });
@@ -7195,6 +7206,7 @@ Do not include quotes or explanations.`;
       } else {
         await db.insert(company_profile).values({ name: "Company", logo_url });
       }
+      companyLogoCache = { logo_url, expiresAt: Date.now() + COMPANY_LOGO_CACHE_TTL_MS };
       res.json({ message: "تم حفظ شعار الشركة بنجاح", logo_url });
     } catch (error) {
       console.error("Error saving company logo:", error);

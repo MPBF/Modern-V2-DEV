@@ -2305,30 +2305,22 @@ export const insertCustomerProductSchema = createInsertSchema(customer_products)
       .optional()
       .transform((val) => {
         if (val === null || val === undefined || val === "") return undefined;
-        try {
-          const num =
-            typeof val === "string"
-              ? parseIntSafe(val, "Cutting length", { min: 1, max: 10000 })
-              : val;
-          return num;
-        } catch {
-          return undefined; // Return undefined for invalid values instead of NaN
-        }
+        const raw = typeof val === "string" ? parseFloat(val) : Number(val);
+        if (!isFinite(raw)) return undefined;
+        const intVal = Math.round(raw);
+        if (intVal < 1 || intVal > 10000) return undefined;
+        return intVal;
       }),
     unit_quantity: z
       .union([z.string(), z.number()])
       .optional()
       .transform((val) => {
         if (val === null || val === undefined || val === "") return undefined;
-        try {
-          const num =
-            typeof val === "string"
-              ? parseIntSafe(val, "Unit quantity", { min: 1, max: 1000000 })
-              : val;
-          return num;
-        } catch {
-          return undefined; // Return undefined for invalid values instead of NaN
-        }
+        const raw = typeof val === "string" ? parseFloat(val) : Number(val);
+        if (!isFinite(raw)) return undefined;
+        const intVal = Math.round(raw);
+        if (intVal < 1 || intVal > 1000000) return undefined;
+        return intVal;
       }),
   });
 

@@ -45,8 +45,15 @@ export const parseIntSafe = (
     );
   }
 
+  // Reject decimal strings explicitly (e.g. "8.5") so they aren't silently truncated
+  if (stringValue.includes(".")) {
+    throw new Error(
+      `${fieldName} must be an integer, not a decimal (received: ${value})`,
+    );
+  }
+
   // Check if the original string was a valid integer representation
-  if (String(parsed) !== stringValue && !stringValue.includes(".")) {
+  if (String(parsed) !== stringValue) {
     throw new Error(
       `${fieldName} contains non-numeric characters (received: ${value})`,
     );
