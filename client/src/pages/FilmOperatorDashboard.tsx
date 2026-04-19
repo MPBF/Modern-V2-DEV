@@ -98,7 +98,7 @@ export default function FilmOperatorDashboard({ hideLayout = false }: FilmOperat
   });
 
   const { data: allRolls = [] } = useQuery<Roll[]>({
-    queryKey: ["/api/rolls"],
+    queryKey: ["/api/rolls", { limit: 500 }],
     refetchInterval: 30000,
   });
 

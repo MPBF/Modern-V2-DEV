@@ -96,7 +96,7 @@ function ProductionDashboardView({ onViewOrder, onViewStage }: { onViewOrder: (o
   });
 
   const { data: rolls = [] } = useQuery<any[]>({
-    queryKey: ["/api/rolls"],
+    queryKey: ["/api/rolls", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];
@@ -104,7 +104,7 @@ function ProductionDashboardView({ onViewOrder, onViewStage }: { onViewOrder: (o
   });
 
   const { data: orders = [] } = useQuery<any[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];
@@ -358,7 +358,7 @@ function StageDetailView({ stage, onBack, onViewOrder }: { stage: string; onBack
   const StageIcon = config.icon;
 
   const { data: rolls = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/rolls"],
+    queryKey: ["/api/rolls", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];
@@ -374,7 +374,7 @@ function StageDetailView({ stage, onBack, onViewOrder }: { stage: string; onBack
   });
 
   const { data: orders = [] } = useQuery<any[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];
@@ -485,7 +485,7 @@ function OrderDetailsView({ order, onBack }: { order: any; onBack: () => void })
   const [showRolls, setShowRolls] = useState(true);
 
   const { data: rolls = [] } = useQuery<any[]>({
-    queryKey: ["/api/rolls"],
+    queryKey: ["/api/rolls", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       const all = Array.isArray(arr) ? arr : [];
@@ -494,7 +494,7 @@ function OrderDetailsView({ order, onBack }: { order: any; onBack: () => void })
   });
 
   const { data: orders = [] } = useQuery<any[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];

@@ -287,7 +287,7 @@ function FilmMobileView({ onBack }: { onBack: () => void }) {
   });
 
   const { data: allRolls = [] } = useQuery<Roll[]>({
-    queryKey: ["/api/rolls"],
+    queryKey: ["/api/rolls", { limit: 500 }],
     refetchInterval: 30000,
   });
 

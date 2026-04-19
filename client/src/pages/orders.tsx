@@ -100,9 +100,9 @@ export default function Orders() {
 
   // Fetch orders
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { limit: 500 }],
     queryFn: async () => {
-      const response = await fetch("/api/orders");
+      const response = await fetch("/api/orders?limit=500");
       if (!response.ok) throw new Error(t('orders.fetchOrdersFailed'));
       const result = await response.json();
       const data = result.data || result;

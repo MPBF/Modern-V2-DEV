@@ -65,7 +65,7 @@ function OrdersListView({ onViewOrder }: { onViewOrder: (order: any) => void }) 
   const [statusFilter, setStatusFilter] = useState("all");
 
   const { data: orders = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/orders"],
+    queryKey: ["/api/orders", { limit: 500 }],
     select: (data: any) => {
       const arr = data?.data || data;
       return Array.isArray(arr) ? arr : [];

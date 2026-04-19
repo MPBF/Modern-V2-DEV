@@ -194,7 +194,7 @@ export default function Quality() {
   const { data: customersData } = useQuery<any>({ queryKey: ["/api/customers"] });
   const { data: usersData } = useQuery<any>({ queryKey: ["/api/users"] });
   const { data: prodOrdersData } = useQuery<any>({ queryKey: ["/api/production-orders"] });
-  const { data: ordersData } = useQuery<any>({ queryKey: ["/api/orders"] });
+  const { data: ordersData } = useQuery<any>({ queryKey: ["/api/orders", { limit: 500 }] });
 
   const issues = Array.isArray(issuesData) ? issuesData : (issuesData?.data || []);
   const stats = (statsData?.data || statsData || { total: 0, byStatus: {}, bySeverity: {}, bySource: {}, byCategory: {} });

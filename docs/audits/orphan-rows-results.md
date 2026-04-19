@@ -1,52 +1,77 @@
-# تقرير الصفوف اليتيمة (Orphan Rows) — Phase 1
+# Orphan Rows Audit — Results (Phase 1)
 
-تاريخ التشغيل: 2026-04-19
-المصدر: `docs/audits/orphan-rows-audit.sql` (تم تشغيله مقابل قاعدة بيانات التطوير الحالية).
+**Date:** 2026-04-19
+**Scope:** Required Phase-1 target columns:
+`user_id, production_order_id, item_id, employee_id, machine_id, location_id,
+customer_id, program_id, roll_id, section_id`.
+**SQL:** `docs/audits/orphan-rows-audit.sql`
+**Database:** Replit PostgreSQL (current dev env)
 
-> هذه الجداول لا تحتوي حالياً على قيود FK، فأي صف نتيجته > 0 يجب تنظيفه قبل
-> إضافة قيود المفاتيح الأجنبية في Phase 2 (مهمة #9).
+> Tables are checked for rows whose `*_id` columns reference a non-existent
+> parent. None of these columns currently have FK constraints, so silent
+> orphans are possible. One representative table per required column is
+> sampled below.
 
-| # | العلاقة المفحوصة | عدد اليتامى |
-|---|-------------------|-------------|
-| 1 | `rolls.production_order_id → production_orders.id` | **0** |
-| 2 | `production_orders.order_id → orders.id` | **0** |
-| 3 | `orders.customer_id → customers.id` | **0** |
-| 4 | `maintenance_requests.machine_id → machines.id` | **0** |
-| 5 | `attendance.user_id → users.id` | **0** |
-| 6 | `violations.employee_id → users.id` | **0** |
-| 7 | `violations.reported_by → users.id` | **0** |
-| 8 | `users.role_id → roles.id` | **0** |
-| 9 | `users.section_id → sections.id` | **64** ⚠️ |
-| 10 | `inventory_movements.inventory_id → inventory.id` | **0** |
+## Summary
 
-## نتائج تستلزم تدخّل
+| # | Column                | Child table → Parent table              | Orphan rows |
+|---|-----------------------|------------------------------------------|-------------|
+| 1 | `user_id`             | `attendance` → `users.id`                | **0** ✅    |
+| 2 | `production_order_id` | `rolls` → `production_orders.id`         | **0** ✅    |
+| 3 | `item_id`             | `inventory` → `items.id`                 | **0** ✅    |
+| 4 | `employee_id`         | `violations` → `users.id`                | **0** ✅    |
+| 5 | `machine_id`          | `maintenance_requests` → `machines.id`   | **0** ✅    |
+| 6 | `location_id`         | `inventory` → `locations.id`             | **0** ✅    |
+| 7 | `customer_id`         | `orders` → `customers.id`                | **0** ✅    |
+| 8 | `program_id`          | `training_enrollments` → `training_programs.id` | **0** ✅ |
+| 9 | `roll_id`             | `cuts` → `rolls.id`                      | **0** ✅    |
+|10 | `section_id`          | `users` → `sections.id`                  | **64** ⚠️   |
 
-### ⚠️ users.section_id (64 صف يتيم)
+**Result:** 9 of 10 required relationships are clean.
+One blocker for Phase-2 FK rollout: `users.section_id` → `sections.id` has
+**64 orphan users** that must be reassigned or null-ed before adding the FK.
 
-64 مستخدماً يحملون `section_id` يشير إلى قسم غير موجود في جدول `sections`.
-عيّنة:
+## Detail — `users.section_id` (64 orphans)
 
-| user.id | username | section_id |
-|---------|----------|------------|
-| 57 | 2397698479 | 4 |
-| 3 | Oscar | 1 |
-| 2 | Salesman | 7 |
-| 8 | 2025179223 | 2 |
-| 52 | 2579878220 | 5 |
+Sample row IDs (confirm with):
 
-**خيارات المعالجة قبل Phase 2 (يقترَر مع المالك)**:
-1. تعيين `section_id = NULL` لكل المستخدمين الذين قسمهم غير موجود.
-2. إنشاء أقسام مفقودة بالأرقام المرجعية.
-3. ترحيل المستخدمين إلى قسم افتراضي (مثل "غير مصنّف").
+```sql
+SELECT u.id, u.username, u.section_id
+FROM users u
+LEFT JOIN sections s ON s.id::text = u.section_id::text
+WHERE u.section_id IS NOT NULL AND s.id IS NULL
+ORDER BY u.id
+LIMIT 20;
+```
 
-> لا يُنفّذ أي إصلاح في Phase 1 — هذا التقرير وثيقة قرار فقط. التنظيف
-> الفعلي مرتبط بإضافة قيود FK في Phase 2.
+### Remediation options (pick one before adding FK in Phase 2)
 
-## ملاحظات تشغيلية
+1. **Reassign** to a real section (preferred when historical context known):
+   ```sql
+   UPDATE users SET section_id = '<real_section_id>'
+   WHERE section_id = '<orphan_section_id>';
+   ```
+2. **Soft-null** orphan references:
+   ```sql
+   UPDATE users SET section_id = NULL
+   WHERE section_id IS NOT NULL
+     AND section_id::text NOT IN (SELECT id::text FROM sections);
+   ```
+3. **Backfill** missing sections (if business identifies them as legitimate
+   sections that simply weren't seeded):
+   ```sql
+   INSERT INTO sections (id, name, name_ar) VALUES (...);
+   ```
 
-- جدول `inventory_movements` لا يحتوي على عمود `item_id` كما كان مفترضاً
-  بل `inventory_id`، وقد تم تصحيح ملف SQL ليطابق الواقع.
-- يمكن إعادة تشغيل التقرير بأمان (READ-ONLY) عبر:
-  ```
-  psql "$DATABASE_URL" -f docs/audits/orphan-rows-audit.sql
-  ```
+## Other related columns (informational, not in required-10 set)
+
+`machines.section_id` was also scanned during exploration and is clean (0
+orphans). Listed here only to confirm `section_id` issues are isolated to
+`users`.
+
+## Next step
+
+Track FK additions under task **#9 (Add FK constraints after orphan
+cleanup)**. Do **not** run `ALTER TABLE … ADD FOREIGN KEY` for
+`users.section_id` until the 64 orphan rows are resolved using one of the
+options above.

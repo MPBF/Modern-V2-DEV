@@ -50,7 +50,7 @@ export default function AttendanceStats({ userId }: AttendanceStatsProps) {
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
 
   const { data: attendanceRecords = [] } = useQuery<AttendanceRecord[]>({
-    queryKey: ["/api/attendance"],
+    queryKey: ["/api/attendance", { limit: 500 }],
     select: (data) => data.filter((record) => record.user_id === userId),
   });
 

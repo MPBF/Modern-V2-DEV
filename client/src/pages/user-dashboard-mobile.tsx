@@ -85,7 +85,7 @@ function MainDashboard({ onNavigate }: { onNavigate: (view: DashboardView) => vo
   });
 
   const { data: attendanceRecords } = useQuery<any[]>({
-    queryKey: ["/api/attendance"],
+    queryKey: ["/api/attendance", { limit: 500 }],
     select: (data) => data.filter((r: any) => r.user_id === user?.id),
   });
 
