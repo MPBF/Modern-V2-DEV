@@ -66,15 +66,45 @@ app.use(compression({
   }
 }));
 
-app.use(express.json({
-  limit: "50mb",
+// Carve-outs: heavy upload/import endpoints get a larger limit (10mb).
+// Everything else is capped at 1mb to prevent payload-based DoS.
+const HEAVY_UPLOAD_PREFIXES = [
+  "/api/database/import",
+  "/api/database/restore",
+  "/api/company/upload-logo",
+  "/api/upload",
+  "/api/customer-products", // base64 cliché design images
+  "/api/factory-3d/snapshots",
+  "/api/mobile/upload",
+  "/webhook/",
+];
+
+const heavyJson = express.json({
+  limit: "10mb",
   verify: (req: any, _res, buf) => {
-    if (req.url?.includes('/webhook/')) {
+    if (req.url?.includes("/webhook/")) {
       req.rawBody = buf;
     }
+  },
+});
+const heavyUrlencoded = express.urlencoded({ extended: false, limit: "10mb" });
+const standardJson = express.json({ limit: "1mb" });
+const standardUrlencoded = express.urlencoded({ extended: false, limit: "1mb" });
+
+app.use((req, res, next) => {
+  const isHeavy = HEAVY_UPLOAD_PREFIXES.some((p) => req.path.startsWith(p));
+  if (isHeavy) {
+    heavyJson(req, res, (err) => {
+      if (err) return next(err);
+      heavyUrlencoded(req, res, next);
+    });
+  } else {
+    standardJson(req, res, (err) => {
+      if (err) return next(err);
+      standardUrlencoded(req, res, next);
+    });
   }
-}));
-app.use(express.urlencoded({ extended: false, limit: "50mb" }));
+});
 
 const publicRoot = path.resolve(import.meta.dirname, "..", "public");
 const distPublic = path.resolve(import.meta.dirname, "public");

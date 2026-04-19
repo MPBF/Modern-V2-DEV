@@ -130,6 +130,12 @@ import {
   mobile_sessions,
   mobile_sync_queue,
   company_profile,
+  insertSparePartSchema,
+  updateSparePartSchema,
+  insertViolationSchema,
+  updateViolationSchema,
+  updateUserSchema,
+  insertMixingRecipeSchema,
 } from "@shared/schema";
 import { eq, sql, and, gte, lte, gt, desc, inArray } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -1593,7 +1599,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Orders routes
   app.get("/api/orders", requireAuth, async (req, res) => {
     try {
-      const orders = await storage.getAllOrders();
+      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+      const orders = await storage.getAllOrders({ limit, offset });
 
       if (!Array.isArray(orders)) {
         return res.status(500).json({
@@ -1605,6 +1613,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       res.json({
         data: orders,
         count: orders.length,
+        limit,
+        offset,
         success: true,
       });
     } catch (error: any) {
@@ -2541,12 +2551,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/rolls", requireAuth, async (req, res) => {
     try {
       const { stage } = req.query;
+      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
 
       if (stage) {
         const rolls = await storage.getRollsByStage(stage as string);
         res.json(rolls);
       } else {
-        const rolls = await storage.getRolls();
+        const rolls = await storage.getAllRolls({ limit, offset });
         res.json(rolls);
       }
     } catch (error) {
@@ -3339,11 +3351,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             const labelCell = row.getCell(1);
             labelCell.value = label;
             labelCell.font = { bold: true, size: 11 };
-            labelCell.border = dataStyle.border;
+            if (dataStyle.border) labelCell.border = dataStyle.border;
             const valCell = row.getCell(2);
             valCell.value = value;
             valCell.font = { size: 11 };
-            valCell.border = dataStyle.border;
+            if (dataStyle.border) valCell.border = dataStyle.border;
             valCell.alignment = { horizontal: "center" };
             if (i % 2 === 0) {
               labelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F9FF" } };
@@ -4520,27 +4532,21 @@ Do not include quotes or explanations.`;
 
   app.post("/api/mixing-recipes", requireAuth, requirePermission('manage_mixing', 'manage_production'), async (req, res) => {
     try {
-      if (!req.body || typeof req.body !== "object") {
-        return res.status(400).json({ message: "بيانات الوصفة مطلوبة" });
-      }
-      if (!req.body.name) {
-        return res.status(400).json({ message: "اسم الوصفة مطلوب" });
-      }
-      const allowedFields = ['name', 'name_ar', 'description', 'ingredients', 'total_weight', 'notes', 'is_active'];
-      const sanitizedData: Record<string, any> = {};
-      for (const field of allowedFields) {
-        if (req.body[field] !== undefined) {
-          sanitizedData[field] = req.body[field];
-        }
+      const parsed = insertMixingRecipeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات الوصفة غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
       }
       const authUserId = getAuthUserId(req);
-      if (authUserId) {
-        sanitizedData.created_by = authUserId;
-      }
-      const mixingRecipe = await storage.createMixingRecipe(sanitizedData);
-      res.json(mixingRecipe);
+      const payload: Record<string, any> = { ...parsed.data };
+      if (authUserId) payload.created_by = authUserId;
+      const mixingRecipe = await storage.createMixingRecipe(payload);
+      res.status(201).json(mixingRecipe);
     } catch (error) {
-      res.status(400).json({ message: "بيانات غير صحيحة" });
+      console.error("Error creating mixing recipe:", error);
+      res.status(500).json({ message: "خطأ في إنشاء الوصفة" });
     }
   });
 
@@ -4922,38 +4928,35 @@ Do not include quotes or explanations.`;
 
   app.post("/api/spare-parts", requireAuth, requirePermission('manage_maintenance'), async (req, res) => {
     try {
-      if (!req.body || typeof req.body !== "object") {
-        return res.status(400).json({ message: "بيانات قطعة الغيار مطلوبة" });
+      const parsed = insertSparePartSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات قطعة الغيار غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
       }
-      if (!req.body.name) {
-        return res.status(400).json({ message: "اسم قطعة الغيار مطلوب" });
-      }
-      const sparePartFields = ['name', 'name_ar', 'description', 'part_number', 'quantity', 'min_quantity', 'unit', 'location', 'machine_id', 'supplier', 'cost', 'notes', 'status'];
-      const sanitizedSparePartData: Record<string, any> = {};
-      for (const field of sparePartFields) {
-        if (req.body[field] !== undefined) {
-          sanitizedSparePartData[field] = req.body[field];
-        }
-      }
-      const sparePart = await storage.createSparePart(sanitizedSparePartData);
-      res.json(sparePart);
-    } catch (error) {
+      const sparePart = await storage.createSparePart(parsed.data);
+      res.status(201).json(sparePart);
+    } catch (error: any) {
       console.error("Error creating spare part:", error);
-      res.status(500).json({ message: "خطأ في إنشاء قطعة الغيار" });
+      const isUnique = String(error?.code) === "23505" || /unique/i.test(String(error?.message));
+      res.status(isUnique ? 409 : 500).json({
+        message: isUnique ? "رقم القطعة موجود مسبقاً" : "خطأ في إنشاء قطعة الغيار",
+      });
     }
   });
 
   app.put("/api/spare-parts/:id", requireAuth, requirePermission('manage_maintenance'), async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "ID");
-      const sparePartUpdateFields = ['name', 'name_ar', 'description', 'part_number', 'quantity', 'min_quantity', 'unit', 'location', 'machine_id', 'supplier', 'cost', 'notes', 'status'];
-      const sanitizedUpdate: Record<string, any> = {};
-      for (const field of sparePartUpdateFields) {
-        if (req.body[field] !== undefined) {
-          sanitizedUpdate[field] = req.body[field];
-        }
+      const parsed = updateSparePartSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات التحديث غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
       }
-      const sparePart = await storage.updateSparePart(id, sanitizedUpdate);
+      const sparePart = await storage.updateSparePart(id, parsed.data as any);
       res.json(sparePart);
     } catch (error) {
       console.error("Error updating spare part:", error);
@@ -5376,15 +5379,23 @@ Do not include quotes or explanations.`;
       }
 
       const allowedFields = ['username', 'display_name', 'display_name_ar', 'full_name', 'phone', 'email', 'status', 'password'];
-      const processedData: Record<string, any> = {
+      const candidate: Record<string, any> = {
         role_id: roleId,
         section_id: sectionId,
       };
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
-          processedData[field] = req.body[field];
+          candidate[field] = req.body[field];
         }
       }
+      const parsed = updateUserSchema.safeParse(candidate);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات المستخدم غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const processedData = parsed.data as Record<string, any>;
 
       const user = await storage.updateUser(id, processedData);
       if (!user) {
@@ -7705,7 +7716,9 @@ Do not include quotes or explanations.`;
 
   app.get("/api/attendance", requireAuth, async (req, res) => {
     try {
-      const attendance = await storage.getAttendance();
+      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+      const attendance = await storage.getAttendance({ limit, offset });
       res.json(attendance);
     } catch (error) {
       console.error("Error fetching attendance:", error);
@@ -8868,24 +8881,27 @@ Do not include quotes or explanations.`;
 
   app.post("/api/violations", requireAuth, async (req, res) => {
     try {
-      if (!req.body || typeof req.body !== "object") {
-        return res.status(400).json({ message: "بيانات المخالفة مطلوبة" });
+      // Accept legacy field names from older clients (user_id, type) and map
+      // them to the actual DB columns (employee_id, violation_type).
+      const body: Record<string, any> = { ...(req.body ?? {}) };
+      if (body.user_id !== undefined && body.employee_id === undefined) {
+        body.employee_id = body.user_id;
       }
-      if (!req.body.user_id || !req.body.type) {
-        return res.status(400).json({ message: "معرف المستخدم ونوع المخالفة مطلوبان" });
-      }
-      const violationFields = ['user_id', 'type', 'description', 'date', 'severity', 'status', 'notes', 'action_taken'];
-      const sanitizedViolation: Record<string, any> = {};
-      for (const field of violationFields) {
-        if (req.body[field] !== undefined) {
-          sanitizedViolation[field] = req.body[field];
-        }
+      if (body.type !== undefined && body.violation_type === undefined) {
+        body.violation_type = body.type;
       }
       const reporterId = getAuthUserId(req);
-      if (reporterId) {
-        sanitizedViolation.reported_by = reporterId;
+      if (reporterId && body.reported_by === undefined) {
+        body.reported_by = reporterId;
       }
-      const violation = await storage.createViolation(sanitizedViolation);
+      const parsed = insertViolationSchema.safeParse(body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات المخالفة غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const violation = await storage.createViolation(parsed.data);
       res.status(201).json(violation);
     } catch (error) {
       console.error("Error creating violation:", error);
@@ -8896,14 +8912,18 @@ Do not include quotes or explanations.`;
   app.put("/api/violations/:id", requireAuth, async (req, res) => {
     try {
       const id = parseRouteParam(req.params.id, "id");
-      const violationUpdateFields = ['type', 'description', 'date', 'severity', 'status', 'notes', 'action_taken'];
-      const sanitizedViolationUpdate: Record<string, any> = {};
-      for (const field of violationUpdateFields) {
-        if (req.body[field] !== undefined) {
-          sanitizedViolationUpdate[field] = req.body[field];
-        }
+      const body: Record<string, any> = { ...(req.body ?? {}) };
+      if (body.type !== undefined && body.violation_type === undefined) {
+        body.violation_type = body.type;
       }
-      const violation = await storage.updateViolation(id, sanitizedViolationUpdate);
+      const parsed = updateViolationSchema.safeParse(body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "بيانات التحديث غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        });
+      }
+      const violation = await storage.updateViolation(id, parsed.data as any);
       res.json(violation);
     } catch (error) {
       console.error("Error updating violation:", error);

@@ -2683,16 +2683,17 @@ function SparePartForm({
                   </SelectTrigger>
                   <SelectContent>
                     {Array.isArray(machines) && machines.length > 0 ? (
-                      machines.map((machine: any) => (
-                        <SelectItem
-                          key={machine.id}
-                          value={
-                            machine.id ? `machine_${machine.id}` : "unknown"
-                          }
-                        >
-                          {machine.name_ar || machine.name} ({machine.id})
-                        </SelectItem>
-                      ))
+                      machines.map((machine: any) => {
+                        const label = machine.name_ar || machine.name || `#${machine.id}`;
+                        return (
+                          <SelectItem
+                            key={machine.id}
+                            value={label}
+                          >
+                            {label} ({machine.id})
+                          </SelectItem>
+                        );
+                      })
                     ) : (
                       <SelectItem value="no_machines">
                         {t('maintenance.noMachinesAvailable')}
@@ -2837,16 +2838,17 @@ function SparePartEditForm({
                   </SelectTrigger>
                   <SelectContent>
                     {Array.isArray(machines) && machines.length > 0 ? (
-                      machines.map((machine: any) => (
-                        <SelectItem
-                          key={machine.id}
-                          value={
-                            machine.id ? `machine_${machine.id}` : "unknown"
-                          }
-                        >
-                          {machine.name_ar || machine.name} ({machine.id})
-                        </SelectItem>
-                      ))
+                      machines.map((machine: any) => {
+                        const label = machine.name_ar || machine.name || `#${machine.id}`;
+                        return (
+                          <SelectItem
+                            key={machine.id}
+                            value={label}
+                          >
+                            {label} ({machine.id})
+                          </SelectItem>
+                        );
+                      })
                     ) : (
                       <SelectItem value="no_machines">
                         {t('maintenance.noMachinesAvailable')}

@@ -2113,7 +2113,56 @@ export type UpsertUser = {
   username?: string;
 };
 export type SparePart = typeof spare_parts.$inferSelect;
-export type InsertSparePart = typeof spare_parts.$inferInsert;
+export const insertSparePartSchema = createInsertSchema(spare_parts).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+}).extend({
+  part_id: z.string().min(1).max(50),
+  machine_name: z.string().min(1).max(100),
+  part_name: z.string().min(1).max(100),
+  code: z.string().min(1).max(50),
+  serial_number: z.string().min(1).max(100),
+  specifications: z.string().optional().nullable(),
+});
+export const updateSparePartSchema = insertSparePartSchema.partial();
+export type InsertSparePart = z.infer<typeof insertSparePartSchema>;
+
+export const insertViolationSchema = createInsertSchema(violations).omit({
+  id: true,
+}).extend({
+  employee_id: z.coerce.number().int().positive(),
+  violation_type: z.string().min(1).max(50),
+  description: z.string().optional().nullable(),
+  date: z.coerce.date(),
+  action_taken: z.string().optional().nullable(),
+  reported_by: z.coerce.number().int().positive().optional().nullable(),
+});
+export const updateViolationSchema = insertViolationSchema.partial();
+export type InsertViolation = z.infer<typeof insertViolationSchema>;
+
+export const updateUserSchema = z.object({
+  username: z.string().min(1).max(50).optional(),
+  display_name: z.string().min(1).max(100).optional(),
+  display_name_ar: z.string().max(100).optional().nullable(),
+  full_name: z.string().max(100).optional().nullable(),
+  phone: z.string().max(30).optional().nullable(),
+  email: z.string().email().max(120).optional().nullable(),
+  status: z.enum(["active", "inactive", "suspended"]).optional(),
+  password: z.string().min(6).max(200).optional(),
+  role_id: z.union([z.number().int().positive(), z.null()]).optional(),
+  section_id: z.union([z.number().int().positive(), z.null()]).optional(),
+}).strict();
+
+export const insertMixingRecipeSchema = z.object({
+  name: z.string().min(1).max(200),
+  name_ar: z.string().max(200).optional().nullable(),
+  description: z.string().optional().nullable(),
+  ingredients: z.any().optional(),
+  total_weight: z.coerce.number().nonnegative().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  is_active: z.boolean().optional(),
+}).strict();
 // Legacy order types - will be phased out
 export type Roll = typeof rolls.$inferSelect;
 export type InsertRoll = z.infer<typeof insertRollSchema>;

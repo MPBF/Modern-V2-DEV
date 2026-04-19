@@ -1056,10 +1056,12 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getAllOrders(): Promise<NewOrder[]> {
+  async getAllOrders(opts?: { limit?: number; offset?: number }): Promise<NewOrder[]> {
     return withDatabaseErrorHandling(
       async () => {
-        return await db.select().from(orders).orderBy(desc(orders.id));
+        const limit = Math.max(1, Math.min(opts?.limit ?? 50, 500));
+        const offset = Math.max(0, opts?.offset ?? 0);
+        return await db.select().from(orders).orderBy(desc(orders.id)).limit(limit).offset(offset);
       },
       "getAllOrders",
       "جلب جميع الطلبات",
@@ -1512,10 +1514,12 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getAllRolls(): Promise<Roll[]> {
+  async getAllRolls(opts?: { limit?: number; offset?: number }): Promise<Roll[]> {
     return withDatabaseErrorHandling(
       async () => {
-        return await db.select().from(rolls).orderBy(desc(rolls.id));
+        const limit = Math.max(1, Math.min(opts?.limit ?? 50, 500));
+        const offset = Math.max(0, opts?.offset ?? 0);
+        return await db.select().from(rolls).orderBy(desc(rolls.id)).limit(limit).offset(offset);
       },
       "getAllRolls",
       "جلب جميع الرولات",
@@ -1610,10 +1614,12 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  async getAllCustomers(): Promise<Customer[]> {
+  async getAllCustomers(opts?: { limit?: number; offset?: number }): Promise<Customer[]> {
     return withDatabaseErrorHandling(
       async () => {
-        return await db.select().from(customers).orderBy(customers.name);
+        const limit = Math.max(1, Math.min(opts?.limit ?? 100, 500));
+        const offset = Math.max(0, opts?.offset ?? 0);
+        return await db.select().from(customers).orderBy(customers.name).limit(limit).offset(offset);
       },
       "getAllCustomers",
       "جلب العملاء",
@@ -4307,8 +4313,10 @@ export class DatabaseStorage implements IStorage {
     return { completed: false };
   }
 
-  async getAttendance(): Promise<Attendance[]> {
-    return await db.select().from(attendance).orderBy(desc(attendance.date));
+  async getAttendance(opts?: { limit?: number; offset?: number }): Promise<Attendance[]> {
+    const limit = Math.max(1, Math.min(opts?.limit ?? 50, 500));
+    const offset = Math.max(0, opts?.offset ?? 0);
+    return await db.select().from(attendance).orderBy(desc(attendance.date)).limit(limit).offset(offset);
   }
 
   async getDashboardStats(): Promise<any> {
