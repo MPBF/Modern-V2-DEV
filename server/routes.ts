@@ -1611,13 +1611,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         });
       }
 
-      res.json({
-        data: orders,
-        count: orders.length,
-        limit,
-        offset,
-        success: true,
-      });
+      // Backward-compatible: return a plain array (matches the historical
+      // /api/orders contract that frontend widgets like RecentOrdersWidget
+      // depend on). Pagination metadata is exposed via response headers.
+      res.set("X-Pagination-Limit", String(limit));
+      res.set("X-Pagination-Offset", String(offset));
+      res.set("X-Pagination-Count", String(orders.length));
+      res.json(orders);
     } catch (error: any) {
       console.error("Orders fetch error:", error);
 
