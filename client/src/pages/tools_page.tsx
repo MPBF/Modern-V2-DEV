@@ -348,12 +348,120 @@ function mapApiBagWeightRecord(r: ApiBagWeightRecord): BagWeightRecord {
   };
 }
 
+const BAG_HISTORY_KEY = "mpbf_bag_weight_history";
+const BAG_HISTORY_MIGRATED_KEY = "mpbf_bag_weight_history_migrated";
+
+interface LegacyBagWeightRecord {
+  id?: string | number;
+  createdAt?: string;
+  bagType?: unknown;
+  widthCm?: number;
+  lengthCm?: number;
+  sideGussetCm?: number;
+  thicknessMicron?: number;
+  layers?: number;
+  density?: number;
+  gramsPerBag?: number;
+  bagsPerKg?: number;
+  areaM2?: number;
+}
+
 function useBagWeightHistory() {
   const { toast } = useToast();
   const { data: rawData = [] } = useQuery<ApiBagWeightRecord[]>({
     queryKey: ["/api/bag-weight-records"],
   });
   const history = useMemo(() => rawData.map(mapApiBagWeightRecord), [rawData]);
+  const migrationRan = useRef(false);
+
+  useEffect(() => {
+    if (migrationRan.current) return;
+    migrationRan.current = true;
+    if (typeof window === "undefined") return;
+    let raw: string | null;
+    try {
+      if (window.localStorage.getItem(BAG_HISTORY_MIGRATED_KEY) === "1") return;
+      raw = window.localStorage.getItem(BAG_HISTORY_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) {
+      try { window.localStorage.setItem(BAG_HISTORY_MIGRATED_KEY, "1"); } catch {}
+      return;
+    }
+    let parsed: LegacyBagWeightRecord[] = [];
+    try {
+      const data = JSON.parse(raw);
+      parsed = Array.isArray(data) ? data : [];
+    } catch {
+      try {
+        window.localStorage.removeItem(BAG_HISTORY_KEY);
+        window.localStorage.setItem(BAG_HISTORY_MIGRATED_KEY, "1");
+      } catch {}
+      return;
+    }
+    if (parsed.length === 0) {
+      try {
+        window.localStorage.removeItem(BAG_HISTORY_KEY);
+        window.localStorage.setItem(BAG_HISTORY_MIGRATED_KEY, "1");
+      } catch {}
+      return;
+    }
+    const ordered = [...parsed].reverse();
+    const remaining = [...parsed];
+    const totalCount = ordered.length;
+    (async () => {
+      let migratedCount = 0;
+      try {
+        for (const r of ordered) {
+          const payload = {
+            bag_type: migrateLegacyBagType(r.bagType),
+            width_cm: String(r.widthCm ?? 0),
+            length_cm: String(r.lengthCm ?? 0),
+            side_gusset_cm: String(r.sideGussetCm ?? 0),
+            thickness_micron: String(r.thicknessMicron ?? 0),
+            layers: typeof r.layers === "number" ? r.layers : 1,
+            density: String(r.density ?? 0.95),
+            grams_per_bag: String(r.gramsPerBag ?? 0),
+            bags_per_kg: String(r.bagsPerKg ?? 0),
+            area_m2: String(r.areaM2 ?? 0),
+          };
+          const res = await apiRequest("/api/bag-weight-records", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          await res.json().catch(() => null);
+          migratedCount++;
+          const idx = remaining.lastIndexOf(r);
+          if (idx >= 0) remaining.splice(idx, 1);
+          try {
+            if (remaining.length > 0) {
+              window.localStorage.setItem(BAG_HISTORY_KEY, JSON.stringify(remaining));
+            } else {
+              window.localStorage.removeItem(BAG_HISTORY_KEY);
+            }
+          } catch {}
+        }
+        try {
+          window.localStorage.removeItem(BAG_HISTORY_KEY);
+          window.localStorage.setItem(BAG_HISTORY_MIGRATED_KEY, "1");
+        } catch {}
+        queryClient.invalidateQueries({ queryKey: ["/api/bag-weight-records"] });
+        if (migratedCount > 0) {
+          toast({
+            title: "تم نقل السجلات",
+            description: `تم نقل ${migratedCount} سجل من المتصفح إلى حسابك`,
+          });
+        }
+      } catch (err) {
+        console.warn("[bag-weight migration] partial failure", { migratedCount, totalCount, err });
+        if (migratedCount > 0) {
+          queryClient.invalidateQueries({ queryKey: ["/api/bag-weight-records"] });
+        }
+        migrationRan.current = false;
+      }
+    })();
+  }, [toast]);
 
   const addMutation = useMutation({
     mutationFn: async (record: Omit<BagWeightRecord, "id" | "createdAt">) => {
