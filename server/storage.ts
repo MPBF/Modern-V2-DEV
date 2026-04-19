@@ -3814,10 +3814,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sections).where(eq(sections.id, String(id)));
   }
 
-  async getCustomers(options?: { search?: string; page?: number; limit?: number }): Promise<any> {
+  async getCustomers(options?: { search?: string; page?: number; limit?: number; offset?: number }): Promise<any> {
+    const pageLimit = Math.min(Math.max(options?.limit ?? 50, 1), 500);
+    // Prefer explicit offset; fall back to page-based pagination for callers
+    // that still pass `page`. Both contracts coexist.
     const pageNum = options?.page || 1;
-    const pageLimit = options?.limit || 50;
-    const offset = (pageNum - 1) * pageLimit;
+    const offset = options?.offset !== undefined
+      ? Math.max(options.offset, 0)
+      : (pageNum - 1) * pageLimit;
 
     let query = db.select().from(customers);
 

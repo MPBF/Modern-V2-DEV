@@ -1600,9 +1600,20 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Orders routes
   app.get("/api/orders", requireAuth, async (req, res) => {
     try {
-      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
-      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
-      const orders = await storage.getAllOrders({ limit, offset });
+      // Pagination is opt-in: clients pass ?limit=<n>&offset=<n> to paginate;
+      // omitting both yields the full list (backward compatible with existing
+      // frontends like RecentOrdersWidget and orders.tsx that expect arrays).
+      const hasPagination = req.query.limit !== undefined || req.query.offset !== undefined;
+      let orders;
+      let limit = 0;
+      let offset = 0;
+      if (hasPagination) {
+        limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+        offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+        orders = await storage.getAllOrders({ limit, offset });
+      } else {
+        orders = await storage.getAllOrders();
+      }
 
       if (!Array.isArray(orders)) {
         return res.status(500).json({
@@ -1611,12 +1622,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         });
       }
 
-      // Backward-compatible: return a plain array (matches the historical
-      // /api/orders contract that frontend widgets like RecentOrdersWidget
-      // depend on). Pagination metadata is exposed via response headers.
-      res.set("X-Pagination-Limit", String(limit));
-      res.set("X-Pagination-Offset", String(offset));
-      res.set("X-Pagination-Count", String(orders.length));
+      if (hasPagination) {
+        res.set("X-Pagination-Limit", String(limit));
+        res.set("X-Pagination-Offset", String(offset));
+        res.set("X-Pagination-Count", String(orders.length));
+      }
       res.json(orders);
     } catch (error: any) {
       console.error("Orders fetch error:", error);
@@ -2552,16 +2562,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.get("/api/rolls", requireAuth, async (req, res) => {
     try {
       const { stage } = req.query;
-      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
-      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+      const hasPagination = req.query.limit !== undefined || req.query.offset !== undefined;
 
       if (stage) {
         const rolls = await storage.getRollsByStage(stage as string);
-        res.json(rolls);
-      } else {
-        const rolls = await storage.getAllRolls({ limit, offset });
-        res.json(rolls);
+        return res.json(rolls);
       }
+      if (hasPagination) {
+        const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+        const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+        const rolls = await storage.getAllRolls({ limit, offset });
+        res.set("X-Pagination-Limit", String(limit));
+        res.set("X-Pagination-Offset", String(offset));
+        res.set("X-Pagination-Count", String(rolls.length));
+        return res.json(rolls);
+      }
+      const rolls = await storage.getAllRolls();
+      res.json(rolls);
     } catch (error) {
       console.error("[GET /api/rolls] Error fetching rolls:", error);
       res.status(500).json({ message: "خطأ في جلب الرولات" });
@@ -2781,26 +2798,24 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Customers routes
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
-      const { search, page, limit, all } = req.query;
-      
-      // If all=true, return all customers without pagination (for dropdowns)
+      const { search, page, limit, offset, all } = req.query;
+
+      // ?all=true → full list (dropdowns, bulk import).
       if (all === 'true') {
         const allCustomers = await storage.getAllCustomers();
         return res.json(allCustomers);
       }
-      
-      const options: { search?: string; page?: number; limit?: number } = {};
-      
-      if (search && typeof search === 'string') {
-        options.search = search;
-      }
-      if (page && typeof page === 'string') {
-        options.page = Math.max(parseInt(page) || 1, 1);
-      }
+
+      const options: { search?: string; page?: number; limit?: number; offset?: number } = {};
+      if (search && typeof search === 'string') options.search = search;
+      if (page && typeof page === 'string') options.page = Math.max(parseInt(page) || 1, 1);
       if (limit && typeof limit === 'string') {
         options.limit = Math.min(Math.max(parseInt(limit) || 50, 1), 500);
       }
-      
+      if (offset && typeof offset === 'string') {
+        options.offset = Math.max(parseInt(offset) || 0, 0);
+      }
+
       const result = await storage.getCustomers(options);
       res.json(result);
     } catch (error) {
@@ -7737,9 +7752,17 @@ Do not include quotes or explanations.`;
 
   app.get("/api/attendance", requireAuth, async (req, res) => {
     try {
-      const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
-      const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
-      const attendance = await storage.getAttendance({ limit, offset });
+      const hasPagination = req.query.limit !== undefined || req.query.offset !== undefined;
+      if (hasPagination) {
+        const limit = Math.max(1, Math.min(parseInt(String(req.query.limit ?? "")) || 50, 500));
+        const offset = Math.max(0, parseInt(String(req.query.offset ?? "")) || 0);
+        const attendance = await storage.getAttendance({ limit, offset });
+        res.set("X-Pagination-Limit", String(limit));
+        res.set("X-Pagination-Offset", String(offset));
+        res.set("X-Pagination-Count", String(attendance.length));
+        return res.json(attendance);
+      }
+      const attendance = await storage.getAttendance();
       res.json(attendance);
     } catch (error) {
       console.error("Error fetching attendance:", error);
