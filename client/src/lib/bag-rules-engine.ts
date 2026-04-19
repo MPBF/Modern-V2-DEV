@@ -147,21 +147,40 @@ export function getBagsPerKg(config: BagConfiguration): number | null {
   return Math.round(1000 / w);
 }
 
+export const HANGER_MIN_HEIGHT_CM = 12;
+export const HANGER_MAX_HEIGHT_CM = 25;
+const HANGER_DEFAULT_WIDTH_MAX_CM = 70;
+const HANGER_DEFAULT_LENGTH_MAX_CM = 100;
+
+export function getHangerHeightCm(
+  widthCm: number,
+  lengthCm: number,
+  opts?: { bagType?: string; isPrinted?: boolean },
+): number {
+  const rules = opts?.bagType ? getBagTypeRules(opts.bagType) : null;
+  const widthMax = rules
+    ? (opts?.isPrinted && rules.width_printed ? rules.width_printed.max : rules.width.max)
+    : HANGER_DEFAULT_WIDTH_MAX_CM;
+  const lengthMax = rules
+    ? (opts?.isPrinted ? rules.length_printed.max : rules.length_plain.max)
+    : HANGER_DEFAULT_LENGTH_MAX_CM;
+
+  const widthRatio = widthCm > 0 ? Math.min(1, widthCm / widthMax) : 0.5;
+  const lengthRatio = lengthCm > 0 ? Math.min(1, lengthCm / lengthMax) : 0.5;
+  const sizeRatio = widthRatio * 0.6 + lengthRatio * 0.4;
+
+  return Math.round(
+    HANGER_MIN_HEIGHT_CM + sizeRatio * (HANGER_MAX_HEIGHT_CM - HANGER_MIN_HEIGHT_CM),
+  );
+}
+
 export function getHangerHeight(config: BagConfiguration): number {
   const rules = getBagTypeRules(config.bagType);
   if (!rules || config.handle !== "hanger") return 0;
-
-  const minH = 12;
-  const maxH = 25;
-
-  const widthMax = config.isPrinted && rules.width_printed ? rules.width_printed.max : rules.width.max;
-  const lengthMax = config.isPrinted ? rules.length_printed.max : rules.length_plain.max;
-
-  const widthRatio = config.width > 0 ? config.width / widthMax : 0.5;
-  const lengthRatio = config.length > 0 ? config.length / lengthMax : 0.5;
-  const sizeRatio = (widthRatio * 0.6 + lengthRatio * 0.4);
-
-  return Math.round(minH + sizeRatio * (maxH - minH));
+  return getHangerHeightCm(config.width, config.length, {
+    bagType: config.bagType,
+    isPrinted: config.isPrinted,
+  });
 }
 
 export function getPrintArea(bagType: string) {

@@ -13,6 +13,7 @@ import { Separator } from "../components/ui/separator";
 import { Textarea } from "../components/ui/textarea";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest, queryClient } from "../lib/queryClient";
+import { getHangerHeightCm } from "../lib/bag-rules-engine";
 import { 
   Scale, Palette, Droplets, Calculator, FileSpreadsheet, 
   Ruler, Clock, Printer, ChevronLeft, ChevronRight,
@@ -349,17 +350,6 @@ function useBagWeightHistory() {
   };
 
   return { history, addRecord, clearHistory, deleteRecord };
-}
-
-function getHangerHeightCm(widthCm: number, lengthCm: number): number {
-  const minH = 11;
-  const maxH = 25;
-  const widthMax = 60;
-  const lengthMax = 80;
-  const wr = widthCm > 0 ? Math.min(1, widthCm / widthMax) : 0.5;
-  const lr = lengthCm > 0 ? Math.min(1, lengthCm / lengthMax) : 0.5;
-  const sizeRatio = wr * 0.6 + lr * 0.4;
-  return Math.round(minH + sizeRatio * (maxH - minH));
 }
 
 function bagTypeUsesGusset(type: BagType): boolean {
