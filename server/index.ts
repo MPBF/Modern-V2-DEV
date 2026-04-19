@@ -79,16 +79,26 @@ const HEAVY_UPLOAD_PREFIXES = [
   "/webhook/",
 ];
 
-const heavyJson = express.json({
-  limit: "10mb",
-  verify: (req: any, _res, buf) => {
-    if (req.url?.includes("/webhook/")) {
-      req.rawBody = buf;
-    }
-  },
-});
+// Webhook prefixes that need raw-body capture for signature verification.
+// Both legacy "/webhook/..." and the actual "/api/notifications/webhook/..."
+// routes (Meta/Taqnyat/Twilio) must capture req.rawBody so HMAC checks work.
+const WEBHOOK_PREFIXES = [
+  "/webhook/",
+  "/api/notifications/webhook/",
+];
+
+const isWebhookUrl = (url?: string): boolean =>
+  !!url && WEBHOOK_PREFIXES.some((p) => url.includes(p));
+
+const captureRawBody = (req: any, _res: any, buf: Buffer) => {
+  if (isWebhookUrl(req.url)) {
+    req.rawBody = buf;
+  }
+};
+
+const heavyJson = express.json({ limit: "10mb", verify: captureRawBody });
 const heavyUrlencoded = express.urlencoded({ extended: false, limit: "10mb" });
-const standardJson = express.json({ limit: "1mb" });
+const standardJson = express.json({ limit: "1mb", verify: captureRawBody });
 const standardUrlencoded = express.urlencoded({ extended: false, limit: "1mb" });
 
 app.use((req, res, next) => {

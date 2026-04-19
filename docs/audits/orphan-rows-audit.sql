@@ -58,10 +58,10 @@ FROM users u
 LEFT JOIN sections s ON s.id::text = u.section_id::text
 WHERE u.section_id IS NOT NULL AND s.id IS NULL;
 
-\echo '== 10) inventory_movements.item_id -> items.id =='
-SELECT COUNT(*) AS orphan_inventory_movements_item
+\echo '== 10) inventory_movements.inventory_id -> inventory.id =='
+SELECT COUNT(*) AS orphan_inventory_movements_inventory
 FROM inventory_movements im
-LEFT JOIN items it ON it.id = im.item_id
-WHERE im.item_id IS NOT NULL AND it.id IS NULL;
+LEFT JOIN inventory inv ON inv.id = im.inventory_id
+WHERE im.inventory_id IS NOT NULL AND inv.id IS NULL;
 
 \echo '== Done. Counts > 0 must be cleaned BEFORE Phase 2 adds FK constraints. =='
