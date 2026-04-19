@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import PageLayout from "../components/layout/PageLayout";
@@ -290,7 +290,13 @@ function ResultCard({ label, value, highlight }: ResultCardProps): JSX.Element {
 
 // ===================== 1) حاسبة وزن الأكياس =====================
 
-type BagType = "flat" | "side-gusset" | "table-cover";
+type BagType = "hanger" | "banana" | "no-handle" | "table-cover";
+
+function migrateLegacyBagType(t: unknown): BagType {
+  if (t === "hanger" || t === "banana" || t === "no-handle" || t === "table-cover") return t;
+  if (t === "side-gusset" || t === "flat") return "no-handle";
+  return "no-handle";
+}
 
 interface BagWeightRecord {
   id: string;
@@ -313,7 +319,10 @@ function useBagWeightHistory() {
   const [history, setHistory] = useState<BagWeightRecord[]>(() => {
     try {
       const saved = localStorage.getItem(BAG_HISTORY_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed)
+        ? parsed.map((r: BagWeightRecord) => ({ ...r, bagType: migrateLegacyBagType(r.bagType) }))
+        : [];
     } catch { return []; }
   });
 
@@ -342,48 +351,257 @@ function useBagWeightHistory() {
   return { history, addRecord, clearHistory, deleteRecord };
 }
 
-function FlatBagSvg({ className, label }: { className?: string; label: string }): JSX.Element {
-  return (
-    <svg viewBox="0 0 120 160" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="10" y="10" width="100" height="140" rx="4" className="fill-blue-100 dark:fill-blue-900/30 stroke-blue-500" strokeWidth="2" />
-      <line x1="10" y1="30" x2="110" y2="30" className="stroke-blue-400" strokeWidth="1" strokeDasharray="4 2" />
-      <text x="60" y="90" textAnchor="middle" className="fill-blue-600 dark:fill-blue-400 text-[10px] font-medium">{label}</text>
-      <path d="M25 50 L35 60 L25 70" className="stroke-blue-400" strokeWidth="1.5" fill="none" />
-      <path d="M95 50 L85 60 L95 70" className="stroke-blue-400" strokeWidth="1.5" fill="none" />
-    </svg>
-  );
+function getHangerHeightCm(widthCm: number, lengthCm: number): number {
+  const minH = 11;
+  const maxH = 25;
+  const widthMax = 60;
+  const lengthMax = 80;
+  const wr = widthCm > 0 ? Math.min(1, widthCm / widthMax) : 0.5;
+  const lr = lengthCm > 0 ? Math.min(1, lengthCm / lengthMax) : 0.5;
+  const sizeRatio = wr * 0.6 + lr * 0.4;
+  return Math.round(minH + sizeRatio * (maxH - minH));
 }
 
-function SideGussetBagSvg({ className, label }: { className?: string; label: string }): JSX.Element {
-  return (
-    <svg viewBox="0 0 120 160" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M10 10 L25 25 L25 135 L10 150 L10 10 Z" className="fill-green-200 dark:fill-green-900/40 stroke-green-500" strokeWidth="2" />
-      <rect x="25" y="10" width="70" height="140" className="fill-green-100 dark:fill-green-900/30 stroke-green-500" strokeWidth="2" />
-      <path d="M95 10 L110 25 L110 135 L95 150 L95 10 Z" className="fill-green-200 dark:fill-green-900/40 stroke-green-500" strokeWidth="2" />
-      <line x1="25" y1="30" x2="95" y2="30" className="stroke-green-400" strokeWidth="1" strokeDasharray="4 2" />
-      <text x="60" y="90" textAnchor="middle" className="fill-green-600 dark:fill-green-400 text-[10px] font-medium">{label}</text>
-      <path d="M15 60 L22 70 L15 80" className="stroke-green-500" strokeWidth="1.5" fill="none" />
-      <path d="M105 60 L98 70 L105 80" className="stroke-green-500" strokeWidth="1.5" fill="none" />
-    </svg>
-  );
+function bagTypeUsesGusset(type: BagType): boolean {
+  return type === "hanger" || type === "banana";
 }
 
-function TableCoverSvg({ className, label }: { className?: string; label: string }): JSX.Element {
-  return (
-    <svg viewBox="0 0 160 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="80" cy="50" rx="70" ry="40" className="fill-purple-100 dark:fill-purple-900/30 stroke-purple-500" strokeWidth="2" />
-      <ellipse cx="80" cy="50" rx="50" ry="28" className="stroke-purple-300 dark:stroke-purple-600" strokeWidth="1" strokeDasharray="4 2" fill="none" />
-      <text x="80" y="55" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 text-[10px] font-medium">{label}</text>
-    </svg>
-  );
+interface BagShapeSvgProps {
+  type: BagType;
+  widthCm: number;
+  lengthCm: number;
+  sideGussetCm: number;
+  className?: string;
 }
 
-function BagTypeSvg({ type, className, label }: { type: BagType; className?: string; label: string }): JSX.Element {
-  switch (type) {
-    case "flat": return <FlatBagSvg className={className} label={label} />;
-    case "side-gusset": return <SideGussetBagSvg className={className} label={label} />;
-    case "table-cover": return <TableCoverSvg className={className} label={label} />;
-  }
+function BagShapeSvg({ type, widthCm, lengthCm, sideGussetCm, className }: BagShapeSvgProps): JSX.Element {
+  const uid = useId().replace(/:/g, "_");
+  const gradId = `bagBodyGrad_${uid}`;
+  const shadowId = `bagShadow_${uid}`;
+
+  const isTableCover = type === "table-cover";
+
+  const svgW = 220;
+  const svgH = 280;
+
+  const widthRef = isTableCover ? 100 : 60;
+  const lengthRef = isTableCover ? 70 : 80;
+
+  const wr = widthCm > 0 ? Math.max(0.35, Math.min(1, widthCm / widthRef)) : 0.7;
+  const lr = lengthCm > 0 ? Math.max(0.35, Math.min(1, lengthCm / lengthRef)) : 0.7;
+
+  const bagW = Math.round(svgW * 0.7 * wr);
+  const hangerCm = type === "hanger" ? getHangerHeightCm(widthCm, lengthCm) : 0;
+  const totalLenForRatio = type === "hanger" ? lengthCm + hangerCm : lengthCm;
+  const totalLengthRefMax = type === "hanger" ? lengthRef + 25 : lengthRef;
+  const totalLr = totalLenForRatio > 0
+    ? Math.max(0.35, Math.min(1, totalLenForRatio / totalLengthRefMax))
+    : lr;
+  const bagH = Math.round(svgH * 0.7 * totalLr);
+
+  const earH = type === "hanger" && lengthCm > 0
+    ? Math.max(14, Math.min(bagH * 0.4, bagH * (hangerCm / Math.max(1, lengthCm + hangerCm))))
+    : 0;
+
+  const bagX = Math.round((svgW - bagW) / 2);
+  const bagY = Math.round((svgH - bagH - earH) / 2 + earH);
+
+  const fill = isTableCover ? "#fce7f3" : "#dbeafe";
+  const stroke = isTableCover ? "#db2777" : "#2563eb";
+  const accent = isTableCover ? "#be185d" : "#1d4ed8";
+
+  const sideGussetW = sideGussetCm > 0 && bagTypeUsesGusset(type)
+    ? Math.max(bagW * 0.06, Math.min(bagW * 0.2, (sideGussetCm / Math.max(1, widthCm || widthRef)) * bagW))
+    : 0;
+
+  return (
+    <svg
+      viewBox={`0 0 ${svgW} ${svgH}`}
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Bag preview"
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={fill} stopOpacity="0.9" />
+          <stop offset="100%" stopColor={fill} stopOpacity="0.7" />
+        </linearGradient>
+        <filter id={shadowId}>
+          <feDropShadow dx="2" dy="3" stdDeviation="2" floodOpacity="0.18" />
+        </filter>
+      </defs>
+
+      {/* Hanger ear (above body) */}
+      {type === "hanger" && earH > 0 && (() => {
+        const cutoutW = bagW * 0.3;
+        const cutoutDepth = earH * 0.7;
+        const cutoutCX = bagX + bagW / 2;
+        const earTopY = bagY - earH;
+        const cutoutBottomY = earTopY + cutoutDepth;
+        const r = cutoutW * 0.35;
+        return (
+          <path
+            d={`M${bagX},${bagY}
+                L${bagX},${earTopY + 2}
+                Q${bagX},${earTopY} ${bagX + 2},${earTopY}
+                L${cutoutCX - cutoutW / 2},${earTopY}
+                L${cutoutCX - cutoutW / 2},${cutoutBottomY - r}
+                Q${cutoutCX - cutoutW / 2},${cutoutBottomY} ${cutoutCX - cutoutW / 2 + r},${cutoutBottomY}
+                L${cutoutCX + cutoutW / 2 - r},${cutoutBottomY}
+                Q${cutoutCX + cutoutW / 2},${cutoutBottomY} ${cutoutCX + cutoutW / 2},${cutoutBottomY - r}
+                L${cutoutCX + cutoutW / 2},${earTopY}
+                L${bagX + bagW - 2},${earTopY}
+                Q${bagX + bagW},${earTopY} ${bagX + bagW},${earTopY + 2}
+                L${bagX + bagW},${bagY} Z`}
+            fill={`url(#${gradId})`}
+            stroke={stroke}
+            strokeWidth="1.2"
+          />
+        );
+      })()}
+
+      {/* Bag body */}
+      <rect
+        x={bagX}
+        y={bagY}
+        width={bagW}
+        height={bagH}
+        rx={isTableCover ? "4" : "3"}
+        fill={`url(#${gradId})`}
+        stroke={stroke}
+        strokeWidth="1.4"
+        filter={`url(#${shadowId})`}
+      />
+
+      {/* Side gusset overlay */}
+      {sideGussetW > 0 && (
+        <>
+          <rect
+            x={bagX + 1}
+            y={bagY + 1}
+            width={sideGussetW}
+            height={bagH - 2}
+            fill={fill}
+            fillOpacity="0.55"
+          />
+          <rect
+            x={bagX + bagW - sideGussetW - 1}
+            y={bagY + 1}
+            width={sideGussetW}
+            height={bagH - 2}
+            fill={fill}
+            fillOpacity="0.55"
+          />
+          <line
+            x1={bagX + sideGussetW}
+            y1={bagY}
+            x2={bagX + sideGussetW}
+            y2={bagY + bagH}
+            stroke={stroke}
+            strokeWidth="0.6"
+            strokeDasharray="3,3"
+            opacity="0.35"
+          />
+          <line
+            x1={bagX + bagW - sideGussetW}
+            y1={bagY}
+            x2={bagX + bagW - sideGussetW}
+            y2={bagY + bagH}
+            stroke={stroke}
+            strokeWidth="0.6"
+            strokeDasharray="3,3"
+            opacity="0.35"
+          />
+        </>
+      )}
+
+      {/* Banana handle die-cut: fixed 8cm wide × 2cm tall */}
+      {type === "banana" && (() => {
+        const w8 = widthCm > 0 ? widthCm : 30;
+        const cutoutWidthRatio = Math.min(0.7, 8 / w8);
+        const lForH = lengthCm > 0 ? lengthCm : 40;
+        const cutoutHeightRatio = Math.min(0.12, 2 / lForH);
+        const holeW = bagW * cutoutWidthRatio;
+        const holeH = bagH * cutoutHeightRatio;
+        const cx = bagX + bagW / 2;
+        const cy = bagY + Math.max(holeH * 1.6, bagH * 0.07);
+        return (
+          <g>
+            <path
+              d={`M${cx - holeW / 2},${cy}
+                  Q${cx},${cy + holeH * 1.7} ${cx + holeW / 2},${cy}
+                  Q${cx},${cy - holeH * 0.4} ${cx - holeW / 2},${cy} Z`}
+              fill="#ffffff"
+              stroke={accent}
+              strokeWidth="1.1"
+            />
+            <text
+              x={cx}
+              y={cy - holeH * 1.4}
+              textAnchor="middle"
+              fontSize="9"
+              fill={accent}
+              fontWeight="600"
+              opacity="0.75"
+            >
+              8 × 2 سم
+            </text>
+          </g>
+        );
+      })()}
+
+      {/* Table cover decorative pattern */}
+      {isTableCover && (
+        <>
+          <line
+            x1={bagX + 8}
+            y1={bagY + bagH * 0.5}
+            x2={bagX + bagW - 8}
+            y2={bagY + bagH * 0.5}
+            stroke={accent}
+            strokeWidth="0.5"
+            strokeDasharray="6,4"
+            opacity="0.35"
+          />
+          <line
+            x1={bagX + bagW * 0.5}
+            y1={bagY + 8}
+            x2={bagX + bagW * 0.5}
+            y2={bagY + bagH - 8}
+            stroke={accent}
+            strokeWidth="0.5"
+            strokeDasharray="6,4"
+            opacity="0.35"
+          />
+        </>
+      )}
+
+      {/* Bottom seal line */}
+      <line
+        x1={bagX}
+        y1={bagY + bagH}
+        x2={bagX + bagW}
+        y2={bagY + bagH}
+        stroke={accent}
+        strokeWidth="1.5"
+        opacity="0.55"
+      />
+
+      {/* Hanger height label */}
+      {type === "hanger" && earH > 0 && (
+        <text
+          x={bagX + bagW + 4}
+          y={bagY - earH / 2 + 3}
+          fontSize="9"
+          fill={accent}
+          fontWeight="600"
+        >
+          {hangerCm} سم
+        </text>
+      )}
+    </svg>
+  );
 }
 
 interface BagWeightCalculatorProps {
@@ -394,7 +612,7 @@ interface BagWeightCalculatorProps {
 
 function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalculatorProps): JSX.Element {
   const { t } = useTranslation();
-  const [bagType, setBagType] = useState<BagType>("flat");
+  const [bagType, setBagType] = useState<BagType>("hanger");
   const [widthCm, setWidthCm] = useState<number>(30);
   const [lengthCm, setLengthCm] = useState<number>(40);
   const [thicknessMicron, setThicknessMicron] = useState<number>(18);
@@ -404,24 +622,44 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
   const { history, addRecord, clearHistory, deleteRecord } = useBagWeightHistory();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const usesGusset = bagTypeUsesGusset(bagType);
+  const isTableCover = bagType === "table-cover";
+
   useEffect(() => { onDims?.({ widthCm, lengthCm }); }, [widthCm, lengthCm, onDims]);
+
+  const hangerCm = useMemo(
+    () => (bagType === "hanger" ? getHangerHeightCm(toNumber(widthCm), toNumber(lengthCm)) : 0),
+    [bagType, widthCm, lengthCm],
+  );
 
   const result = useMemo(() => {
     const t_cm = toNumber(thicknessMicron) * 1e-4;
-    let effWidth = toNumber(widthCm);
-    if (bagType === "side-gusset") effWidth = toNumber(widthCm) + 2 * toNumber(sideGussetCm);
-    const gramsPerBag = Math.max(0, effWidth * toNumber(lengthCm) * toNumber(layers) * t_cm * toNumber(density));
+    const w = toNumber(widthCm);
+    const l = toNumber(lengthCm);
+    const g = toNumber(sideGussetCm);
+    const effWidth = usesGusset ? w + 2 * g : w;
+    const effLength = (bagType === "hanger" && l > 0 && w > 0) ? l + hangerCm : l;
+    const layersUsed = isTableCover ? 1 : Math.max(1, toNumber(layers));
+    const gramsPerBag = Math.max(0, effWidth * effLength * layersUsed * t_cm * toNumber(density));
     const bagsPerKg = gramsPerBag > 0 ? 1000 / gramsPerBag : 0;
-    const areaM2 = (effWidth / 100) * (toNumber(lengthCm) / 100);
+    const areaM2 = (effWidth / 100) * (effLength / 100);
     return { gramsPerBag, bagsPerKg, areaM2 } as const;
-  }, [bagType, widthCm, lengthCm, thicknessMicron, layers, density, sideGussetCm]);
+  }, [bagType, widthCm, lengthCm, thicknessMicron, layers, density, sideGussetCm, usesGusset, isTableCover, hangerCm]);
 
   useEffect(() => { onBagWeight?.(result.gramsPerBag || 0); }, [result.gramsPerBag, onBagWeight]);
 
   const handleSaveRecord = () => {
     addRecord({
-      bagType, widthCm, lengthCm, sideGussetCm, thicknessMicron, layers, density,
-      gramsPerBag: result.gramsPerBag, bagsPerKg: result.bagsPerKg, areaM2: result.areaM2,
+      bagType,
+      widthCm,
+      lengthCm,
+      sideGussetCm: usesGusset ? sideGussetCm : 0,
+      thicknessMicron,
+      layers: isTableCover ? 1 : layers,
+      density,
+      gramsPerBag: result.gramsPerBag,
+      bagsPerKg: result.bagsPerKg,
+      areaM2: result.areaM2,
     });
   };
 
@@ -442,9 +680,11 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
   const selectedRecords = history.filter(r => selectedIds.has(r.id));
   const getBagTypeLabel = (type: BagType) => {
     switch (type) {
-      case "flat": return t("tools.bagWeight.flat");
-      case "side-gusset": return t("tools.bagWeight.sideGusset");
+      case "hanger": return t("tools.bagWeight.hanger");
+      case "banana": return t("tools.bagWeight.banana");
+      case "no-handle": return t("tools.bagWeight.noHandle");
       case "table-cover": return t("tools.bagWeight.tableCover");
+      default: return type;
     }
   };
 
@@ -459,7 +699,7 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
         <td>${r.thicknessMicron} μm</td>
         <td>${r.layers}</td>
         <td>${r.density}</td>
-        ${r.bagType === "side-gusset" ? `<td>${r.sideGussetCm}</td>` : `<td>-</td>`}
+        ${bagTypeUsesGusset(r.bagType) && r.sideGussetCm > 0 ? `<td>${r.sideGussetCm}</td>` : `<td>-</td>`}
         <td style="font-weight:bold;color:#1a365d">${fmtFixed(r.gramsPerBag, 3)}</td>
         <td>${fmtFixed(r.bagsPerKg, 1)}</td>
         <td>${fmtFixed(r.areaM2, 4)}</td>
@@ -525,8 +765,16 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
     const currentRecord: BagWeightRecord = {
       id: "current",
       createdAt: new Date().toLocaleString("en-US"),
-      bagType, widthCm, lengthCm, sideGussetCm, thicknessMicron, layers, density,
-      gramsPerBag: result.gramsPerBag, bagsPerKg: result.bagsPerKg, areaM2: result.areaM2,
+      bagType,
+      widthCm,
+      lengthCm,
+      sideGussetCm: usesGusset ? sideGussetCm : 0,
+      thicknessMicron,
+      layers: isTableCover ? 1 : layers,
+      density,
+      gramsPerBag: result.gramsPerBag,
+      bagsPerKg: result.bagsPerKg,
+      areaM2: result.areaM2,
     };
     directPrint([currentRecord]);
   };
@@ -544,8 +792,9 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
                 value={bagType}
                 onChange={(v) => setBagType(v as BagType)}
                 options={[
-                  { value: "flat", label: t("tools.bagWeight.flatFull") },
-                  { value: "side-gusset", label: t("tools.bagWeight.sideGusset") },
+                  { value: "hanger", label: t("tools.bagWeight.hanger") },
+                  { value: "banana", label: t("tools.bagWeight.banana") },
+                  { value: "no-handle", label: t("tools.bagWeight.noHandle") },
                   { value: "table-cover", label: t("tools.bagWeight.tableCover") },
                 ]}
               />
@@ -553,24 +802,59 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
                 <InputField label={t("tools.bagWeight.width")} value={widthCm} onChange={setWidthCm} suffix={t("tools.common.cm")} />
                 <InputField label={t("tools.bagWeight.length")} value={lengthCm} onChange={setLengthCm} suffix={t("tools.common.cm")} />
               </div>
-              <InputField label={t("tools.bagWeight.thickness")} value={thicknessMicron} onChange={setThicknessMicron} suffix="μm" />
+              {usesGusset ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <InputField
+                    label={t("tools.bagWeight.gusset")}
+                    value={sideGussetCm}
+                    onChange={setSideGussetCm}
+                    suffix={t("tools.common.cm")}
+                    hint={t("tools.bagWeight.perSide")}
+                  />
+                  <InputField label={t("tools.bagWeight.thickness")} value={thicknessMicron} onChange={setThicknessMicron} suffix="μm" />
+                </div>
+              ) : (
+                <InputField label={t("tools.bagWeight.thickness")} value={thicknessMicron} onChange={setThicknessMicron} suffix="μm" />
+              )}
               <div className="grid grid-cols-2 gap-3">
-                <InputField label={t("tools.bagWeight.layers")} value={layers} onChange={setLayers} step={1} />
+                {!isTableCover && (
+                  <InputField label={t("tools.bagWeight.layers")} value={layers} onChange={setLayers} step={1} />
+                )}
                 <InputField label={t("tools.bagWeight.density")} value={density} onChange={setDensity} step={0.01} suffix="g/cm³" />
               </div>
-              {bagType === "side-gusset" && (
-                <InputField label={t("tools.bagWeight.gusset")} value={sideGussetCm} onChange={setSideGussetCm} suffix={t("tools.common.cm")} hint={t("tools.bagWeight.perSide")} />
+              {bagType === "hanger" && (
+                <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-lg px-3 py-2">
+                  {t("tools.bagWeight.hangerHeightAuto", { value: hangerCm })}
+                </div>
               )}
             </div>
-            <div className="hidden md:block w-32 flex-shrink-0">
-              <BagTypeSvg type={bagType} className="w-full h-auto transition-all duration-300" label={getBagTypeLabel(bagType) || ""} />
+            <div className="hidden md:flex w-36 flex-shrink-0 flex-col items-center gap-2">
+              <BagShapeSvg
+                type={bagType}
+                widthCm={toNumber(widthCm)}
+                lengthCm={toNumber(lengthCm)}
+                sideGussetCm={usesGusset ? toNumber(sideGussetCm) : 0}
+                className="w-full h-auto transition-all duration-300"
+              />
+              <span className="text-[11px] font-medium text-muted-foreground text-center">
+                {getBagTypeLabel(bagType)}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="md:hidden flex justify-center mb-4">
-            <BagTypeSvg type={bagType} className="w-24 h-auto" label={getBagTypeLabel(bagType) || ""} />
+          <div className="md:hidden flex flex-col items-center gap-1 mb-4">
+            <BagShapeSvg
+              type={bagType}
+              widthCm={toNumber(widthCm)}
+              lengthCm={toNumber(lengthCm)}
+              sideGussetCm={usesGusset ? toNumber(sideGussetCm) : 0}
+              className="w-28 h-auto"
+            />
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {getBagTypeLabel(bagType)}
+            </span>
           </div>
           <h3 className="font-semibold text-lg flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" />
@@ -636,7 +920,10 @@ function BagWeightCalculator({ onBagWeight, onDims, onPrintRef }: BagWeightCalcu
                       </div>
                       <div>
                         <span className="text-muted-foreground">{t("tools.bagWeight.dimensions")}:</span>
-                        <span className="mr-1">{record.widthCm}×{record.lengthCm} {t("tools.common.cm")}</span>
+                        <span className="mr-1">
+                          {record.widthCm}×{record.lengthCm} {t("tools.common.cm")}
+                          {record.sideGussetCm > 0 && ` + ${t("tools.bagWeight.gusset").replace(/\s*\(.*\)/, "")} ${record.sideGussetCm}`}
+                        </span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">{t("tools.bagWeight.weight")}:</span>
