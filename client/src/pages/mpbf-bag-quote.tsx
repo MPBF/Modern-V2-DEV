@@ -2,7 +2,8 @@ import { useState, useCallback, useMemo } from "react";
 import {
   ChevronRight, ChevronLeft, RotateCcw, CheckCircle2, Loader2,
   Tag, Printer, Beaker, Ruler, Hand, Palette, Image as ImageIcon, ClipboardList, Factory,
-  AlertTriangle, ShieldAlert, User, Phone, Send, PartyPopper,
+  AlertTriangle, ShieldAlert, User, Phone, Send, PartyPopper, Sparkles,
+  ChevronDown, ChevronUp, Package,
 } from "lucide-react";
 import { MATERIALS, BAG_COLORS, HANDLES } from "../lib/bag-rules";
 import { BagTypeStep } from "../components/bag-wizard/BagTypeStep";
@@ -68,6 +69,7 @@ export default function MpbfBagQuote() {
   const [contact, setContact] = useState({ name: "", phone: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ success: boolean; reference?: string; error?: string } | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(true);
 
   const updateConfig = useCallback((updates: Partial<BagConfiguration>) => {
     setConfig((prev) => ({ ...prev, ...updates }));
@@ -217,47 +219,55 @@ export default function MpbfBagQuote() {
     }
   };
 
+  const isReview = current?.id === "review";
+  const isDone = current?.id === "done";
+  const isContact = current?.id === "contact";
+  const showPreview = !isDone && !isReview;
+
   const renderStep = () => {
     if (!current) return null;
     switch (current.id) {
       case "contact":
         return (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">أهلاً بك 👋</h2>
-              <p className="text-gray-500 text-sm">سنتواصل معك بأقرب وقت بعد إرسال طلبك</p>
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/30 mb-4">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="text-3xl font-extrabold text-white mb-2 tracking-tight">أهلاً بك</h2>
+              <p className="text-slate-300 text-base leading-relaxed">صمّم الكيس المثالي لعملك<br/>وسنتواصل معك بعرض السعر</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-semibold text-gray-700">الاسم الكامل</Label>
+            <div className="space-y-3">
+              <Label htmlFor="name" className="text-base font-bold text-white">الاسم الكامل</Label>
               <div className="relative">
-                <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <User className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-400" />
                 <Input
                   id="name"
                   placeholder="مثال: أحمد محمد"
-                  className="h-12 text-base pr-10"
+                  className="h-14 text-lg pr-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-amber-500 rounded-2xl"
                   value={contact.name}
                   onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))}
                   data-testid="input-name"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">رقم الجوال</Label>
+            <div className="space-y-3">
+              <Label htmlFor="phone" className="text-base font-bold text-white">رقم الجوال</Label>
               <div className="relative">
-                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Phone className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-400" />
                 <Input
                   id="phone"
                   type="tel"
                   inputMode="tel"
                   dir="ltr"
                   placeholder="05xxxxxxxx"
-                  className="h-12 text-base pr-10 text-right"
+                  className="h-14 text-lg pr-12 bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-amber-500 rounded-2xl text-right"
                   value={contact.phone}
                   onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
                   data-testid="input-phone"
                 />
               </div>
-              <p className="text-[11px] text-gray-400">سيتم استخدام الرقم للتواصل بشأن طلبك فقط</p>
+              <p className="text-xs text-slate-400 text-center">سيتم استخدام الرقم للتواصل بشأن طلبك فقط</p>
             </div>
           </div>
         );
@@ -278,30 +288,36 @@ export default function MpbfBagQuote() {
       case "review":
         return (
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-1">مراجعة الطلب</h2>
-            <p className="text-gray-500 text-sm mb-4">تأكد من البيانات قبل الإرسال</p>
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-extrabold text-white mb-2 tracking-tight">مراجعة الطلب</h2>
+              <p className="text-slate-300 text-sm">تحقق من بياناتك ومواصفات التصميم قبل الإرسال</p>
+            </div>
 
-            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 mb-4">
+            <div className="rounded-3xl border border-amber-500/20 bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-5 mb-5 shadow-2xl shadow-black/40">
               <BagPreview config={config} size="lg" showDimensions />
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
-              <h3 className="text-sm font-semibold text-blue-700 mb-2">بيانات التواصل</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-gray-500">الاسم</div>
-                <div className="text-gray-900 font-medium text-left">{contact.name}</div>
-                <div className="text-gray-500">الجوال</div>
-                <div className="text-gray-900 font-medium text-left" dir="ltr">{normalizePhone(contact.phone)}</div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-5 mb-4">
+              <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
+                <User className="h-4 w-4" /> بيانات التواصل
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-base">
+                <div className="text-slate-400">الاسم</div>
+                <div className="text-white font-semibold text-left">{contact.name}</div>
+                <div className="text-slate-400">الجوال</div>
+                <div className="text-white font-semibold text-left" dir="ltr">{normalizePhone(contact.phone)}</div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 mb-4">
-              <h3 className="text-sm font-semibold text-blue-700 mb-2">مواصفات الكيس</h3>
-              <div className="space-y-1.5 text-sm">
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-5 mb-4">
+              <h3 className="text-sm font-bold text-amber-400 mb-3 flex items-center gap-2">
+                <Package className="h-4 w-4" /> مواصفات الكيس
+              </h3>
+              <div className="space-y-1 text-base">
                 {summary.map((s, i) => (
-                  <div key={i} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-0">
-                    <span className="text-gray-500">{s.label}</span>
-                    <span className="text-gray-900 font-medium">{s.value}</span>
+                  <div key={i} className="flex justify-between items-center py-2.5 border-b border-white/5 last:border-0">
+                    <span className="text-slate-400">{s.label}</span>
+                    <span className="text-white font-semibold">{s.value}</span>
                   </div>
                 ))}
               </div>
@@ -310,8 +326,8 @@ export default function MpbfBagQuote() {
             {validation && validation.errors.length > 0 && (
               <div className="space-y-2 mb-4">
                 {validation.errors.map((e, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-red-50 text-red-700 text-sm p-3 rounded-xl border border-red-100">
-                    <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div key={i} className="flex items-start gap-2 bg-red-500/10 text-red-300 text-sm p-4 rounded-2xl border border-red-500/30">
+                    <ShieldAlert className="h-5 w-5 mt-0.5 shrink-0" />
                     <span>{e.message}</span>
                   </div>
                 ))}
@@ -320,8 +336,8 @@ export default function MpbfBagQuote() {
             {validation && validation.warnings.length > 0 && (
               <div className="space-y-2 mb-4">
                 {validation.warnings.map((w, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-amber-50 text-amber-700 text-sm p-3 rounded-xl border border-amber-100">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div key={i} className="flex items-start gap-2 bg-amber-500/10 text-amber-300 text-sm p-4 rounded-2xl border border-amber-500/30">
+                    <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
                     <span>{w.message}</span>
                   </div>
                 ))}
@@ -329,7 +345,7 @@ export default function MpbfBagQuote() {
             )}
 
             {submitResult && !submitResult.success && (
-              <div className="bg-red-50 text-red-700 text-sm p-3 rounded-xl border border-red-100 mb-4">
+              <div className="bg-red-500/10 text-red-300 text-sm p-4 rounded-2xl border border-red-500/30 mb-4">
                 {submitResult.error}
               </div>
             )}
@@ -337,21 +353,24 @@ export default function MpbfBagQuote() {
         );
       case "done":
         return (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-200 mb-4">
-              <CheckCircle2 className="h-10 w-10 text-white" />
+          <div className="text-center py-10">
+            <div className="relative w-24 h-24 mx-auto mb-6">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-2xl shadow-emerald-500/40 animate-pulse" />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="h-12 w-12 text-white" />
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">تم استلام طلبك بنجاح 🎉</h2>
-            <p className="text-gray-500 text-sm mb-4">سنتواصل معك على الرقم المُسجّل خلال أقرب وقت</p>
+            <h2 className="text-3xl font-extrabold text-white mb-3 tracking-tight">تم استلام طلبك بنجاح</h2>
+            <p className="text-slate-300 text-base mb-6 leading-relaxed">شكراً لاختيارك MPBF<br/>سنتواصل معك على الرقم المُسجّل قريباً</p>
             {submitResult?.reference && (
-              <div className="inline-block bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-100 mb-6">
+              <div className="inline-block bg-amber-500/10 text-amber-300 px-5 py-2.5 rounded-full text-sm font-bold border border-amber-500/30 mb-8">
                 رقم المرجع: {submitResult.reference}
               </div>
             )}
             <div>
-              <Button onClick={resetAll} variant="outline" className="gap-2 h-12 px-6 rounded-xl" data-testid="button-new-design">
+              <Button onClick={resetAll} variant="outline" className="gap-2 h-13 px-8 rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white" data-testid="button-new-design">
                 <RotateCcw className="h-4 w-4" />
-                طلب تصميم آخر
+                طلب تصميم جديد
               </Button>
             </div>
           </div>
@@ -359,27 +378,33 @@ export default function MpbfBagQuote() {
     }
   };
 
-  const isReview = current?.id === "review";
-  const isDone = current?.id === "done";
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50/40 to-emerald-50/30" dir="rtl">
-      {/* Sticky compact header */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 sticky top-0 z-30">
-        <div className="px-4 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-md shadow-blue-200 shrink-0">
-              <Factory className="text-white h-4.5 w-4.5" />
+    <div className="min-h-screen relative overflow-hidden" dir="rtl" style={{
+      background: "radial-gradient(ellipse at top, #1e293b 0%, #0f172a 50%, #020617 100%)"
+    }}>
+      {/* Decorative blobs */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Sticky premium header */}
+      <header className="relative z-30 backdrop-blur-xl bg-slate-950/60 border-b border-white/5 sticky top-0">
+        <div className="px-4 py-3.5 flex items-center justify-between gap-2 max-w-2xl mx-auto">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 bg-amber-400 blur-md opacity-50 rounded-xl" />
+              <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 flex items-center justify-center shadow-lg">
+                <Factory className="text-white h-5 w-5" strokeWidth={2.5} />
+              </div>
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm font-bold text-gray-900 truncate">صمّم كيسك</h1>
-              <p className="text-[10px] text-gray-400 truncate">MPBF — مصنع الأكياس البلاستيكية</p>
+              <h1 className="text-base font-extrabold text-white truncate tracking-tight">صمّم كيسك</h1>
+              <p className="text-[11px] text-amber-400/80 truncate font-medium">MPBF · مصنع الأكياس البلاستيكية الحديث</p>
             </div>
           </div>
           {!isDone && (
             <button
               onClick={resetAll}
-              className="text-[11px] text-gray-400 hover:text-red-500 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+              className="text-xs text-slate-400 hover:text-amber-400 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-all shrink-0 font-medium"
               data-testid="button-reset"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -388,88 +413,157 @@ export default function MpbfBagQuote() {
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Progress section */}
         {!isDone && (
-          <div className="px-4 pb-3">
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="px-4 pb-3.5 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {current?.Icon && (
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-md shadow-amber-500/30">
+                    <current.Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-bold text-white leading-tight">{current?.label}</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">الخطوة {safeIndex + 1} من {visibleSteps.length}</div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-400 tabular-nums">{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-l from-blue-600 to-emerald-500 rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-l from-amber-400 via-amber-500 to-amber-600 rounded-full transition-all duration-700 shadow-lg shadow-amber-500/50"
                 style={{ width: `${progress}%` }}
               />
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px] text-gray-400">
-                الخطوة {safeIndex + 1} من {visibleSteps.length}
-                {current && <span className="mr-1 text-gray-500"> • {current.label}</span>}
-              </span>
-              <span className="text-[10px] font-semibold text-blue-600">{Math.round(progress)}%</span>
             </div>
           </div>
         )}
       </header>
 
-      {/* Step content */}
-      <main className="px-4 pt-4 pb-32 max-w-xl mx-auto">
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 animate-in fade-in duration-300">
-          {renderStep()}
-        </div>
-
-        {/* Compact summary on later steps (not on review/done/contact) */}
-        {summary.length > 0 && !isReview && !isDone && current?.id !== "contact" && (
-          <div className="mt-3 bg-white/70 backdrop-blur-sm border border-gray-100 rounded-2xl p-3">
-            <div className="flex flex-wrap gap-1.5">
-              {summary.slice(0, 6).map((item, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-100"
-                >
-                  <span className="text-gray-500">{item.label}:</span>
-                  <span className="font-semibold">{item.value}</span>
-                </span>
-              ))}
-            </div>
+      {/* Persistent Bag Preview */}
+      {showPreview && (
+        <div className="relative z-10 max-w-2xl mx-auto px-4 pt-4">
+          <div className="rounded-3xl bg-gradient-to-br from-slate-800/90 via-slate-900/90 to-slate-950/90 border border-amber-500/20 shadow-2xl shadow-black/50 overflow-hidden backdrop-blur-xl">
+            <button
+              onClick={() => setPreviewExpanded(!previewExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400/20 to-amber-600/20 border border-amber-500/30 flex items-center justify-center">
+                  <Package className="h-4 w-4 text-amber-400" />
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-white leading-tight">معاينة التصميم</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">
+                    {config.bagType ? "تتحدّث مع كل تغيير" : "ستظهر بعد اختيار النوع"}
+                  </div>
+                </div>
+              </div>
+              {previewExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+            </button>
+            {previewExpanded && (
+              <div className="px-3 pb-3 pt-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/30 p-2 overflow-hidden">
+                  {config.bagType ? (
+                    <div className="flex items-center justify-center" style={{ maxHeight: 280 }}>
+                      <div className="scale-[0.55] sm:scale-75 origin-center" style={{ height: 280 }}>
+                        <BagPreview config={config} size="md" showDimensions={!isContact} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-44 text-slate-600">
+                      <Package className="h-12 w-12 mb-2 text-slate-400" />
+                      <p className="text-sm font-bold">سيظهر تصميم كيسك هنا</p>
+                      <p className="text-[11px] mt-1 text-slate-500">اختر نوع الكيس لرؤية المعاينة المباشرة</p>
+                    </div>
+                  )}
+                </div>
+                {summary.length > 0 && config.bagType && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 justify-center">
+                    {summary.slice(0, 4).map((item, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-300 px-2.5 py-1 rounded-full border border-amber-500/20 font-medium"
+                      >
+                        <span className="text-slate-400">{item.label}:</span>
+                        <span className="font-bold">{item.value}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Step content */}
+      <main className="relative z-10 px-4 pt-4 pb-32 max-w-2xl mx-auto">
+        <div className="bg-gradient-to-br from-slate-800/70 to-slate-900/70 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/40 p-5 sm:p-7 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="bag-wizard-dark">
+            {renderStep()}
+          </div>
+        </div>
       </main>
 
       {/* Sticky bottom action bar */}
       {!isDone && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.06)]">
-          <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-2" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        <div className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-xl bg-slate-950/80 border-t border-white/10 shadow-[0_-8px_30px_-4px_rgba(0,0,0,0.5)]">
+          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-2.5" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
             <Button
               variant="outline"
               onClick={goBack}
               disabled={safeIndex === 0 || submitting}
-              className="h-12 px-4 rounded-xl gap-1 text-gray-600"
+              className="h-13 px-4 rounded-2xl gap-1 text-slate-300 bg-white/5 border-white/10 hover:bg-white/10 hover:text-white disabled:opacity-30"
               data-testid="button-back"
             >
-              <ChevronRight className="h-4 w-4" />
-              السابق
+              <ChevronRight className="h-5 w-5" />
+              <span className="text-base">السابق</span>
             </Button>
             {isReview ? (
               <Button
                 onClick={submit}
                 disabled={submitting || !validation?.isValid}
-                className="flex-1 h-12 rounded-xl gap-2 bg-gradient-to-l from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md shadow-emerald-200 disabled:opacity-50"
+                className="flex-1 h-13 rounded-2xl gap-2 bg-gradient-to-l from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white shadow-lg shadow-emerald-500/30 disabled:opacity-50 text-base font-bold"
                 data-testid="button-submit"
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 {submitting ? "جاري الإرسال..." : "إرسال الطلب"}
               </Button>
             ) : (
               <Button
                 onClick={goNext}
                 disabled={!canProceed()}
-                className="flex-1 h-12 rounded-xl gap-2 bg-gradient-to-l from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md shadow-blue-200 disabled:opacity-50 disabled:shadow-none"
+                className="flex-1 h-13 rounded-2xl gap-2 bg-gradient-to-l from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-slate-900 shadow-lg shadow-amber-500/30 disabled:opacity-40 disabled:shadow-none text-base font-bold"
                 data-testid="button-next"
               >
                 {safeIndex === visibleSteps.length - 2 ? "مراجعة الطلب" : "التالي"}
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
             )}
           </div>
         </div>
       )}
+
+      {/* Wizard step text overrides for dark theme */}
+      <style>{`
+        .bag-wizard-dark h2, .bag-wizard-dark h3 { color: #ffffff !important; }
+        .bag-wizard-dark p { color: #cbd5e1 !important; }
+        .bag-wizard-dark label { color: #f1f5f9 !important; }
+        .bag-wizard-dark .text-gray-900, .bag-wizard-dark .text-gray-800, .bag-wizard-dark .text-gray-700 { color: #f1f5f9 !important; }
+        .bag-wizard-dark .text-gray-600, .bag-wizard-dark .text-gray-500 { color: #cbd5e1 !important; }
+        .bag-wizard-dark .text-gray-400 { color: #94a3b8 !important; }
+        .bag-wizard-dark .bg-white { background-color: rgba(255,255,255,0.05) !important; backdrop-filter: blur(8px); }
+        .bag-wizard-dark .bg-gray-50, .bag-wizard-dark .bg-gray-100 { background-color: rgba(255,255,255,0.04) !important; }
+        .bag-wizard-dark .bg-blue-50 { background-color: rgba(251,191,36,0.10) !important; }
+        .bag-wizard-dark .text-blue-700, .bag-wizard-dark .text-blue-600 { color: #fbbf24 !important; }
+        .bag-wizard-dark .border-blue-200, .bag-wizard-dark .border-blue-100 { border-color: rgba(251,191,36,0.30) !important; }
+        .bag-wizard-dark .border-gray-200, .bag-wizard-dark .border-gray-100 { border-color: rgba(255,255,255,0.10) !important; }
+        .bag-wizard-dark .ring-blue-500, .bag-wizard-dark .ring-blue-600 { --tw-ring-color: #fbbf24 !important; }
+        .bag-wizard-dark .border-blue-500, .bag-wizard-dark .border-blue-600 { border-color: #fbbf24 !important; }
+        .bag-wizard-dark .bg-blue-500, .bag-wizard-dark .bg-blue-600 { background-color: #f59e0b !important; }
+        .bag-wizard-dark input, .bag-wizard-dark select { background-color: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.10) !important; color: #ffffff !important; }
+      `}</style>
     </div>
   );
 }
