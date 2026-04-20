@@ -288,7 +288,181 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Register Object Storage routes (serves /objects/* for uploaded files)
   const { registerObjectStorageRoutes } = await import("./replit_integrations/object_storage");
   registerObjectStorageRoutes(app);
-  
+
+  // ==========================================================================
+  // PUBLIC: Mobile bag-design quote endpoint (no auth required)
+  // Used by /mpbf public mobile page on the company website.
+  // ==========================================================================
+
+  // Simple in-memory rate limiter for the public endpoint:
+  // max 5 requests per IP per 10 minutes, max 30 requests globally per minute
+  const bagQuoteIpHits = new Map<string, number[]>();
+  const bagQuoteGlobalHits: number[] = [];
+  const IP_WINDOW_MS = 10 * 60 * 1000;
+  const IP_MAX = 5;
+  const GLOBAL_WINDOW_MS = 60 * 1000;
+  const GLOBAL_MAX = 30;
+
+  // Normalize a Saudi/international phone number to E.164-ish form
+  function normalizePhoneServer(raw: string): string {
+    const trimmed = (raw || "").replace(/[\s\-()]/g, "");
+    if (/^05\d{8}$/.test(trimmed)) return "+966" + trimmed.slice(1);
+    if (/^5\d{8}$/.test(trimmed)) return "+966" + trimmed;
+    if (/^00\d{8,15}$/.test(trimmed)) return "+" + trimmed.slice(2);
+    if (/^\+\d{8,15}$/.test(trimmed)) return trimmed;
+    if (/^\d{8,15}$/.test(trimmed)) return "+" + trimmed;
+    return ""; // invalid
+  }
+
+  app.post("/api/public/bag-design-quote", async (req, res) => {
+    try {
+      // Rate limiting
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+        || req.socket.remoteAddress || "unknown";
+      const now = Date.now();
+
+      // Global window
+      while (bagQuoteGlobalHits.length && now - bagQuoteGlobalHits[0] > GLOBAL_WINDOW_MS) {
+        bagQuoteGlobalHits.shift();
+      }
+      if (bagQuoteGlobalHits.length >= GLOBAL_MAX) {
+        return res.status(429).json({ success: false, error: "الخدمة مزدحمة، حاول بعد قليل" });
+      }
+
+      // Per-IP window
+      const ipHits = (bagQuoteIpHits.get(ip) || []).filter((t) => now - t < IP_WINDOW_MS);
+      if (ipHits.length >= IP_MAX) {
+        return res.status(429).json({
+          success: false,
+          error: "تم تجاوز عدد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+        });
+      }
+
+      const schema = z.object({
+        customer: z.object({
+          name: z.string().trim().min(2, "الاسم قصير جداً").max(100),
+          phone: z.string().trim().min(8, "رقم الجوال غير صحيح").max(20),
+        }),
+        configuration: z.record(z.any()),
+        summary: z.array(z.object({ label: z.string(), value: z.string().max(500) }))
+          .max(50).optional(),
+        validation: z.object({
+          isValid: z.boolean(),
+          errors: z.array(z.object({ message: z.string().max(500) }).passthrough()).max(50).default([]),
+          warnings: z.array(z.object({ message: z.string().max(500) }).passthrough()).max(50).default([]),
+        }).optional(),
+      });
+
+      const data = schema.parse(req.body);
+
+      // Server-side phone normalization & validation
+      const normalizedPhone = normalizePhoneServer(data.customer.phone);
+      if (!normalizedPhone) {
+        return res.status(400).json({ success: false, error: "رقم الجوال غير صحيح" });
+      }
+
+      // Record the hit only after validation succeeds
+      ipHits.push(now);
+      bagQuoteIpHits.set(ip, ipHits);
+      bagQuoteGlobalHits.push(now);
+
+      // Periodic cleanup of stale IP entries (cheap)
+      if (bagQuoteIpHits.size > 1000) {
+        for (const [k, arr] of bagQuoteIpHits) {
+          const fresh = arr.filter((t) => now - t < IP_WINDOW_MS);
+          if (fresh.length === 0) bagQuoteIpHits.delete(k);
+          else bagQuoteIpHits.set(k, fresh);
+        }
+      }
+
+      const ref = `BQ-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+
+      const lines: string[] = [
+        "🔔 *طلب تصميم كيس جديد*",
+        `📋 المرجع: ${ref}`,
+        "",
+        `👤 الاسم: ${data.customer.name}`,
+        `📞 الجوال: ${normalizedPhone}`,
+        "",
+        "📦 *مواصفات الكيس:*",
+        ...(data.summary || []).map((s) => `• ${s.label}: ${s.value}`),
+      ];
+
+      if (data.validation && !data.validation.isValid && data.validation.errors.length) {
+        lines.push("", "⚠️ *ملاحظات فنية:*");
+        for (const e of data.validation.errors) lines.push(`- ${e.message}`);
+      }
+
+      lines.push("", `🕒 ${new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}`);
+      const message = lines.join("\n");
+
+      // Resolve owner phone (env override → primary admin)
+      let ownerPhone = (process.env.OWNER_WHATSAPP_PHONE || "").trim();
+      if (!ownerPhone) {
+        try {
+          const admin = await storage.getUser(1);
+          ownerPhone = (admin as any)?.phone || "";
+        } catch {}
+      }
+
+      let whatsappSent = false;
+      let whatsappError: string | undefined;
+      if (ownerPhone) {
+        try {
+          const waResult = await notificationService.sendWhatsAppMessage(ownerPhone, message, {
+            title: `طلب تصميم كيس — ${data.customer.name}`,
+            priority: "high",
+            context_type: "bag_quote",
+            context_id: ref,
+          });
+          whatsappSent = !!waResult.success;
+          if (!waResult.success) whatsappError = waResult.error;
+        } catch (err: any) {
+          whatsappError = err?.message || String(err);
+        }
+      } else {
+        whatsappError = "OWNER_WHATSAPP_PHONE غير مُعد ولا يوجد رقم لمسؤول النظام";
+      }
+
+      // Always create an internal notification so it shows in /notifications
+      try {
+        await storage.createNotification({
+          title: `طلب تصميم كيس جديد من ${data.customer.name}`,
+          title_ar: `طلب تصميم كيس جديد من ${data.customer.name}`,
+          message,
+          message_ar: message,
+          type: "system",
+          priority: "high",
+          recipient_type: "user",
+          recipient_id: "1",
+          phone_number: normalizedPhone,
+          status: "sent",
+          context_type: "bag_quote",
+          context_id: ref,
+        } as any);
+      } catch (err) {
+        logger.warn("Failed to persist internal bag-quote notification", { err });
+      }
+
+      return res.json({
+        success: true,
+        reference: ref,
+        whatsappSent,
+        ...(whatsappError ? { whatsappError } : {}),
+      });
+    } catch (error: any) {
+      if (error?.issues) {
+        return res.status(400).json({
+          success: false,
+          error: "بيانات غير صحيحة",
+          details: error.issues.map((i: any) => i.message),
+        });
+      }
+      logger.error("Public bag-quote endpoint failed", { error: error?.message });
+      return res.status(500).json({ success: false, error: "تعذر إرسال الطلب، حاول مرة أخرى" });
+    }
+  });
+
   // Replit Auth user endpoint
   app.get('/api/auth/user', isAuthenticatedReplit, async (req: any, res) => {
     try {

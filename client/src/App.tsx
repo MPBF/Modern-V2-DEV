@@ -61,6 +61,7 @@ const MyOrders = lazyWithRetry(() => import("./pages/my-orders"));
 const OrdersMobile = lazyWithRetry(() => import("./pages/orders-mobile"));
 const ProductionDashboardMobile = lazyWithRetry(() => import("./pages/production-dashboard-mobile"));
 const McpSettings = lazyWithRetry(() => import("./pages/mcp-settings"));
+const MpbfBagQuote = lazyWithRetry(() => import("./pages/mpbf-bag-quote"));
 
 function PageLoadingFallback() {
   return (
@@ -93,6 +94,11 @@ function AppRoutes() {
       <Switch>
         <Route path="/login">
           {isAuthenticated ? <Redirect to="/" /> : <Login />}
+        </Route>
+
+        {/* Public mobile-friendly bag design quote — no login required */}
+        <Route path="/mpbf">
+          <MpbfBagQuote />
         </Route>
 
         <Route path="/bag-configurator">
