@@ -18,7 +18,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatNumberAr } from "../../../shared/number-utils";
@@ -356,6 +356,18 @@ function FilmMobileView({ onBack }: { onBack?: () => void }) {
     refetchInterval: 30000,
   });
 
+  // Start of "today" in Asia/Riyadh (UTC+3, no DST), expressed as a UTC ms.
+  const todayStartMs = useMemo(() => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Riyadh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const [y, m, d] = parts.split("-").map(Number);
+    return Date.UTC(y, m - 1, d) - 3 * 60 * 60 * 1000;
+  }, []);
+
   const handleCreateRoll = (
     order: ActiveProductionOrderDetails,
     final: boolean = false,
@@ -462,13 +474,11 @@ function FilmMobileView({ onBack }: { onBack?: () => void }) {
                 100;
               const isComplete = order.is_final_roll_created;
               const isExpanded = expandedOrderId === order.id;
-              const todayStart = new Date();
-              todayStart.setHours(0, 0, 0, 0);
               const orderRolls = allRolls
                 .filter((r) => {
                   if (r.production_order_id !== order.id) return false;
                   if (!r.created_at) return false;
-                  return new Date(r.created_at).getTime() >= todayStart.getTime();
+                  return new Date(r.created_at).getTime() >= todayStartMs;
                 })
                 .sort((a, b) => a.roll_seq - b.roll_seq);
 
