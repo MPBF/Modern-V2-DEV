@@ -3427,6 +3427,12 @@ export async function registerRoutes(
   app.get(
     "/api/production-orders/active-for-operator",
     requireAuth,
+    requirePermission(
+      "manage_production",
+      "view_film_dashboard",
+      "view_printing_dashboard",
+      "view_cutting_dashboard",
+    ),
     async (req: AuthRequest, res) => {
       try {
         const userId = getAuthUserId(req);
@@ -3595,6 +3601,7 @@ export async function registerRoutes(
   app.get(
     "/api/rolls/active-for-printing",
     requireAuth,
+    requirePermission("manage_production", "view_printing_dashboard"),
     async (req: AuthRequest, res) => {
       try {
         const userId = getAuthUserId(req);
@@ -3617,6 +3624,7 @@ export async function registerRoutes(
   app.get(
     "/api/rolls/active-for-cutting",
     requireAuth,
+    requirePermission("manage_production", "view_cutting_dashboard"),
     async (req: AuthRequest, res) => {
       try {
         const userId = getAuthUserId(req);

@@ -138,11 +138,29 @@ interface Machine {
 export default function ProductionDashboardMobile() {
   const { user } = useAuth();
   const { i18n } = useTranslation();
-  const [currentView, setCurrentView] = useState<MobileView>("tabs");
 
   const canViewFilm = userHasPermission(user, "view_film_dashboard");
   const canViewPrinting = userHasPermission(user, "view_printing_dashboard");
   const canViewCutting = userHasPermission(user, "view_cutting_dashboard");
+
+  const allowedSections: MobileView[] = [
+    canViewFilm ? "film" : null,
+    canViewPrinting ? "printing" : null,
+    canViewCutting ? "cutting" : null,
+  ].filter((s): s is MobileView => s !== null);
+
+  // If user only has access to a single section, jump straight to it.
+  const singleSection =
+    allowedSections.length === 1 ? allowedSections[0] : null;
+
+  const [currentView, setCurrentView] = useState<MobileView>(
+    singleSection ?? "tabs",
+  );
+
+  // The "back" handler does nothing when the user is locked into a single
+  // section, so we hide the back button entirely in that case.
+  const showBack = !singleSection;
+  const goBack = () => setCurrentView("tabs");
 
   return (
     <div
@@ -158,13 +176,13 @@ export default function ProductionDashboardMobile() {
         />
       )}
       {currentView === "film" && canViewFilm && (
-        <FilmMobileView onBack={() => setCurrentView("tabs")} />
+        <FilmMobileView onBack={showBack ? goBack : undefined} />
       )}
       {currentView === "printing" && canViewPrinting && (
-        <PrintingMobileView onBack={() => setCurrentView("tabs")} />
+        <PrintingMobileView onBack={showBack ? goBack : undefined} />
       )}
       {currentView === "cutting" && canViewCutting && (
-        <CuttingMobileView onBack={() => setCurrentView("tabs")} />
+        <CuttingMobileView onBack={showBack ? goBack : undefined} />
       )}
     </div>
   );
@@ -314,7 +332,7 @@ function TabsView({
   );
 }
 
-function FilmMobileView({ onBack }: { onBack: () => void }) {
+function FilmMobileView({ onBack }: { onBack?: () => void }) {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const ln = useLocalizedName();
@@ -444,8 +462,14 @@ function FilmMobileView({ onBack }: { onBack: () => void }) {
                 100;
               const isComplete = order.is_final_roll_created;
               const isExpanded = expandedOrderId === order.id;
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
               const orderRolls = allRolls
-                .filter((r) => r.production_order_id === order.id)
+                .filter((r) => {
+                  if (r.production_order_id !== order.id) return false;
+                  if (!r.created_at) return false;
+                  return new Date(r.created_at).getTime() >= todayStart.getTime();
+                })
                 .sort((a, b) => a.roll_seq - b.roll_seq);
 
               return (
@@ -717,7 +741,7 @@ function FilmMobileView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function PrintingMobileView({ onBack }: { onBack: () => void }) {
+function PrintingMobileView({ onBack }: { onBack?: () => void }) {
   const { t } = useTranslation();
   const ln = useLocalizedName();
   const { toast } = useToast();
@@ -1051,7 +1075,7 @@ function PrintingMobileView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function CuttingMobileView({ onBack }: { onBack: () => void }) {
+function CuttingMobileView({ onBack }: { onBack?: () => void }) {
   const { t } = useTranslation();
   const ln = useLocalizedName();
   const { toast } = useToast();
