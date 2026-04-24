@@ -219,7 +219,7 @@ export default function RollCreationModalEnhanced({
         dir={dir}
       >
         <DialogHeader>
-          <DialogTitle className="text-xl font-extrabold">
+          <DialogTitle className="sr-only">
             {isFinalRoll
               ? t("modals.rollCreationEnhanced.titleFinal")
               : t("modals.rollCreationEnhanced.title")}
