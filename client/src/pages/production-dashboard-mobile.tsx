@@ -1383,18 +1383,16 @@ function CuttingMobileView({ onBack }: { onBack?: () => void }) {
 
       {isDialogOpen && selectedRoll && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+          className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center"
           onClick={() =>
             !completeCuttingMutation.isPending && setIsDialogOpen(false)
           }
         >
           <div
-            className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] space-y-4 max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom"
+            className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-b-2xl p-5 space-y-4 max-h-[55vh] sm:max-h-[92vh] overflow-y-auto animate-in slide-in-from-top"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-12 h-1.5 rounded-full bg-gray-300 mx-auto" />
-
-            <h3 className="font-extrabold text-xl flex items-center gap-2">
+            <h3 className="font-extrabold text-lg flex items-center gap-2">
               <Scissors className="h-5 w-5 text-green-600" />
               {t("operators.cutting.enterNetWeight", "إدخال الوزن الصافي")}
             </h3>
