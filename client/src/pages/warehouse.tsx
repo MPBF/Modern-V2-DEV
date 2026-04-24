@@ -691,10 +691,10 @@ function DeliveryHallContent() {
                   className="border rounded-lg overflow-hidden mb-4"
                 >
                   <div className="bg-orange-50 dark:bg-orange-900/20 px-3 sm:px-4 py-2 flex flex-wrap justify-between items-center gap-1">
-                    <span className="font-bold text-xs sm:text-sm">
+                    <span className="font-bold sm:text-sm text-[20px] text-[#fa0a0a]">
                       {t("warehouse.production.order")}: {group.order_number}
                     </span>
-                    <span className="font-bold text-xs sm:text-sm">
+                    <span className="font-bold sm:text-sm text-[20px] text-[#fa0a0a]">
                       {group.customer_name_ar || group.customer_name}
                     </span>
                   </div>
@@ -1353,12 +1353,12 @@ function ProductionHallContent({
                   <div className="bg-gray-100 dark:bg-gray-800 px-3 sm:px-4 py-2 sm:py-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       <Hash className="h-4 w-4 text-gray-500 shrink-0" />
-                      <span className="font-bold text-xs sm:text-sm">
+                      <span className="font-bold sm:text-sm text-[20px] text-[#fa0a0a]">
                         {t("warehouse.production.order")}: {group.order_number}
                       </span>
                       <span className="text-gray-400 hidden sm:inline">|</span>
                       <User className="h-4 w-4 text-gray-500 shrink-0 hidden sm:inline" />
-                      <span className="font-bold text-xs sm:text-sm">
+                      <span className="font-bold sm:text-sm text-[20px] text-[#fa0a0a]">
                         {group.customer_name_ar || group.customer_name}
                       </span>
                     </div>
