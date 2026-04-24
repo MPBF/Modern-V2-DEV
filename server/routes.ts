@@ -12826,7 +12826,7 @@ Do not include quotes or explanations.`;
     },
   );
 
-  // Update mixing batch
+  // Update mixing batch (supports either metadata-only or full batch+ingredients edit)
   app.put(
     "/api/mixing-batches/:id",
     requireAuth,
@@ -12834,13 +12834,143 @@ Do not include quotes or explanations.`;
     async (req, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
-        const updates = req.body;
+        const { batch, ingredients, ...rest } = req.body || {};
 
+        // Full edit (batch + ingredients)
+        if (batch && Array.isArray(ingredients)) {
+          // Existence check
+          const existing = await storage.getMixingBatchById(id);
+          if (!existing) {
+            return res.status(404).json({ message: "دفعة الخلط غير موجودة" });
+          }
+
+          if (ingredients.length === 0) {
+            return res
+              .status(400)
+              .json({ message: "بيانات عملية الخلط أو المكونات ناقصة" });
+          }
+
+          // Validate ingredients
+          for (const ing of ingredients) {
+            if (!ing || typeof ing !== "object") {
+              return res
+                .status(400)
+                .json({ message: "بيانات المكونات غير صحيحة" });
+            }
+            if (!ing.item_id || typeof ing.item_id !== "string") {
+              return res
+                .status(400)
+                .json({ message: "يجب تحديد المادة لكل مكوّن" });
+            }
+            const w = parseFloat(ing.actual_weight_kg);
+            if (!isFinite(w) || w <= 0) {
+              return res
+                .status(400)
+                .json({ message: "وزن المكوّن يجب أن يكون رقمًا موجبًا" });
+            }
+            if (ing.percentage !== undefined && ing.percentage !== null) {
+              const p = parseFloat(ing.percentage);
+              if (!isFinite(p) || p <= 0 || p > 100) {
+                return res
+                  .status(400)
+                  .json({ message: "نسبة المكوّن غير صحيحة" });
+              }
+            }
+          }
+
+          if (
+            batch.screw_assignment &&
+            !["A", "B"].includes(batch.screw_assignment)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "يجب تحديد البريمة (A أو B)" });
+          }
+
+          if (!batch.machine_id || typeof batch.machine_id !== "string") {
+            return res.status(400).json({ message: "يجب تحديد الماكينة" });
+          }
+
+          const totalW = parseFloat(batch.total_weight_kg);
+          if (!isFinite(totalW) || totalW <= 0) {
+            return res
+              .status(400)
+              .json({ message: "الوزن الكلي يجب أن يكون رقمًا موجبًا" });
+          }
+
+          // Validate over-limit excluding this batch
+          if (batch.production_order_id) {
+            const poId = parseInt(batch.production_order_id);
+            if (!isNaN(poId) && poId > 0) {
+              const po = await storage.getProductionOrderById(poId);
+              if (po) {
+                const orderQty = parseFloat(
+                  (po as any).final_quantity_kg ||
+                    (po as any).quantity_kg ||
+                    "0",
+                );
+                const existingBatches =
+                  await storage.getMixingBatchesByProductionOrder(poId);
+                let existingTotal = 0;
+                for (const b of existingBatches) {
+                  if (b.id === id) continue;
+                  existingTotal += parseFloat(b.total_weight_kg as string) || 0;
+                }
+                const newWeight = parseFloat(batch.total_weight_kg || "0");
+                if (existingTotal + newWeight > orderQty) {
+                  return res.status(400).json({
+                    message: `مجموع كميات الخلط (${(existingTotal + newWeight).toFixed(2)} كغ) يتجاوز الكمية المطلوبة في أمر الإنتاج (${orderQty.toFixed(2)} كغ). المتبقي: ${(orderQty - existingTotal).toFixed(2)} كغ`,
+                  });
+                }
+              }
+            }
+          }
+
+          // Strip immutable / auto-managed fields
+          const {
+            id: _ignoredId,
+            batch_number,
+            operator_id,
+            created_at,
+            ...cleanBatchData
+          } = batch;
+
+          const updatedBatch = await storage.updateMixingBatchWithIngredients(
+            id,
+            cleanBatchData,
+            ingredients,
+          );
+          return res.json(updatedBatch);
+        }
+
+        // Backwards-compatible metadata-only update
+        const updates = Object.keys(rest).length > 0 ? rest : req.body;
         const updatedBatch = await storage.updateMixingBatch(id, updates);
         res.json(updatedBatch);
       } catch (error: any) {
         console.error("Error updating mixing batch:", error);
         res.status(500).json({ message: "خطأ في تحديث عملية الخلط" });
+      }
+    },
+  );
+
+  // Delete mixing batch (cascades to ingredients)
+  app.delete(
+    "/api/mixing-batches/:id",
+    requireAuth,
+    requirePermission("manage_mixing", "manage_production"),
+    async (req, res) => {
+      try {
+        const id = parseRouteParam(req.params.id, "id");
+        const existing = await storage.getMixingBatchById(id);
+        if (!existing) {
+          return res.status(404).json({ message: "دفعة الخلط غير موجودة" });
+        }
+        await storage.deleteMixingBatch(id);
+        res.json({ success: true });
+      } catch (error: any) {
+        console.error("Error deleting mixing batch:", error);
+        res.status(500).json({ message: "خطأ في حذف عملية الخلط" });
       }
     },
   );

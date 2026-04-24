@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Printer,
+  Pencil,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,9 +20,20 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
@@ -104,6 +116,16 @@ export default function FilmMaterialMixingTab() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [selectedBatch, setSelectedBatch] = useState<BatchDetail | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<BatchDetail | null>(null);
+  const [editMachineId, setEditMachineId] = useState("");
+  const [editScrew, setEditScrew] = useState("A");
+  const [editMaterials, setEditMaterials] = useState<Material[]>([]);
+  const [editLoading, setEditLoading] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<BatchDetail | null>(null);
 
   const { data: masterBatchColors = [] } = useQuery<MasterBatchColor[]>({
     queryKey: ["/api/master-batch-colors"],
@@ -319,6 +341,212 @@ export default function FilmMaterialMixingTab() {
     setMachineId("");
     setScrew("A");
     setMaterials([]);
+  };
+
+  const updateBatchMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest(`/api/mixing-batches/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: t("production.mixing.saveSuccess"),
+        description: "تم تحديث عملية الخلط بنجاح",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/mixing-batches"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/mixing-batches/production-order"],
+      });
+      setEditDialogOpen(false);
+      setEditingBatch(null);
+      setEditMaterials([]);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("production.mixing.error"),
+        description: error.message || "فشل تحديث عملية الخلط",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteBatchMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/mixing-batches/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      toast({
+        title: t("production.mixing.saveSuccess"),
+        description: "تم حذف عملية الخلط بنجاح",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/mixing-batches"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/mixing-batches/production-order"],
+      });
+      setDeleteConfirmOpen(false);
+      setBatchToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("production.mixing.error"),
+        description: error.message || "فشل حذف عملية الخلط",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editTotalWeight = editMaterials.reduce(
+    (sum, m) => sum + (parseFloat(m.weight_kg) || 0),
+    0,
+  );
+
+  const openEditDialog = async (batch: BatchDetail) => {
+    setEditDialogOpen(true);
+    setEditLoading(true);
+    setEditingBatch(batch);
+    setEditMachineId(batch.machine_id);
+    setEditScrew(batch.screw_assignment);
+    setEditMaterials([]);
+    try {
+      const response = await fetch(`/api/mixing-batches/${batch.id}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("فشل تحميل بيانات الخلطة");
+      const fullBatch: BatchDetail = await response.json();
+      setEditingBatch(fullBatch);
+      setEditMachineId(fullBatch.machine_id);
+      setEditScrew(fullBatch.screw_assignment);
+      const mats: Material[] = (fullBatch.ingredients || []).map((ing, idx) => ({
+        id: `${fullBatch.id}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+        item_id: ing.item_id,
+        item_name: ing.item_name || "",
+        item_name_ar: ing.item_name_ar || "",
+        weight_kg: ing.actual_weight_kg,
+        percentage: parseFloat(ing.percentage) || 0,
+      }));
+      setEditMaterials(mats);
+    } catch (e: any) {
+      toast({
+        title: t("production.mixing.error"),
+        description: e.message || "فشل تحميل بيانات الخلطة",
+        variant: "destructive",
+      });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const addEditMaterial = () => {
+    if (editMaterials.length >= 10) {
+      toast({
+        title: t("production.mixing.warning"),
+        description: t("production.mixing.maxMaterials"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setEditMaterials([
+      ...editMaterials,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        item_id: "",
+        item_name: "",
+        item_name_ar: "",
+        weight_kg: "",
+        percentage: 0,
+      },
+    ]);
+  };
+
+  const removeEditMaterial = (id: string) => {
+    setEditMaterials(updatePercentages(editMaterials.filter((m) => m.id !== id)));
+  };
+
+  const updateEditMaterialItem = (id: string, itemId: string) => {
+    const item = rawMaterials.find((i: any) => i.id === itemId);
+    setEditMaterials(
+      editMaterials.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              item_id: itemId,
+              item_name: item?.name || "",
+              item_name_ar: item?.name_ar || "",
+            }
+          : m,
+      ),
+    );
+  };
+
+  const updateEditMaterialWeight = (id: string, weight: string) => {
+    setEditMaterials(
+      updatePercentages(
+        editMaterials.map((m) =>
+          m.id === id ? { ...m, weight_kg: weight } : m,
+        ),
+      ),
+    );
+  };
+
+  const handleUpdate = () => {
+    if (!editingBatch) return;
+    if (!editMachineId) {
+      toast({
+        title: t("production.mixing.error"),
+        description: t("production.mixing.selectMachine"),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (editMaterials.length === 0) {
+      toast({
+        title: t("production.mixing.error"),
+        description: t("production.mixing.addAtLeastOneMaterial"),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (
+      editMaterials.some(
+        (m) => !m.item_id || !m.weight_kg || parseFloat(m.weight_kg) <= 0,
+      )
+    ) {
+      toast({
+        title: t("production.mixing.error"),
+        description: t("production.mixing.checkMaterialData"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const batchPayload = {
+      production_order_id: editingBatch.production_order_id,
+      machine_id: editMachineId,
+      screw_assignment: editScrew,
+      total_weight_kg: editTotalWeight.toString(),
+    };
+    const ingredientsPayload = editMaterials.map((m) => ({
+      item_id: m.item_id,
+      actual_weight_kg: m.weight_kg,
+      percentage: m.percentage.toFixed(2),
+    }));
+
+    updateBatchMutation.mutate({
+      id: editingBatch.id,
+      data: { batch: batchPayload, ingredients: ingredientsPayload },
+    });
+  };
+
+  const confirmDelete = (batch: BatchDetail) => {
+    setBatchToDelete(batch);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (!batchToDelete) return;
+    deleteBatchMutation.mutate(batchToDelete.id);
   };
 
   const handleSave = () => {
@@ -1153,17 +1381,41 @@ export default function FilmMaterialMixingTab() {
                                           </div>
                                         </TableCell>
                                         <TableCell className="px-1 py-1.5">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={() =>
-                                              viewBatchDetails(batch)
-                                            }
-                                            data-testid={`button-view-${batch.id}`}
-                                          >
-                                            <Eye className="h-3.5 w-3.5" />
-                                          </Button>
+                                          <div className="flex items-center gap-0.5">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={() =>
+                                                viewBatchDetails(batch)
+                                              }
+                                              data-testid={`button-view-${batch.id}`}
+                                            >
+                                              <Eye className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                              onClick={() =>
+                                                openEditDialog(batch)
+                                              }
+                                              data-testid={`button-edit-${batch.id}`}
+                                            >
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                              onClick={() =>
+                                                confirmDelete(batch)
+                                              }
+                                              data-testid={`button-delete-${batch.id}`}
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
                                         </TableCell>
                                       </TableRow>
                                     );
@@ -1310,6 +1562,258 @@ export default function FilmMaterialMixingTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+          dir="rtl"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              تعديل خلطة {editingBatch?.batch_number || ""}
+            </DialogTitle>
+            <DialogDescription>
+              يمكنك تعديل الماكينة، البريمة، المواد، والأوزان
+            </DialogDescription>
+          </DialogHeader>
+          {editLoading && (
+            <div className="space-y-3 py-4">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          )}
+          {!editLoading && editingBatch && (
+            <div className="space-y-4">
+              {/* Production Order (read-only) */}
+              <div>
+                <Label className="text-muted-foreground">
+                  {t("production.mixing.productionOrder")}
+                </Label>
+                <p className="font-semibold mt-1">
+                  {editingBatch.production_order_number ||
+                    `PO-${editingBatch.production_order_id}`}
+                </p>
+              </div>
+
+              {/* Machine */}
+              <div>
+                <Label>{t("production.mixing.machine")}</Label>
+                <Select
+                  value={editMachineId}
+                  onValueChange={setEditMachineId}
+                >
+                  <SelectTrigger
+                    className="mt-1"
+                    data-testid="select-edit-machine"
+                  >
+                    <SelectValue
+                      placeholder={t("production.mixing.selectMachine")}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {machines.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {ln(m.name_ar, m.name) || m.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Screw */}
+              <div>
+                <Label>{t("production.mixing.screw")}</Label>
+                <RadioGroup
+                  value={editScrew}
+                  onValueChange={setEditScrew}
+                  className="flex gap-6 mt-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem
+                      value="A"
+                      id="edit-screw-a"
+                      data-testid="radio-edit-screw-a"
+                    />
+                    <Label htmlFor="edit-screw-a" className="cursor-pointer">
+                      A
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem
+                      value="B"
+                      id="edit-screw-b"
+                      data-testid="radio-edit-screw-b"
+                    />
+                    <Label htmlFor="edit-screw-b" className="cursor-pointer">
+                      B
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Materials */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-base font-semibold">
+                    {t("production.mixing.ingredients")}
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addEditMaterial}
+                    data-testid="button-add-edit-material"
+                  >
+                    <Plus className="h-4 w-4 ml-1" />
+                    {t("production.mixing.addMaterial")}
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">
+                        {t("production.mixing.material")}
+                      </TableHead>
+                      <TableHead className="text-right w-32">
+                        {t("production.mixing.weightKg")}
+                      </TableHead>
+                      <TableHead className="text-right w-24">
+                        {t("production.mixing.percentage")}
+                      </TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editMaterials.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="text-center text-muted-foreground py-4"
+                        >
+                          لا توجد مواد - أضف مادة للبدء
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      editMaterials.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell>
+                            <Select
+                              value={m.item_id}
+                              onValueChange={(v) =>
+                                updateEditMaterialItem(m.id, v)
+                              }
+                            >
+                              <SelectTrigger
+                                data-testid={`select-edit-material-${m.id}`}
+                              >
+                                <SelectValue
+                                  placeholder={t(
+                                    "production.mixing.selectMaterial",
+                                  )}
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {rawMaterials.map((item: any) => (
+                                  <SelectItem key={item.id} value={item.id}>
+                                    {ln(item.name_ar, item.name) || item.id}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={m.weight_kg}
+                              onChange={(e) =>
+                                updateEditMaterialWeight(m.id, e.target.value)
+                              }
+                              data-testid={`input-edit-weight-${m.id}`}
+                            />
+                          </TableCell>
+                          <TableCell>{m.percentage.toFixed(2)}%</TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-600"
+                              onClick={() => removeEditMaterial(m.id)}
+                              data-testid={`button-remove-edit-material-${m.id}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                <div className="mt-2 flex justify-end text-sm font-semibold">
+                  المجموع: {editTotalWeight.toFixed(2)}{" "}
+                  {t("production.mixing.kg")}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              data-testid="button-cancel-edit"
+            >
+              {t("common.cancel") || "إلغاء"}
+            </Button>
+            <Button
+              onClick={handleUpdate}
+              disabled={updateBatchMutation.isPending}
+              data-testid="button-save-edit"
+            >
+              {updateBatchMutation.isPending
+                ? "جارٍ الحفظ..."
+                : "حفظ التعديلات"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+      >
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف عملية الخلط</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الخلطة{" "}
+              <span className="font-bold">
+                {batchToDelete?.batch_number}
+              </span>
+              ؟ سيتم حذف الخلطة ومكوّناتها نهائيًا ولا يمكن التراجع عن هذه
+              العملية.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              إلغاء
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteBatchMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteBatchMutation.isPending ? "جارٍ الحذف..." : "حذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

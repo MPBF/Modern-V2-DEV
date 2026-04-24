@@ -6153,6 +6153,35 @@ export class DatabaseStorage implements IStorage {
     return u;
   }
 
+  async updateMixingBatchWithIngredients(
+    id: number,
+    batchData: any,
+    ingredients: InsertBatchIngredient[],
+  ): Promise<MixingBatch> {
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(mixing_batches)
+        .set(batchData)
+        .where(eq(mixing_batches.id, id))
+        .returning();
+      await tx
+        .delete(batch_ingredients)
+        .where(eq(batch_ingredients.batch_id, id));
+      if (ingredients.length > 0) {
+        const ingredientsToInsert = ingredients.map((i) => ({
+          ...i,
+          batch_id: id,
+        }));
+        await tx.insert(batch_ingredients).values(ingredientsToInsert);
+      }
+      return updated;
+    });
+  }
+
+  async deleteMixingBatch(id: number): Promise<void> {
+    await db.delete(mixing_batches).where(eq(mixing_batches.id, id));
+  }
+
   async updateBatchIngredientActuals(
     batchId: number,
     ingredients: any[],
