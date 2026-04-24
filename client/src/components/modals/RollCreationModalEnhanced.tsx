@@ -215,7 +215,7 @@ export default function RollCreationModalEnhanced({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="w-full sm:w-[calc(100vw-1rem)] max-w-full sm:max-w-[500px] max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-t-2xl rounded-b-none sm:rounded-2xl bottom-0 top-auto sm:top-1/2 left-1/2 -translate-x-1/2 translate-y-0 sm:-translate-y-1/2 data-[state=open]:slide-in-from-bottom-1/2 data-[state=closed]:slide-out-to-bottom-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:data-[state=closed]:slide-out-to-top-[48%] pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+        className="w-full sm:w-[calc(100vw-1rem)] max-w-full sm:max-w-[500px] max-h-[55vh] sm:max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-b-2xl rounded-t-none sm:rounded-2xl top-0 sm:top-1/2 left-1/2 -translate-x-1/2 translate-y-0 sm:-translate-y-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-top-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:data-[state=closed]:slide-out-to-top-[48%]"
         dir={dir}
       >
         <DialogHeader>
