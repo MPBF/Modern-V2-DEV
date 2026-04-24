@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Clock, Package } from "lucide-react";
+import { AlertTriangle, Package } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -126,22 +126,6 @@ export default function RollCreationModalEnhanced({
     if (!productionOrderData) return "";
     const rollsCount = productionOrderData.rolls_count || 0;
     return `${productionOrderData.production_order_number}-R${String(rollsCount + 1).padStart(3, "0")}`;
-  }, [productionOrderData]);
-
-  // Calculate average production time
-  const averageProductionTime = useMemo(() => {
-    if (
-      !productionOrderData?.production_start_time ||
-      !productionOrderData?.rolls_count
-    ) {
-      return null;
-    }
-    const startTime = new Date(
-      productionOrderData.production_start_time,
-    ).getTime();
-    const currentTime = Date.now();
-    const totalMinutes = Math.floor((currentTime - startTime) / (1000 * 60));
-    return Math.floor(totalMinutes / productionOrderData.rolls_count);
   }, [productionOrderData]);
 
   // Set default weight to remaining quantity
@@ -282,39 +266,23 @@ export default function RollCreationModalEnhanced({
             </div>
 
             {/* Production Stats */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-gray-600" />
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {t("modals.rollCreationEnhanced.remainingQuantity")}
-                  </p>
-                </div>
-                <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
-                  {formatNumberAr(remainingQuantity)}{" "}
-                  {t("modals.rollCreationEnhanced.kg")}
-                </p>
-                {remainingQuantity < 50 && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {t("modals.rollCreationEnhanced.nearCompletion")}
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-600" />
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {t("modals.rollCreationEnhanced.avgProductionTime")}
-                  </p>
-                </div>
-                <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
-                  {averageProductionTime
-                    ? `${averageProductionTime} ${t("modals.rollCreationEnhanced.minute")}`
-                    : t("modals.rollCreationEnhanced.notAvailable")}
+            <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-600" />
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {t("modals.rollCreationEnhanced.remainingQuantity")}
                 </p>
               </div>
+              <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
+                {formatNumberAr(remainingQuantity)}{" "}
+                {t("modals.rollCreationEnhanced.kg")}
+              </p>
+              {remainingQuantity < 50 && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {t("modals.rollCreationEnhanced.nearCompletion")}
+                </p>
+              )}
             </div>
 
             {/* Weight Input */}
