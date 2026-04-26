@@ -18,3 +18,9 @@ id = "1jRgGyVwzUTxQZ8g1KQfL"
 uri = "file://MOBILE_APP_REFERENCE.md"
 type = "text"
 title = "دليل مرجعي شامل لتطوير تطبيق الجوال - MPBF"
+
+[[outputs]]
+id = "dh3bqSVJhg2q0C_p59SHj"
+uri = "file://attached_assets/project-deploy.zip"
+type = "unspecified"
+title = "Project Deploy Package (3.93 MB)"
