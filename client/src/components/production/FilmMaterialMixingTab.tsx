@@ -16,7 +16,6 @@ import { useAuth } from "../../hooks/use-auth";
 import { useLocalizedName } from "../../hooks/use-localized-name";
 import { useToast } from "../../hooks/use-toast";
 import { queryClient, apiRequest } from "../../lib/queryClient";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
@@ -250,6 +249,46 @@ export default function FilmMaterialMixingTab() {
       ? ((previouslyMixed + totalWeight) / orderQuantity) * 100
       : 0;
   const isOverLimit = remainingQuantity < 0;
+
+  const batchesByPO = useMemo(() => {
+    const groups = new Map<number, BatchDetail[]>();
+    for (const b of batches) {
+      const key = b.production_order_id;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(b);
+    }
+    return Array.from(groups.entries())
+      .map(([poId, list]) => {
+        const sorted = [...list].sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
+        );
+        const totalA = sorted
+          .filter((x) => x.screw_assignment === "A")
+          .reduce((s, x) => s + (parseFloat(x.total_weight_kg) || 0), 0);
+        const totalB = sorted
+          .filter((x) => x.screw_assignment === "B")
+          .reduce((s, x) => s + (parseFloat(x.total_weight_kg) || 0), 0);
+        const po = allProductionOrders.find((p: any) => p.id === poId);
+        const orderQty = po
+          ? parseFloat(po.final_quantity_kg || po.quantity_kg || "0") || 0
+          : 0;
+        return {
+          poId,
+          poNumber:
+            sorted[0].production_order_number || `PO-${poId}`,
+          batches: sorted,
+          totalA,
+          totalB,
+          total: totalA + totalB,
+          orderQty,
+          remaining: Math.max(0, orderQty - (totalA + totalB)),
+          latestAt: new Date(sorted[0].created_at).getTime(),
+        };
+      })
+      .sort((a, b) => b.latestAt - a.latestAt);
+  }, [batches, allProductionOrders]);
 
   const updatePercentages = (mats: Material[]) => {
     const total = mats.reduce(
@@ -996,9 +1035,13 @@ export default function FilmMaterialMixingTab() {
                   .print-container { width: 277mm; padding: 5mm; }
                   .print-title { text-align: center; font-size: 18px; font-weight: 900; margin-bottom: 8px; }
                   .print-date { text-align: center; font-size: 11px; color: #666; margin-bottom: 12px; }
-                  .tables-wrapper { display: flex; gap: 8mm; width: 100%; }
+                  .po-section { margin-bottom: 12px; border: 2px solid #b45309; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
+                  .po-header { background: linear-gradient(to left, #fef3c7, #ffedd5); padding: 6px 10px; border-bottom: 2px solid #b45309; font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
+                  .po-title { font-weight: 900; font-size: 14px; color: #78350f; }
+                  .po-meta { font-size: 10px; color: #444; }
+                  .tables-wrapper { display: flex; gap: 4mm; width: 100%; padding: 4px; }
                   .screw-section { flex: 1; min-width: 0; }
-                  .screw-title { text-align: center; font-size: 14px; font-weight: 800; padding: 4px 0; margin-bottom: 4px; border: 2px solid #333; background: #f0f0f0; }
+                  .screw-title { text-align: center; font-size: 12px; font-weight: 800; padding: 3px 0; margin-bottom: 3px; border: 1px solid #333; background: #f0f0f0; }
                   table { width: 100%; border-collapse: collapse; font-size: 10px; }
                   th { background: #e8e8e8; font-weight: 700; padding: 3px 4px; border: 1px solid #999; text-align: right; white-space: nowrap; }
                   td { padding: 2px 4px; border: 1px solid #ccc; text-align: right; vertical-align: top; }
@@ -1034,7 +1077,7 @@ export default function FilmMaterialMixingTab() {
             <>
               <div id="mixing-batches-print-area" style={{ display: "none" }}>
                 <div className="print-container">
-                  <div className="print-title">سجل الخلطات</div>
+                  <div className="print-title">سجل الخلطات حسب أوامر الإنتاج</div>
                   <div className="print-date">
                     تاريخ الطباعة:{" "}
                     {new Date().toLocaleDateString("ar-EG", {
@@ -1043,404 +1086,353 @@ export default function FilmMaterialMixingTab() {
                       day: "numeric",
                     })}
                   </div>
-                  <div className="tables-wrapper">
-                    <div className="screw-section">
-                      <div className="screw-title">سكرو A</div>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>رقم الخلطة</th>
-                            <th>أمر الإنتاج</th>
-                            <th>الماكينة</th>
-                            <th>الوزن (كغ)</th>
-                            <th>التاريخ</th>
-                            <th>المشغل</th>
-                            <th>التركيبة</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {batches
-                            .filter((b) => b.screw_assignment === "A")
-                            .map((batch) => {
-                              const operator = users.find(
-                                (u: any) => u.id === batch.operator_id,
-                              );
-                              return (
-                                <tr key={batch.id}>
-                                  <td>{batch.batch_number}</td>
-                                  <td>
-                                    {batch.production_order_number ||
-                                      `PO-${batch.production_order_id}`}
-                                  </td>
-                                  <td>
-                                    {batch.machine_name_ar ||
-                                      batch.machine_name ||
-                                      batch.machine_id}
-                                  </td>
-                                  <td>
-                                    {parseFloat(batch.total_weight_kg).toFixed(
-                                      2,
-                                    )}
-                                  </td>
-                                  <td>
-                                    {new Date(
-                                      batch.created_at,
-                                    ).toLocaleDateString("en-US")}
-                                  </td>
-                                  <td>
-                                    {operator?.display_name_ar ||
-                                      operator?.display_name ||
-                                      "-"}
-                                  </td>
-                                  <td>
-                                    {batch.composition &&
-                                    batch.composition.length > 0
-                                      ? batch.composition.map(
-                                          (comp: any, idx: number) => (
-                                            <div
-                                              key={idx}
-                                              className="comp-item"
-                                            >
-                                              {comp.material_name_ar ||
-                                                comp.material_name}{" "}
-                                              ({comp.percentage})
-                                            </div>
-                                          ),
-                                        )
-                                      : "-"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          <tr className="total-row">
-                            <td colSpan={3}>المجموع</td>
-                            <td>
-                              {batches
-                                .filter((b) => b.screw_assignment === "A")
-                                .reduce(
-                                  (s, b) => s + parseFloat(b.total_weight_kg),
-                                  0,
-                                )
-                                .toFixed(2)}{" "}
-                              كغ
-                            </td>
-                            <td colSpan={3}></td>
-                          </tr>
-                        </tbody>
-                      </table>
+                  {batchesByPO.map((group) => (
+                    <div key={group.poId} className="po-section">
+                      <div className="po-header">
+                        <span className="po-title">
+                          أمر الإنتاج: {group.poNumber}
+                        </span>
+                        {group.orderQty > 0 && (
+                          <span className="po-meta">
+                            كمية الأمر: {group.orderQty.toFixed(2)} كغ • المتبقي:{" "}
+                            {group.remaining.toFixed(2)} كغ
+                          </span>
+                        )}
+                        <span className="po-meta">
+                          سكرو A: {group.totalA.toFixed(2)} كغ • سكرو B:{" "}
+                          {group.totalB.toFixed(2)} كغ • الإجمالي:{" "}
+                          {group.total.toFixed(2)} كغ
+                        </span>
+                      </div>
+                      <div className="tables-wrapper">
+                        {(["A", "B"] as const).map((screw) => {
+                          const screwBatches = group.batches.filter(
+                            (b) => b.screw_assignment === screw,
+                          );
+                          const screwTotal = screwBatches.reduce(
+                            (s, b) => s + parseFloat(b.total_weight_kg),
+                            0,
+                          );
+                          return (
+                            <div key={screw} className="screw-section">
+                              <div className="screw-title">
+                                سكرو {screw} ({screwBatches.length} خلطة)
+                              </div>
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>رقم الخلطة</th>
+                                    <th>الماكينة</th>
+                                    <th>الوزن (كغ)</th>
+                                    <th>التاريخ</th>
+                                    <th>المشغل</th>
+                                    <th>التركيبة</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {screwBatches.length === 0 ? (
+                                    <tr>
+                                      <td
+                                        colSpan={6}
+                                        style={{
+                                          textAlign: "center",
+                                          color: "#888",
+                                        }}
+                                      >
+                                        لا توجد خلطات
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    screwBatches.map((batch) => {
+                                      const operator = users.find(
+                                        (u: any) => u.id === batch.operator_id,
+                                      );
+                                      return (
+                                        <tr key={batch.id}>
+                                          <td>{batch.batch_number}</td>
+                                          <td>
+                                            {batch.machine_name_ar ||
+                                              batch.machine_name ||
+                                              batch.machine_id}
+                                          </td>
+                                          <td>
+                                            {parseFloat(
+                                              batch.total_weight_kg,
+                                            ).toFixed(2)}
+                                          </td>
+                                          <td>
+                                            {new Date(
+                                              batch.created_at,
+                                            ).toLocaleDateString("en-US")}
+                                          </td>
+                                          <td>
+                                            {operator?.display_name_ar ||
+                                              operator?.display_name ||
+                                              "-"}
+                                          </td>
+                                          <td>
+                                            {batch.composition &&
+                                            batch.composition.length > 0
+                                              ? batch.composition.map(
+                                                  (
+                                                    comp: any,
+                                                    idx: number,
+                                                  ) => (
+                                                    <div
+                                                      key={idx}
+                                                      className="comp-item"
+                                                    >
+                                                      {comp.material_name_ar ||
+                                                        comp.material_name}{" "}
+                                                      ({comp.percentage})
+                                                    </div>
+                                                  ),
+                                                )
+                                              : "-"}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
+                                  )}
+                                  {screwBatches.length > 0 && (
+                                    <tr className="total-row">
+                                      <td colSpan={2}>المجموع</td>
+                                      <td>{screwTotal.toFixed(2)} كغ</td>
+                                      <td colSpan={3}></td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="screw-section">
-                      <div className="screw-title">سكرو B</div>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>رقم الخلطة</th>
-                            <th>أمر الإنتاج</th>
-                            <th>الماكينة</th>
-                            <th>الوزن (كغ)</th>
-                            <th>التاريخ</th>
-                            <th>المشغل</th>
-                            <th>التركيبة</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {batches
-                            .filter((b) => b.screw_assignment === "B")
-                            .map((batch) => {
-                              const operator = users.find(
-                                (u: any) => u.id === batch.operator_id,
-                              );
-                              return (
-                                <tr key={batch.id}>
-                                  <td>{batch.batch_number}</td>
-                                  <td>
-                                    {batch.production_order_number ||
-                                      `PO-${batch.production_order_id}`}
-                                  </td>
-                                  <td>
-                                    {batch.machine_name_ar ||
-                                      batch.machine_name ||
-                                      batch.machine_id}
-                                  </td>
-                                  <td>
-                                    {parseFloat(batch.total_weight_kg).toFixed(
-                                      2,
-                                    )}
-                                  </td>
-                                  <td>
-                                    {new Date(
-                                      batch.created_at,
-                                    ).toLocaleDateString("en-US")}
-                                  </td>
-                                  <td>
-                                    {operator?.display_name_ar ||
-                                      operator?.display_name ||
-                                      "-"}
-                                  </td>
-                                  <td>
-                                    {batch.composition &&
-                                    batch.composition.length > 0
-                                      ? batch.composition.map(
-                                          (comp: any, idx: number) => (
-                                            <div
-                                              key={idx}
-                                              className="comp-item"
-                                            >
-                                              {comp.material_name_ar ||
-                                                comp.material_name}{" "}
-                                              ({comp.percentage})
-                                            </div>
-                                          ),
-                                        )
-                                      : "-"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          <tr className="total-row">
-                            <td colSpan={3}>المجموع</td>
-                            <td>
-                              {batches
-                                .filter((b) => b.screw_assignment === "B")
-                                .reduce(
-                                  (s, b) => s + parseFloat(b.total_weight_kg),
-                                  0,
-                                )
-                                .toFixed(2)}{" "}
-                              كغ
-                            </td>
-                            <td colSpan={3}></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {[
-                  {
-                    screw: "A",
-                    color: "blue",
-                    label: "سكرو A",
-                    borderColor: "border-blue-400 dark:border-blue-600",
-                    headerBg: "bg-blue-600 dark:bg-blue-700",
-                    headerText: "text-white",
-                    totalBg: "bg-blue-50 dark:bg-blue-950/50",
-                    hoverBg: "hover:bg-blue-50/50 dark:hover:bg-blue-950/30",
-                  },
-                  {
-                    screw: "B",
-                    color: "emerald",
-                    label: "سكرو B",
-                    borderColor: "border-emerald-400 dark:border-emerald-600",
-                    headerBg: "bg-emerald-600 dark:bg-emerald-700",
-                    headerText: "text-white",
-                    totalBg: "bg-emerald-50 dark:bg-emerald-950/50",
-                    hoverBg:
-                      "hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30",
-                  },
-                ].map(
-                  ({
-                    screw,
-                    label,
-                    borderColor,
-                    headerBg,
-                    headerText,
-                    totalBg,
-                    hoverBg,
-                  }) => {
-                    const screwBatches = batches.filter(
-                      (b) => b.screw_assignment === screw,
-                    );
-                    const screwTotal = screwBatches.reduce(
-                      (s, b) => s + parseFloat(b.total_weight_kg),
-                      0,
-                    );
-                    return (
-                      <div
-                        key={screw}
-                        className={`border-2 ${borderColor} rounded-lg overflow-hidden shadow-sm`}
-                      >
-                        <div
-                          className={`${headerBg} ${headerText} text-center py-2.5 font-bold text-base`}
-                        >
-                          {label}
-                          <span className="text-sm font-normal mr-2 opacity-90">
-                            ({screwBatches.length} خلطة —{" "}
-                            {screwTotal.toFixed(2)} كغ)
+              <div className="space-y-6">
+                {batchesByPO.map((group) => (
+                  <div
+                    key={group.poId}
+                    className="border-2 border-amber-300 dark:border-amber-700 rounded-lg overflow-hidden shadow-sm bg-white dark:bg-gray-900"
+                    data-testid={`po-group-${group.poId}`}
+                  >
+                    {/* PO Header */}
+                    <div className="bg-gradient-to-l from-amber-100 to-orange-100 dark:from-amber-950/40 dark:to-orange-950/40 border-b-2 border-amber-300 dark:border-amber-700 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="bg-amber-600 text-white text-xs font-bold px-2.5 py-1 rounded">
+                          أمر إنتاج
+                        </span>
+                        <span className="font-bold text-base text-amber-900 dark:text-amber-100">
+                          {group.poNumber}
+                        </span>
+                        {group.orderQty > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            كمية الأمر: <span className="font-semibold text-foreground">{group.orderQty.toFixed(2)} كغ</span>
+                            {" • "}المتبقي: <span className="font-semibold text-foreground">{group.remaining.toFixed(2)} كغ</span>
                           </span>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow className="bg-gray-50 dark:bg-gray-800/50">
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  رقم الخلطة
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  أمر الإنتاج
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  الماكينة
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  الوزن
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  التاريخ
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  المشغل
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
-                                  التركيبة
-                                </TableHead>
-                                <TableHead className="text-right text-xs font-bold whitespace-nowrap px-1 w-10"></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {screwBatches.length === 0 ? (
-                                <TableRow>
-                                  <TableCell
-                                    colSpan={8}
-                                    className="text-center text-muted-foreground py-6 text-sm"
-                                  >
-                                    لا توجد خلطات للـ {label}
-                                  </TableCell>
-                                </TableRow>
-                              ) : (
-                                <>
-                                  {screwBatches.map((batch, index) => {
-                                    const operator = users.find(
-                                      (u: any) => u.id === batch.operator_id,
-                                    );
-                                    return (
-                                      <TableRow
-                                        key={batch.id}
-                                        className={`${hoverBg} cursor-pointer text-xs ${index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-gray-800/20"}`}
-                                        data-testid={`row-batch-${batch.id}`}
-                                      >
-                                        <TableCell className="font-semibold px-2 py-1.5">
-                                          {batch.batch_number}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-1.5">
-                                          {batch.production_order_number ||
-                                            `PO-${batch.production_order_id}`}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-1.5">
-                                          {batch.machine_name_ar ||
-                                            batch.machine_name ||
-                                            batch.machine_id}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-1.5 font-medium">
-                                          {parseFloat(
-                                            batch.total_weight_kg,
-                                          ).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell
-                                          className="px-2 py-1.5"
-                                          dir="ltr"
-                                        >
-                                          {new Date(
-                                            batch.created_at,
-                                          ).toLocaleDateString("en-US")}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-1.5">
-                                          {operator?.display_name_ar ||
-                                            operator?.display_name ||
-                                            "-"}
-                                        </TableCell>
-                                        <TableCell className="px-2 py-1.5">
-                                          <div className="space-y-0.5">
-                                            {batch.composition &&
-                                            batch.composition.length > 0 ? (
-                                              batch.composition.map(
-                                                (comp: any, idx: number) => (
-                                                  <div
-                                                    key={idx}
-                                                    className="text-[10px] leading-tight"
-                                                  >
-                                                    <span className="font-medium">
-                                                      {comp.material_name_ar ||
-                                                        comp.material_name}
-                                                    </span>
-                                                    <span className="text-muted-foreground">
-                                                      {" "}
-                                                      ({comp.percentage})
-                                                    </span>
-                                                  </div>
-                                                ),
-                                              )
-                                            ) : (
-                                              <span className="text-muted-foreground">
-                                                -
-                                              </span>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="px-1 py-1.5">
-                                          <div className="flex items-center gap-0.5">
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-7 w-7"
-                                              onClick={() =>
-                                                viewBatchDetails(batch)
-                                              }
-                                              data-testid={`button-view-${batch.id}`}
-                                            >
-                                              <Eye className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                              onClick={() =>
-                                                openEditDialog(batch)
-                                              }
-                                              data-testid={`button-edit-${batch.id}`}
-                                            >
-                                              <Pencil className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                              onClick={() =>
-                                                confirmDelete(batch)
-                                              }
-                                              data-testid={`button-delete-${batch.id}`}
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                          </div>
-                                        </TableCell>
-                                      </TableRow>
-                                    );
-                                  })}
-                                  <TableRow className={`${totalBg} border-t-2`}>
-                                    <TableCell
-                                      colSpan={3}
-                                      className="text-right font-bold px-2 py-2"
-                                    >
-                                      المجموع
-                                    </TableCell>
-                                    <TableCell className="font-bold px-2 py-2">
-                                      {screwTotal.toFixed(2)} كغ
-                                    </TableCell>
-                                    <TableCell colSpan={4}></TableCell>
-                                  </TableRow>
-                                </>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </div>
+                        )}
                       </div>
-                    );
-                  },
-                )}
+                      <div className="flex gap-3 text-xs font-semibold flex-wrap">
+                        <span className="px-2 py-1 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300">
+                          سكرو A: {group.totalA.toFixed(2)} كغ
+                        </span>
+                        <span className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
+                          سكرو B: {group.totalB.toFixed(2)} كغ
+                        </span>
+                        <span className="px-2 py-1 rounded bg-amber-200 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100">
+                          الإجمالي: {group.total.toFixed(2)} كغ
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Two screw tables side-by-side */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 p-3">
+                      {(
+                        [
+                          {
+                            screw: "A" as const,
+                            label: "سكرو A",
+                            borderColor: "border-blue-400 dark:border-blue-600",
+                            headerBg: "bg-blue-600 dark:bg-blue-700",
+                            headerText: "text-white",
+                            totalBg: "bg-blue-50 dark:bg-blue-950/50",
+                            hoverBg: "hover:bg-blue-50/50 dark:hover:bg-blue-950/30",
+                          },
+                          {
+                            screw: "B" as const,
+                            label: "سكرو B",
+                            borderColor: "border-emerald-400 dark:border-emerald-600",
+                            headerBg: "bg-emerald-600 dark:bg-emerald-700",
+                            headerText: "text-white",
+                            totalBg: "bg-emerald-50 dark:bg-emerald-950/50",
+                            hoverBg: "hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30",
+                          },
+                        ]
+                      ).map(({ screw, label, borderColor, headerBg, headerText, totalBg, hoverBg }) => {
+                        const screwBatches = group.batches.filter(
+                          (b) => b.screw_assignment === screw,
+                        );
+                        const screwTotal = screwBatches.reduce(
+                          (s, b) => s + parseFloat(b.total_weight_kg),
+                          0,
+                        );
+                        return (
+                          <div
+                            key={screw}
+                            className={`border ${borderColor} rounded-md overflow-hidden`}
+                          >
+                            <div
+                              className={`${headerBg} ${headerText} text-center py-1.5 font-bold text-sm`}
+                            >
+                              {label}
+                              <span className="text-xs font-normal mr-2 opacity-90">
+                                ({screwBatches.length} خلطة — {screwTotal.toFixed(2)} كغ)
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      رقم الخلطة
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      الماكينة
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      الوزن
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      التاريخ
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      المشغل
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-2">
+                                      التركيبة
+                                    </TableHead>
+                                    <TableHead className="text-right text-xs font-bold whitespace-nowrap px-1 w-10"></TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {screwBatches.length === 0 ? (
+                                    <TableRow>
+                                      <TableCell
+                                        colSpan={7}
+                                        className="text-center text-muted-foreground py-4 text-xs"
+                                      >
+                                        لا توجد خلطات للـ {label}
+                                      </TableCell>
+                                    </TableRow>
+                                  ) : (
+                                    <>
+                                      {screwBatches.map((batch, index) => {
+                                        const operator = users.find(
+                                          (u: any) => u.id === batch.operator_id,
+                                        );
+                                        return (
+                                          <TableRow
+                                            key={batch.id}
+                                            className={`${hoverBg} cursor-pointer text-xs ${index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-gray-800/20"}`}
+                                            data-testid={`row-batch-${batch.id}`}
+                                          >
+                                            <TableCell className="font-semibold px-2 py-1.5">
+                                              {batch.batch_number}
+                                            </TableCell>
+                                            <TableCell className="px-2 py-1.5">
+                                              {batch.machine_name_ar ||
+                                                batch.machine_name ||
+                                                batch.machine_id}
+                                            </TableCell>
+                                            <TableCell className="px-2 py-1.5 font-medium">
+                                              {parseFloat(batch.total_weight_kg).toFixed(2)}
+                                            </TableCell>
+                                            <TableCell className="px-2 py-1.5" dir="ltr">
+                                              {new Date(batch.created_at).toLocaleDateString("en-US")}
+                                            </TableCell>
+                                            <TableCell className="px-2 py-1.5">
+                                              {operator?.display_name_ar ||
+                                                operator?.display_name ||
+                                                "-"}
+                                            </TableCell>
+                                            <TableCell className="px-2 py-1.5">
+                                              <div className="space-y-0.5">
+                                                {batch.composition && batch.composition.length > 0 ? (
+                                                  batch.composition.map((comp: any, idx: number) => (
+                                                    <div key={idx} className="text-[10px] leading-tight">
+                                                      <span className="font-medium">
+                                                        {comp.material_name_ar || comp.material_name}
+                                                      </span>
+                                                      <span className="text-muted-foreground">
+                                                        {" "}({comp.percentage})
+                                                      </span>
+                                                    </div>
+                                                  ))
+                                                ) : (
+                                                  <span className="text-muted-foreground">-</span>
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="px-1 py-1.5">
+                                              <div className="flex items-center gap-0.5">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7"
+                                                  onClick={() => viewBatchDetails(batch)}
+                                                  data-testid={`button-view-${batch.id}`}
+                                                >
+                                                  <Eye className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                  onClick={() => openEditDialog(batch)}
+                                                  data-testid={`button-edit-${batch.id}`}
+                                                >
+                                                  <Pencil className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                  onClick={() => confirmDelete(batch)}
+                                                  data-testid={`button-delete-${batch.id}`}
+                                                >
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                              </div>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                      <TableRow className={`${totalBg} border-t-2`}>
+                                        <TableCell
+                                          colSpan={2}
+                                          className="text-right font-bold px-2 py-2"
+                                        >
+                                          المجموع
+                                        </TableCell>
+                                        <TableCell className="font-bold px-2 py-2">
+                                          {screwTotal.toFixed(2)} كغ
+                                        </TableCell>
+                                        <TableCell colSpan={4}></TableCell>
+                                      </TableRow>
+                                    </>
+                                  )}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </>
           )}
