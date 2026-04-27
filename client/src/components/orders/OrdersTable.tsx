@@ -718,7 +718,7 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-7 px-1.5 text-[11px] text-green-600"
+                      className="flex-1 h-7 px-1.5 text-[11px] text-green-600 pl-[2px] pr-[2px]"
                       data-testid={`button-print-mobile-${order.id}`}
                     >
                       <Printer className="h-3 w-3 ml-1" />
