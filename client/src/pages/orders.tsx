@@ -967,10 +967,12 @@ export default function Orders() {
         <TabsContent value="orders">
           {!ordersLoading && (
             <>
-              <OrdersStats
-                orders={safeOrders}
-                productionOrders={safeProductionOrders}
-              />
+              <div className="hidden md:block">
+                <OrdersStats
+                  orders={safeOrders}
+                  productionOrders={safeProductionOrders}
+                />
+              </div>
               <div className="mt-6">
                 <OrdersTabs
                   orders={safeOrders}

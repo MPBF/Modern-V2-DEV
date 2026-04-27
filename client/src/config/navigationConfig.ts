@@ -50,9 +50,9 @@ export const navigationItems: NavigationItem[] = [
     group: "primary",
   },
   {
-    name: "الطلبات والإنتاج",
-    name_ar: "الطلبات والإنتاج",
-    name_en: "Orders & Production",
+    name: "الطلبات",
+    name_ar: "الطلبات",
+    name_en: "Orders",
     icon: FileText,
     path: "/orders",
     priority: 2,
