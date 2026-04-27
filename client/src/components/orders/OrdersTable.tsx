@@ -706,11 +706,11 @@ export default function OrdersTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1 h-7 px-1.5 text-[11px] text-blue-600 pl-[3px] pr-[3px] ml-[-5px] mr-[-5px]"
+                  className="flex-1 h-6 px-1 text-[10px] text-blue-600 pl-[3px] pr-[3px] ml-[-5px] mr-[-5px]"
                   onClick={() => onViewOrder(order)}
                   data-testid={`button-view-mobile-${order.id}`}
                 >
-                  <Eye className="h-3 w-3 ml-1" />
+                  <Eye className="h-2.5 w-2.5 ml-0.5" />
                   {t("common.view")}
                 </Button>
                 <DropdownMenu>
@@ -718,10 +718,10 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-7 px-1.5 text-[11px] text-green-600 pl-[4px] pr-[4px]"
+                      className="flex-1 h-6 px-1 text-[10px] text-green-600 pl-[4px] pr-[4px]"
                       data-testid={`button-print-mobile-${order.id}`}
                     >
-                      <Printer className="h-3 w-3 ml-1" />
+                      <Printer className="h-2.5 w-2.5 ml-0.5" />
                       {t("common.print")}
                     </Button>
                   </DropdownMenuTrigger>
@@ -751,10 +751,10 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-7 px-1.5 text-[11px] text-orange-600 ml-[0px] mr-[0px] pl-[0px] pr-[0px]"
+                      className="flex-1 h-6 px-1 text-[10px] text-orange-600 ml-[0px] mr-[0px] pl-[0px] pr-[0px]"
                       data-testid={`button-status-mobile-${order.id}`}
                     >
-                      <RefreshCw className="h-3 w-3 ml-1" />
+                      <RefreshCw className="h-2.5 w-2.5 ml-0.5" />
                       {t("orders.changeStatus")}
                     </Button>
                   </DropdownMenuTrigger>
