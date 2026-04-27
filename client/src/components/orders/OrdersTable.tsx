@@ -702,11 +702,11 @@ export default function OrdersTable({
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-1 pt-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1 text-blue-600"
+                  className="flex-1 h-7 px-1.5 text-[11px] text-blue-600"
                   onClick={() => onViewOrder(order)}
                   data-testid={`button-view-mobile-${order.id}`}
                 >
@@ -718,7 +718,7 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-green-600"
+                      className="flex-1 h-7 px-1.5 text-[11px] text-green-600"
                       data-testid={`button-print-mobile-${order.id}`}
                     >
                       <Printer className="h-3 w-3 ml-1" />
@@ -751,7 +751,7 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 text-orange-600"
+                      className="flex-1 h-7 px-1.5 text-[11px] text-orange-600"
                       data-testid={`button-status-mobile-${order.id}`}
                     >
                       <RefreshCw className="h-3 w-3 ml-1" />
