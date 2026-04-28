@@ -74,7 +74,7 @@ export function safeParseInt(
  * @param decimals - Number of decimal places
  * @returns Formatted string
  */
-export function formatNumberAr(value: number, decimals: number = 2): string {
+export function formatNumberAr(value: number, decimals: number = 0): string {
   if (!Number.isFinite(value)) {
     return "0";
   }

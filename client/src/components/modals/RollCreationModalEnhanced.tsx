@@ -203,7 +203,7 @@ export default function RollCreationModalEnhanced({
     if (data.is_final_roll && remainingQuantity > 50) {
       if (
         !confirm(
-          `${t("modals.rollCreationEnhanced.remainingWarning", { quantity: formatNumberAr(remainingQuantity) })} ${t("modals.rollCreationEnhanced.confirmFinalRoll")}`,
+          `${t("modals.rollCreationEnhanced.remainingWarning", { quantity: formatNumberAr(remainingQuantity, 2) })} ${t("modals.rollCreationEnhanced.confirmFinalRoll")}`,
         )
       ) {
         return;
@@ -274,7 +274,7 @@ export default function RollCreationModalEnhanced({
                 </p>
               </div>
               <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mt-1">
-                {formatNumberAr(remainingQuantity)}{" "}
+                {formatNumberAr(remainingQuantity, 2)}{" "}
                 {t("modals.rollCreationEnhanced.kg")}
               </p>
               {remainingQuantity < 50 && (

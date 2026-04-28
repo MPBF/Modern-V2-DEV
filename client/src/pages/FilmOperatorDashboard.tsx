@@ -482,7 +482,7 @@ export default function FilmOperatorDashboard({
                             <p className="text-gray-500 dark:text-gray-400">
                               {isArabic
                                 ? "لون الماستر باتش"
-                                : "Masterbatch Color"}
+                                : "Masterbatch"}
                             </p>
                             <p
                               className="font-medium flex items-center gap-2"
