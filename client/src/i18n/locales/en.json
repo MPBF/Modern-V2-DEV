@@ -239,6 +239,8 @@
     "daysRemaining": "Days Remaining",
     "daysLate": "Days Late",
     "daysCount": "Days Count",
+    "daysSinceCreation": "Days Since Order Created",
+    "daysSinceCreatedCount": "{{count}} days since created",
     "archiveOrder": "Archive Order",
     "archiveSelected": "Archive Selected",
     "unarchiveSelected": "Unarchive Selected",

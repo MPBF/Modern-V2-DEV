@@ -247,6 +247,8 @@
     "daysRemaining": "أيام متبقية",
     "daysLate": "أيام تأخير",
     "daysCount": "عدد الأيام",
+    "daysSinceCreation": "الأيام منذ تسجيل الطلبية",
+    "daysSinceCreatedCount": "{{count}} يوم منذ التسجيل",
     "archiveOrder": "أرشفة الطلب",
     "archiveSelected": "أرشفة المحدد",
     "unarchiveSelected": "إلغاء أرشفة المحدد",

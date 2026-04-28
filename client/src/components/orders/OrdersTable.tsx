@@ -162,25 +162,14 @@ export default function OrdersTable({
     );
   };
 
-  const calculateDeliveryInfo = (order: any) => {
-    if (!order.created_at || !order.delivery_days) {
-      return { deliveryDate: null, daysRemaining: null };
-    }
-
+  const calculateDaysSinceCreation = (order: any) => {
+    if (!order.created_at) return null;
     const createdDate = new Date(order.created_at);
-    const deliveryDate = new Date(createdDate);
-    deliveryDate.setDate(
-      deliveryDate.getDate() + parseInt(order.delivery_days),
-    );
-
+    createdDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    deliveryDate.setHours(0, 0, 0, 0);
-
-    const timeDiff = deliveryDate.getTime() - today.getTime();
-    const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-    return { deliveryDate, daysRemaining };
+    const timeDiff = today.getTime() - createdDate.getTime();
+    return Math.max(0, Math.floor(timeDiff / (1000 * 3600 * 24)));
   };
 
   return (
@@ -218,7 +207,7 @@ export default function OrdersTable({
                 {t("orders.creator")}
               </TableHead>
               <TableHead className="text-right">
-                {t("orders.delivery")}
+                {t("orders.daysSinceCreation")}
               </TableHead>
               <TableHead className="text-right">
                 {t("orders.completionRate")}
@@ -236,8 +225,7 @@ export default function OrdersTable({
               const user = safeUsers.find(
                 (u: any) => u.id === parseInt(order.created_by),
               );
-              const { deliveryDate, daysRemaining } =
-                calculateDeliveryInfo(order);
+              const daysSinceCreation = calculateDaysSinceCreation(order);
 
               // حساب نسب الإكمال من أوامر الإنتاج المرتبطة بهذا الطلب
               const orderProductionOrders = safeProductionOrders.filter(
@@ -350,32 +338,14 @@ export default function OrdersTable({
                     </TableCell>
                     <TableCell data-testid={`delivery-${order.id}`}>
                       <div className="text-right">
-                        {deliveryDate && daysRemaining !== null ? (
-                          <>
-                            <div className="font-medium">
-                              {daysRemaining > 0 ? (
-                                <span className="text-green-600">
-                                  {t("orders.daysRemaining", {
-                                    count: daysRemaining,
-                                  })}
-                                </span>
-                              ) : daysRemaining === 0 ? (
-                                <span className="text-orange-600">
-                                  {t("orders.deliverToday")}
-                                </span>
-                              ) : (
-                                <span className="text-red-600">
-                                  {t("orders.daysLate", {
-                                    days: Math.abs(daysRemaining),
-                                  })}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {t("orders.deliveryLabel")}:{" "}
-                              {format(deliveryDate, "dd/MM/yyyy")}
-                            </div>
-                          </>
+                        {daysSinceCreation !== null ? (
+                          <div className="font-medium">
+                            <span className="text-blue-600 dark:text-blue-400">
+                              {t("orders.daysSinceCreatedCount", {
+                                count: daysSinceCreation,
+                              })}
+                            </span>
+                          </div>
                         ) : (
                           "-"
                         )}
@@ -596,7 +566,7 @@ export default function OrdersTable({
           const user = safeUsers.find(
             (u: any) => u.id === parseInt(order.created_by),
           );
-          const { deliveryDate, daysRemaining } = calculateDeliveryInfo(order);
+          const daysSinceCreation = calculateDaysSinceCreation(order);
           const orderProductionOrders = safeProductionOrders.filter(
             (po: any) => po.order_id === order.id,
           );
@@ -677,13 +647,11 @@ export default function OrdersTable({
                 </div>
                 <div>
                   <span className="text-muted-foreground">
-                    {t("orders.deliveryLabel")}:
+                    {t("orders.daysSinceCreation")}:
                   </span>
-                  <div
-                    className={`font-medium ${daysRemaining !== null ? (daysRemaining > 0 ? "text-green-600" : "text-red-600") : ""}`}
-                  >
-                    {daysRemaining !== null
-                      ? t("orders.daysCount", { count: daysRemaining })
+                  <div className="font-medium text-blue-600 dark:text-blue-400">
+                    {daysSinceCreation !== null
+                      ? t("orders.daysSinceCreatedCount", { count: daysSinceCreation })
                       : "-"}
                   </div>
                 </div>
