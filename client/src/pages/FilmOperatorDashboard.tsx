@@ -70,6 +70,8 @@ interface ActiveProductionOrderDetails {
   thickness?: string;
   master_batch_id?: string;
   master_batch_name?: string;
+  master_batch_name_ar?: string;
+  master_batch_name_en?: string;
   master_batch_color_hex?: string;
   overrun_percentage?: string | number;
 }
@@ -495,7 +497,11 @@ export default function FilmOperatorDashboard({
                                   }}
                                 />
                               )}
-                              {order.master_batch_name || order.master_batch_id}
+                              {(isArabic
+                                ? order.master_batch_name_ar
+                                : order.master_batch_name_en) ||
+                                order.master_batch_name ||
+                                order.master_batch_id}
                             </p>
                           </div>
                         )}
