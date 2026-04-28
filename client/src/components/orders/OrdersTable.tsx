@@ -751,7 +751,7 @@ export default function OrdersTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 h-6 px-1 text-[10px] text-orange-600 ml-[0px] mr-[0px] pl-[0px] pr-[0px]"
+                      className="flex-1 h-6 px-1 text-[10px] text-orange-600 ml-[0px] mr-[0px] pl-[4px] pr-[4px]"
                       data-testid={`button-status-mobile-${order.id}`}
                     >
                       <RefreshCw className="h-2.5 w-2.5 ml-0.5" />
