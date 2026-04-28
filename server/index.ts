@@ -340,7 +340,23 @@ const sessionStore = new PgSession({
   pool: pool,
   tableName: "user_sessions",
   createTableIfMissing: true,
-  pruneSessionInterval: 60 * 15, // Clean expired sessions every 15 minutes
+  pruneSessionInterval: 60 * 60, // Clean expired sessions every 60 minutes (reduces Neon rate-limit pressure)
+  errorLog: (...args: any[]) => {
+    const msg = args.map((a) => (a instanceof Error ? a.message : String(a))).join(" ");
+    if (
+      msg.includes("rate limit") ||
+      msg.includes("XX000") ||
+      msg.includes("57P01") ||
+      msg.includes("terminating connection")
+    ) {
+      console.warn(
+        "⚠️ Session prune skipped (transient DB issue): ",
+        msg.split("\n")[0],
+      );
+      return;
+    }
+    console.error("Session store error:", ...args);
+  },
 });
 console.log(
   `✅ Using PostgreSQL session store for ${isProduction ? "production" : "development"} - sessions will persist across server restarts`,

@@ -1,0 +1,116 @@
+2026-04-28 14:11:31.51
+972a5a70
+User
+📍 Error code: 57P01
+2026-04-28 14:11:31.51
+972a5a70
+User
+🔴 Database pool error (non-fatal): terminating connection due to administrator command
+2026-04-28 14:11:31.51
+972a5a70
+User
+💡 The application will continue running and attempt to reconnect on next query
+2026-04-28 14:11:31.51
+972a5a70
+User
+🔴 Database pool error (non-fatal): terminating connection due to administrator command
+2026-04-28 14:11:31.51
+972a5a70
+User
+📍 Error code: 57P01
+2026-04-28 14:11:31.51
+972a5a70
+User
+💡 The application will continue running and attempt to reconnect on next query
+2026-04-28 14:11:31.52
+972a5a70
+User
+📍 Error code: 57P01
+2026-04-28 14:11:31.52
+972a5a70
+User
+💡 The application will continue running and attempt to reconnect on next query
+2026-04-28 14:11:31.52
+972a5a70
+User
+🔴 Database pool error (non-fatal): terminating connection due to administrator command
+2026-04-28 15:35:05.75
+f1181c2c
+User
+constraint: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+Failed to prune sessions: error: You've exceeded the rate limit. Please wait a moment and try again.
+2026-04-28 15:35:05.75
+f1181c2c
+User
+schema: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+position: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+line: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+routine: undefined
+2026-04-28 15:35:05.75
+f1181c2c
+User
+detail: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+code: 'XX000',
+2026-04-28 15:35:05.75
+f1181c2c
+User
+internalPosition: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+file: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+table: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+where: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+severity: 'ERROR',
+2026-04-28 15:35:05.75
+f1181c2c
+User
+column: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+length: 88,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+hint: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+internalQuery: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+at async PGStore._asyncQuery (/home/runner/workspace/node_modules/connect-pg-simple/index.js:322:21) {
+2026-04-28 15:35:05.75
+f1181c2c
+User
+dataType: undefined,
+2026-04-28 15:35:05.75
+f1181c2c
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
