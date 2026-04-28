@@ -836,19 +836,6 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey[]> = {
 
   // Bag Configurator
   "/bag-configurator": ["view_bag_configurator", "manage_orders", "admin"],
-
-  // Mobile views (mirror their desktop counterparts)
-  "/warehouse-mobile": ["view_warehouse", "manage_warehouse"],
-  "/production-mobile": ["view_production", "manage_production"],
-  "/user-dashboard-mobile": ["view_user_dashboard"],
-  "/orders-mobile": ["view_orders", "manage_orders"],
-  "/production-dashboard-mobile": [
-    "view_production",
-    "manage_production",
-    "view_film_dashboard",
-    "view_printing_dashboard",
-    "view_cutting_dashboard",
-  ],
 };
 
 // Settings tabs permissions

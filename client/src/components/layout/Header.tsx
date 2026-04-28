@@ -1,20 +1,10 @@
-import {
-  Sun,
-  Moon,
-  Smartphone,
-  User,
-  Warehouse,
-  Cog,
-} from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Sun, Moon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "wouter";
 
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../hooks/use-auth";
 import { useCompanyLogo } from "../../hooks/use-company-logo";
-import { useForceDesktop } from "../../hooks/use-mobile-redirect";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { LanguageSwitcher } from "../ui/LanguageSwitcher";
 
@@ -66,8 +56,6 @@ export default function Header() {
           <LanguageSwitcher variant="dropdown" size="sm" />
           <NotificationBell />
 
-          <MobileMenuButton />
-
           <div className="flex items-center gap-3">
             <div
               className={`${isRTL ? "text-right" : "text-left"} hidden sm:block`}
@@ -96,95 +84,5 @@ export default function Header() {
         </div>
       </div>
     </header>
-  );
-}
-
-function MobileMenuButton() {
-  const { t } = useTranslation();
-  const { isRTL } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { setForceDesktop } = useForceDesktop();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const mobilePages = [
-    {
-      path: "/user-dashboard-mobile",
-      label: t("header.mobile.userDashboard", "لوحتي"),
-      icon: User,
-      color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30",
-    },
-    {
-      path: "/production-dashboard-mobile",
-      label: t("header.mobile.productionDashboard", "تسجيل الرولات"),
-      icon: Cog,
-      color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-900/30",
-    },
-    {
-      path: "/warehouse-mobile",
-      label: t("header.mobile.warehouse", "المستودع"),
-      icon: Warehouse,
-      color: "text-blue-600 bg-blue-50 dark:bg-blue-900/30",
-    },
-  ];
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setOpen(!open)}
-        className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${open ? "bg-primary text-primary-foreground" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
-        title={t("header.mobile.title", "نسخة الموبايل")}
-      >
-        <Smartphone className="h-5 w-5" />
-      </button>
-
-      {open && (
-        <div
-          className={`absolute top-full mt-2 ${isRTL ? "left-0" : "right-0"} w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-[60] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200`}
-        >
-          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
-            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">
-              {t("header.mobile.title", "نسخة الموبايل")}
-            </p>
-          </div>
-          <div className="p-1.5">
-            {mobilePages.map((page) => {
-              const Icon = page.icon;
-              return (
-                <button
-                  key={page.path}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setForceDesktop(false);
-                    setOpen(false);
-                    setLocation(page.path);
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-right"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${page.color}`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {page.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

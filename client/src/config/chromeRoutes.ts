@@ -17,11 +17,6 @@ export const NO_CHROME_PATHS: ReadonlySet<string> = new Set<string>([
   "/whatsapp-final-setup",
   "/whatsapp-template-test",
   "/whatsapp-webhooks",
-  "/warehouse-mobile",
-  "/production-mobile",
-  "/user-dashboard-mobile",
-  "/orders-mobile",
-  "/production-dashboard-mobile",
 ]);
 
 export function shouldShowChrome(pathname: string): boolean {

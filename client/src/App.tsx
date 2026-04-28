@@ -9,7 +9,6 @@ import MobileShell from "./components/layout/MobileShell";
 import Sidebar from "./components/layout/Sidebar";
 import InstallPrompt from "./components/pwa/InstallPrompt";
 import { AuthProvider, useAuth } from "./hooks/use-auth";
-import { MobileAutoRedirect } from "./hooks/use-mobile-redirect";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import Login from "./pages/login";
 
@@ -113,18 +112,7 @@ const DisplayControlPanel = lazyWithRetry(
 );
 const FactoryFloor = lazyWithRetry(() => import("./pages/FactoryFloor"));
 const MaterialMixing = lazyWithRetry(() => import("./pages/material-mixing"));
-const WarehouseMobile = lazyWithRetry(() => import("./pages/warehouse-mobile"));
-const ProductionMobile = lazyWithRetry(
-  () => import("./pages/production-mobile"),
-);
-const UserDashboardMobile = lazyWithRetry(
-  () => import("./pages/user-dashboard-mobile"),
-);
 const MyOrders = lazyWithRetry(() => import("./pages/my-orders"));
-const OrdersMobile = lazyWithRetry(() => import("./pages/orders-mobile"));
-const ProductionDashboardMobile = lazyWithRetry(
-  () => import("./pages/production-dashboard-mobile"),
-);
 const McpSettings = lazyWithRetry(() => import("./pages/mcp-settings"));
 const MpbfBagQuote = lazyWithRetry(() => import("./pages/mpbf-bag-quote"));
 
@@ -207,7 +195,6 @@ function AppRoutes() {
 
         <Route path="/orders">
           <ProtectedRoute path="/orders">
-            <MobileAutoRedirect path="/orders" />
             <Orders />
           </ProtectedRoute>
         </Route>
@@ -220,7 +207,6 @@ function AppRoutes() {
 
         <Route path="/production">
           <ProtectedRoute path="/production">
-            <MobileAutoRedirect path="/production" />
             <Production />
           </ProtectedRoute>
         </Route>
@@ -241,7 +227,6 @@ function AppRoutes() {
         {/* Production Dashboard - Unified operators dashboard */}
         <Route path="/production-dashboard">
           <ProtectedRoute path="/production-dashboard">
-            <MobileAutoRedirect path="/production-dashboard" />
             <ProductionDashboard />
           </ProtectedRoute>
         </Route>
@@ -267,7 +252,6 @@ function AppRoutes() {
 
         <Route path="/warehouse">
           <ProtectedRoute path="/warehouse">
-            <MobileAutoRedirect path="/warehouse" />
             <Warehouse />
           </ProtectedRoute>
         </Route>
@@ -308,7 +292,6 @@ function AppRoutes() {
 
         <Route path="/user-dashboard">
           <ProtectedRoute path="/user-dashboard">
-            <MobileAutoRedirect path="/user-dashboard" />
             <UserDashboard />
           </ProtectedRoute>
         </Route>
@@ -432,36 +415,6 @@ function AppRoutes() {
         <Route path="/material-mixing">
           <ProtectedRoute path="/material-mixing">
             <MaterialMixing />
-          </ProtectedRoute>
-        </Route>
-
-        <Route path="/warehouse-mobile">
-          <ProtectedRoute path="/warehouse-mobile">
-            <WarehouseMobile />
-          </ProtectedRoute>
-        </Route>
-
-        <Route path="/production-mobile">
-          <ProtectedRoute path="/production-mobile">
-            <ProductionMobile />
-          </ProtectedRoute>
-        </Route>
-
-        <Route path="/user-dashboard-mobile">
-          <ProtectedRoute path="/user-dashboard-mobile">
-            <UserDashboardMobile />
-          </ProtectedRoute>
-        </Route>
-
-        <Route path="/orders-mobile">
-          <ProtectedRoute path="/orders-mobile">
-            <OrdersMobile />
-          </ProtectedRoute>
-        </Route>
-
-        <Route path="/production-dashboard-mobile">
-          <ProtectedRoute path="/production-dashboard-mobile">
-            <ProductionDashboardMobile />
           </ProtectedRoute>
         </Route>
 

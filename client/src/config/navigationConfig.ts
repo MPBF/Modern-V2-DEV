@@ -59,15 +59,6 @@ export const navigationItems: NavigationItem[] = [
     group: "primary",
   },
   {
-    name: "لوحتي",
-    name_ar: "لوحتي",
-    name_en: "My Dashboard",
-    icon: LayoutDashboard,
-    path: "/user-dashboard",
-    priority: 3,
-    group: "primary",
-  },
-  {
     name: "لوحة الإنتاج",
     name_ar: "لوحة الإنتاج",
     name_en: "Production Dashboard",
