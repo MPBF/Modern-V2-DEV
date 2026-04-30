@@ -104,6 +104,8 @@ import {
   insertCustomerProductSchema,
   insertMasterBatchColorSchema,
   insertQualityIssueSchema,
+  insertQualityIssueResponsibleSchema,
+  insertQualityIssueActionSchema,
   insertQuickNoteSchema,
   insertNotificationTemplateSchema,
   insertTrainingRecordSchema,
@@ -5802,7 +5804,19 @@ Do not include quotes or explanations.`;
     async (req: AuthRequest, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
-        const resp = await storage.updateQualityIssueResponsible(id, req.body);
+        const parsed = insertQualityIssueResponsibleSchema
+          .partial()
+          .safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({
+            message: "بيانات غير صحيحة",
+            errors: parsed.error.flatten().fieldErrors,
+          });
+        }
+        const resp = await storage.updateQualityIssueResponsible(
+          id,
+          parsed.data,
+        );
         if (!resp)
           return res.status(404).json({ message: "لم يتم العثور على السجل" });
         res.json({ success: true, data: resp });
@@ -5857,7 +5871,16 @@ Do not include quotes or explanations.`;
     async (req: AuthRequest, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
-        const action = await storage.updateQualityIssueAction(id, req.body);
+        const parsed = insertQualityIssueActionSchema
+          .partial()
+          .safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({
+            message: "بيانات غير صحيحة",
+            errors: parsed.error.flatten().fieldErrors,
+          });
+        }
+        const action = await storage.updateQualityIssueAction(id, parsed.data);
         if (!action)
           return res.status(404).json({ message: "لم يتم العثور على الإجراء" });
         res.json({ success: true, data: action });
@@ -15611,12 +15634,14 @@ Do not include quotes or explanations.`;
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: "غير مصرح" });
 
+        const sessionId = parseRouteParam(req.params.id, "id");
+
         await db
           .update(mobile_sessions)
           .set({ is_active: false })
           .where(
             and(
-              eq(mobile_sessions.id, parseInt(req.params.id)),
+              eq(mobile_sessions.id, sessionId),
               eq(mobile_sessions.user_id, userId),
             ),
           );

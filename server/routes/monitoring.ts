@@ -3,12 +3,15 @@ import { Router } from "express";
 
 import { system_performance_metrics } from "../../shared/schema";
 import { db } from "../db";
+import { requireAuth, requireAdmin } from "../middleware/auth";
 import { DatabaseMonitor } from "../middleware/database-monitor";
 import { MemoryMonitor } from "../middleware/memory-monitor";
 import { PerformanceMonitor } from "../middleware/performance-monitor";
 import { CodeHealthChecker } from "../services/code-health-checker";
 
 const router = Router();
+
+router.use(requireAuth, requireAdmin);
 
 router.get("/api/monitoring/diagnostics", async (req, res) => {
   try {

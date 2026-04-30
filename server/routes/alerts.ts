@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 
+import {
+  requireAuth,
+  requireAdmin,
+  requirePermission,
+  type AuthRequest,
+} from "../middleware/auth";
 import { getAlertManager } from "../services/alert-manager";
 import { getDataValidator } from "../services/data-validator";
 import { getSystemHealthMonitor } from "../services/system-health-monitor";
@@ -12,6 +18,8 @@ export function createAlertsRouter(storage: IStorage) {
   const alertManager = getAlertManager(storage);
   const healthMonitor = getSystemHealthMonitor(storage);
   const dataValidator = getDataValidator(storage);
+
+  router.use(requireAuth, requirePermission("view_alerts", "manage_alerts"));
 
   // جلب جميع التحذيرات مع الفلاتر
   router.get("/", async (req, res) => {
@@ -236,6 +244,8 @@ export function createSystemHealthRouter(storage: IStorage) {
   const router = Router();
   const healthMonitor = getSystemHealthMonitor(storage);
 
+  router.use(requireAuth, requirePermission("view_system_health"));
+
   // جلب نظرة عامة على حالة النظام
   router.get("/overview", async (req, res) => {
     try {
@@ -298,6 +308,8 @@ export function createSystemHealthRouter(storage: IStorage) {
 
 export function createPerformanceRouter(storage: IStorage) {
   const router = Router();
+
+  router.use(requireAuth, requirePermission("view_system_monitoring"));
 
   // جلب مؤشرات الأداء
   router.get("/", async (req, res) => {
@@ -374,6 +386,8 @@ export function createPerformanceRouter(storage: IStorage) {
 export function createCorrectiveActionsRouter(storage: IStorage) {
   const router = Router();
 
+  router.use(requireAuth);
+
   // جلب الإجراءات التصحيحية
   router.get("/", async (req, res) => {
     try {
@@ -400,9 +414,12 @@ export function createCorrectiveActionsRouter(storage: IStorage) {
   });
 
   // جلب إجراءات المستخدم الحالي
-  router.get("/assigned/me", async (req, res) => {
+  router.get("/assigned/me", async (req: AuthRequest, res) => {
     try {
-      const userId = (req as any).user?.id || 1;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "غير مصرح" });
+      }
       const actions = await storage.getActionsByAssignee(userId);
       res.json(actions);
     } catch (error: any) {
@@ -412,10 +429,13 @@ export function createCorrectiveActionsRouter(storage: IStorage) {
   });
 
   // إنشاء إجراء تصحيحي جديد
-  router.post("/", async (req, res) => {
+  router.post("/", async (req: AuthRequest, res) => {
     try {
       const actionData = req.body;
-      const userId = (req as any).user?.id || 1;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "غير مصرح" });
+      }
 
       const action = await storage.createCorrectiveAction({
         ...actionData,
@@ -447,14 +467,17 @@ export function createCorrectiveActionsRouter(storage: IStorage) {
   });
 
   // إكمال إجراء تصحيحي
-  router.post("/:id/complete", async (req, res) => {
+  router.post("/:id/complete", async (req: AuthRequest, res) => {
     try {
       const actionId = parseInt(req.params.id);
       if (isNaN(actionId) || actionId <= 0) {
         return res.status(400).json({ message: "معرف الإجراء غير صحيح" });
       }
       const { notes } = req.body;
-      const userId = (req as any).user?.id || 1;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "غير مصرح" });
+      }
 
       const action = await storage.completeCorrectiveAction(
         actionId,
@@ -474,6 +497,8 @@ export function createCorrectiveActionsRouter(storage: IStorage) {
 export function createDataValidationRouter(storage: IStorage) {
   const router = Router();
   const dataValidator = getDataValidator(storage);
+
+  router.use(requireAuth, requireAdmin);
 
   // التحقق من صحة البيانات
   router.post("/validate", async (req, res) => {
