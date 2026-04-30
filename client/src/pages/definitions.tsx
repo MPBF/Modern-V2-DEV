@@ -2034,25 +2034,27 @@ export default function Definitions() {
             onValueChange={setSelectedTab}
             className="space-y-4 w-full"
           >
-            <TabsList
-              className={`grid w-full h-auto p-1 bg-white rounded-lg border border-gray-200 shadow-sm gap-1`}
-              dir="rtl"
-              style={{
-                gridTemplateColumns: `repeat(${Math.min(accessibleTabs.length, 8)}, minmax(0, 1fr))`,
-              }}
-            >
-              {accessibleTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="data-[state=active]:bg-white data-[state=active]:text-blue-600 
-                               text-gray-600 hover:text-blue-600 px-2 py-2 text-xs sm:text-sm font-medium
-                               transition-all duration-200 rounded-md min-w-0 flex-1"
-                >
-                  {t(tab.labelKey)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="w-full overflow-x-auto sm:overflow-visible -mx-1 sm:mx-0 px-1 sm:px-0 [scrollbar-width:thin]">
+              <TabsList
+                className="flex sm:grid w-max sm:w-full h-auto p-1 bg-white rounded-lg border border-gray-200 shadow-sm gap-1 flex-nowrap whitespace-nowrap"
+                dir="rtl"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(accessibleTabs.length, 8)}, minmax(0, 1fr))`,
+                }}
+              >
+                {accessibleTabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className="data-[state=active]:bg-white data-[state=active]:text-blue-600
+                                 text-gray-600 hover:text-blue-600 px-3 py-2 text-xs sm:text-sm font-medium
+                                 transition-all duration-200 rounded-md flex-shrink-0 sm:flex-1 sm:min-w-0"
+                  >
+                    {t(tab.labelKey)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
             <TabsContent value="customers" className="space-y-6">
               <Card>
