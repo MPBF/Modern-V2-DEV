@@ -13,7 +13,6 @@ import {
 import Papa from "papaparse";
 import { useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import * as XLSX from "xlsx";
 
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
@@ -197,32 +196,42 @@ export default function TableImportDialog({
           toast({ title: "فشل قراءة ملف CSV", variant: "destructive" });
         },
       });
-    } else if (ext === "xlsx" || ext === "xls") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json<Record<string, any>>(
-            worksheet,
-            { defval: null },
-          );
-          if (jsonData.length === 0) {
+    } else if (ext === "xls") {
+      toast({
+        title: "صيغة .xls غير مدعومة",
+        description: "يرجى تحويل الملف إلى صيغة .xlsx وإعادة المحاولة",
+        variant: "destructive",
+      });
+    } else if (ext === "xlsx") {
+      const formData = new FormData();
+      formData.append("file", file);
+      fetch("/api/parse-excel", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.error || !result.headers) {
+            toast({
+              title: result.message || "فشل قراءة ملف Excel",
+              variant: "destructive",
+            });
+            return;
+          }
+          const { headers, data: jsonData } = result;
+          if (!jsonData || jsonData.length === 0) {
             toast({ title: "الملف فارغ", variant: "destructive" });
             return;
           }
-          const headers = Object.keys(jsonData[0]);
           setFileHeaders(headers);
           setFileData(jsonData);
           autoMapColumns(headers);
           setStep("mapping");
-        } catch {
+        })
+        .catch(() => {
           toast({ title: "فشل قراءة ملف Excel", variant: "destructive" });
-        }
-      };
-      reader.readAsArrayBuffer(file);
+        });
     } else if (ext === "json") {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -559,13 +568,13 @@ export default function TableImportDialog({
                         <FileSpreadsheet className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
                         <p className="font-medium">اضغط لاختيار ملف</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          CSV, Excel (.xlsx), أو JSON
+                          CSV, Excel (.xlsx)، أو JSON
                         </p>
                       </div>
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".csv,.xlsx,.xls,.json,.txt"
+                        accept=".csv,.xlsx,.json,.txt"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];

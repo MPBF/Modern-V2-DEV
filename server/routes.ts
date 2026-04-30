@@ -9269,6 +9269,37 @@ Input: ${text}`;
     },
   );
 
+  const excelUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  });
+
+  app.post(
+    "/api/parse-excel",
+    requireAdmin,
+    excelUpload.single("file"),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "لم يتم رفع أي ملف" });
+        }
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase();
+        if (ext !== "xlsx") {
+          return res.status(400).json({ message: "يُقبل فقط ملفات .xlsx" });
+        }
+        const rows = await parseExcelBuffer(req.file.buffer);
+        if (rows.length === 0) {
+          return res.status(400).json({ message: "الملف فارغ" });
+        }
+        const headers = Object.keys(rows[0]);
+        return res.json({ headers, data: rows });
+      } catch (error) {
+        console.error("Error parsing Excel file:", error);
+        return res.status(500).json({ message: "فشل قراءة ملف Excel" });
+      }
+    },
+  );
+
   app.post(
     "/api/database/import/:tableName",
     requireAdmin,
