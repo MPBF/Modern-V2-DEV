@@ -2361,9 +2361,8 @@ export async function registerRoutes(
           { min: 0.01 },
         );
 
-        const customerProductsResult = await storage.getCustomerProducts();
-        const customerProduct = customerProductsResult.data.find(
-          (cp: any) => cp.id === parsedCustomerProductId,
+        const customerProduct = await storage.getCustomerProductById(
+          parsedCustomerProductId,
         );
 
         if (!customerProduct) {
@@ -2420,7 +2419,26 @@ export async function registerRoutes(
           });
         }
 
-        const customerProductsResult = await storage.getCustomerProducts();
+        // Pre-collect requested customer_product_ids and fetch them by id so the
+        // lookup is not constrained to the default page window.
+        const requestedCpIds: number[] = [];
+        for (const order of orders) {
+          const raw = order?.customer_product_id;
+          if (raw !== undefined && raw !== null && raw !== "") {
+            const n = parseInt(String(raw), 10);
+            if (Number.isFinite(n) && n > 0) requestedCpIds.push(n);
+          }
+        }
+        const uniqueCpIds = Array.from(new Set(requestedCpIds));
+        const customerProductsResult = uniqueCpIds.length
+          ? await storage.getCustomerProducts({
+              ids: uniqueCpIds,
+              limit: uniqueCpIds.length,
+            })
+          : { data: [] as any[] };
+        const customerProductMap = new Map<number, any>(
+          (customerProductsResult.data as any[]).map((cp: any) => [cp.id, cp]),
+        );
         const processedOrders = [];
 
         for (const order of orders) {
@@ -2447,9 +2465,7 @@ export async function registerRoutes(
             continue;
           }
 
-          const customerProduct = customerProductsResult.data.find(
-            (cp: any) => cp.id === parsedCpId,
-          );
+          const customerProduct = customerProductMap.get(parsedCpId);
 
           if (!customerProduct) {
             processedOrders.push({
@@ -2528,8 +2544,6 @@ export async function registerRoutes(
 
         // If customer_product_id or quantity_kg is being updated, recalculate overrun_percentage
         if (req.body.customer_product_id || req.body.quantity_kg) {
-          const customerProductsResult = await storage.getCustomerProducts();
-
           // Get the existing production order to fill in missing fields
           const existingOrder = await storage.getProductionOrderById(id);
           if (!existingOrder) {
@@ -2556,8 +2570,8 @@ export async function registerRoutes(
             { min: 0.01 },
           );
 
-          const customerProduct = customerProductsResult.data.find(
-            (cp: any) => cp.id === parsedCpIdForUpdate,
+          const customerProduct = await storage.getCustomerProductById(
+            parsedCpIdForUpdate,
           );
 
           if (customerProduct) {
@@ -2647,10 +2661,9 @@ export async function registerRoutes(
           });
         }
 
-        // Get specific customer product info for intelligent calculation (optimized with cache)
-        const customerProductsResult = await storage.getCustomerProducts();
-        const customerProduct = customerProductsResult.data.find(
-          (cp: any) => cp.id === parseInt(customer_product_id),
+        // Get specific customer product info for intelligent calculation
+        const customerProduct = await storage.getCustomerProductById(
+          parseInt(customer_product_id),
         );
 
         if (!customerProduct) {
