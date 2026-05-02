@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
 
 import ProductionOrderStatsCard from "../components/production/ProductionOrderStatsCard";
 import { Badge } from "../components/ui/badge";
@@ -56,9 +57,33 @@ export default function ProductionOrdersManagement() {
   const [showStats, setShowStats] = useState<number | null>(null);
   const [printingProductionOrder, setPrintingProductionOrder] =
     useState<any>(null);
+  const [location] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Pre-fill the search field (and auto-open the stats card) when the page is
+  // opened with `?search=` or `?po=` query params (e.g. when navigating from
+  // the Customer Production Orders dashboard widget).
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const search = params.get("search");
+      if (search) {
+        setSearchTerm(search);
+        setStatusFilter("all");
+      }
+      const poId = params.get("po");
+      if (poId) {
+        const parsed = parseInt(poId, 10);
+        if (Number.isFinite(parsed)) {
+          setShowStats(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [location]);
 
   const {
     data: ordersData,

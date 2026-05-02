@@ -9,11 +9,15 @@ import {
   ChevronRight,
   Layers,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "wouter";
 
+import { useAuth } from "../../../hooks/use-auth";
 import { formatNumber } from "../../../lib/formatNumber";
+import { canAccessRoute } from "../../../utils/roleUtils";
 import { Badge } from "../../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Progress } from "../../ui/progress";
@@ -85,6 +89,8 @@ const formatDate = (date: Date | null, locale: string): string => {
 export default function CustomerProductionOrdersWidget() {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
+  const { user } = useAuth();
+  const canOpenOrders = canAccessRoute(user, "/orders");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>(
     {},
@@ -346,38 +352,61 @@ export default function CustomerProductionOrdersWidget() {
                     key={group.orderKey}
                     className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900"
                   >
-                    <button
-                      type="button"
-                      onClick={() => toggleOrder(group.orderKey)}
-                      className="w-full flex items-center justify-between gap-2 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-start"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-                        )}
-                        <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <span className="font-semibold text-sm truncate">
-                          {group.orderNumber}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {formatNumber(group.productionOrders.length)}{" "}
-                          {isArabic ? "أمر" : "POs"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(group.orderDate, i18n.language)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Package className="w-3 h-3" />
-                          {formatNumber(group.totalFinalQty)}{" "}
-                          {isArabic ? "كجم" : "kg"}
-                        </span>
-                      </div>
-                    </button>
+                    <div className="flex items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => toggleOrder(group.orderKey)}
+                        className="flex-1 flex items-center justify-between gap-2 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-start min-w-0"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                          )}
+                          <Layers className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span className="font-semibold text-sm truncate">
+                            {group.orderNumber}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {formatNumber(group.productionOrders.length)}{" "}
+                            {isArabic ? "أمر" : "POs"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(group.orderDate, i18n.language)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Package className="w-3 h-3" />
+                            {formatNumber(group.totalFinalQty)}{" "}
+                            {isArabic ? "كجم" : "kg"}
+                          </span>
+                        </div>
+                      </button>
+                      {canOpenOrders && group.orderNumber && (
+                        <Link
+                          href={`/orders?search=${encodeURIComponent(
+                            group.orderNumber,
+                          )}`}
+                          className="flex items-center justify-center px-3 border-s border-gray-200 dark:border-gray-700 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          title={
+                            isArabic
+                              ? "فتح صفحة الطلب"
+                              : "Open sales order page"
+                          }
+                          aria-label={
+                            isArabic
+                              ? `فتح الطلب ${group.orderNumber}`
+                              : `Open order ${group.orderNumber}`
+                          }
+                          data-testid={`link-order-${group.orderKey}`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      )}
+                    </div>
 
                     {group.totalFinalQty > 0 && (
                       <div className="px-3 pb-2">
@@ -403,16 +432,18 @@ export default function CustomerProductionOrdersWidget() {
                           const itemName = isArabic
                             ? po.item_name_ar || po.item_name
                             : po.item_name || po.item_name_ar;
-                          return (
-                            <div
-                              key={po.id}
-                              className="p-2.5 hover:bg-white dark:hover:bg-gray-900/60 transition-colors"
-                            >
+                          const poNumber =
+                            po.production_order_number || `#${po.id}`;
+                          const poHref = `/orders?tab=production-orders&search=${encodeURIComponent(
+                            po.production_order_number || String(po.id),
+                          )}&po=${po.id}`;
+                          const rowContent = (
+                            <>
                               <div className="flex items-start justify-between gap-2 mb-1">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <Factory className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                   <span className="text-xs font-medium truncate">
-                                    {po.production_order_number || `#${po.id}`}
+                                    {poNumber}
                                   </span>
                                   {getStatusBadge(po.status)}
                                 </div>
@@ -436,6 +467,33 @@ export default function CustomerProductionOrdersWidget() {
                                 value={completion}
                                 className="h-1 mt-1"
                               />
+                            </>
+                          );
+                          return canOpenOrders ? (
+                            <Link
+                              key={po.id}
+                              href={poHref}
+                              className="block p-2.5 hover:bg-white dark:hover:bg-gray-900/60 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+                              title={
+                                isArabic
+                                  ? `فتح أمر الإنتاج ${poNumber}`
+                                  : `Open production order ${poNumber}`
+                              }
+                              aria-label={
+                                isArabic
+                                  ? `فتح أمر الإنتاج ${poNumber}`
+                                  : `Open production order ${poNumber}`
+                              }
+                              data-testid={`link-production-order-${po.id}`}
+                            >
+                              {rowContent}
+                            </Link>
+                          ) : (
+                            <div
+                              key={po.id}
+                              className="p-2.5 hover:bg-white dark:hover:bg-gray-900/60 transition-colors"
+                            >
+                              {rowContent}
                             </div>
                           );
                         })}

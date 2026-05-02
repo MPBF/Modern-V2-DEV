@@ -70,6 +70,27 @@ export default function Orders() {
     setActiveTab(getActiveTab());
   }, [location]);
 
+  // Pre-fill the appropriate search field when the page is opened with a
+  // `?search=` query param (e.g. from the Customer Production Orders
+  // dashboard widget linking to a specific sales order or production order).
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const search = params.get("search");
+      if (!search) return;
+      const tab = params.get("tab") || "orders";
+      if (tab === "production-orders") {
+        setProductionSearchTerm(search);
+        setProductionStatusFilter("all");
+      } else if (tab === "orders") {
+        setSearchTerm(search);
+        setStatusFilter("all");
+      }
+    } catch {
+      // ignore
+    }
+  }, [location]);
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     if (value === "orders") {
