@@ -2048,7 +2048,7 @@ export async function registerRoutes(
   // Orders routes — pagination default-on (limit=50, max=500). Response is a
   // plain array (historical contract). Clients needing the full list pass an
   // explicit `?limit=500`. Pagination metadata is exposed via headers.
-  app.get("/api/orders", requireAuth, async (req, res) => {
+  app.get("/api/orders", requireAuth, requirePermission("view_orders", "manage_orders", "admin"), async (req, res) => {
     try {
       const limit = Math.max(
         1,
@@ -2853,7 +2853,7 @@ export async function registerRoutes(
   );
 
   // Get all orders with enhanced search and filtering
-  app.get("/api/orders/enhanced", requireAuth, async (req, res) => {
+  app.get("/api/orders/enhanced", requireAuth, requirePermission("view_orders", "manage_orders", "admin"), async (req, res) => {
     try {
       const {
         search,
@@ -2889,7 +2889,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/orders/:id/enhanced", requireAuth, async (req, res) => {
+  app.get("/api/orders/:id/enhanced", requireAuth, requirePermission("view_orders", "manage_orders", "admin"), async (req, res) => {
     try {
       const orderId = parseInt(req.params.id);
       if (!orderId || isNaN(orderId) || orderId <= 0) {
