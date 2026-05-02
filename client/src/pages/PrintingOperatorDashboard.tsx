@@ -61,6 +61,7 @@ interface ProductionOrderWithRolls {
   total_rolls: number;
   total_weight: number;
   printing_cylinder?: string;
+  plate_drawer_code?: string | null;
 }
 
 interface Machine {
@@ -403,17 +404,34 @@ export default function PrintingOperatorDashboard({
                     )}
                   </div>
 
-                  {order.printing_cylinder && (
-                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-sm">
-                      <p className="text-gray-500 dark:text-gray-400">
-                        {t("operators.printing.cylinderSize")}
-                      </p>
-                      <p
-                        className="font-medium"
-                        data-testid={`text-printing-cylinder-${order.production_order_id}`}
-                      >
-                        {order.printing_cylinder}
-                      </p>
+                  {(order.printing_cylinder || order.plate_drawer_code) && (
+                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-sm grid grid-cols-2 gap-3">
+                      {order.printing_cylinder && (
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400">
+                            {t("operators.printing.cylinderSize")}
+                          </p>
+                          <p
+                            className="font-medium"
+                            data-testid={`text-printing-cylinder-${order.production_order_id}`}
+                          >
+                            {order.printing_cylinder}
+                          </p>
+                        </div>
+                      )}
+                      {order.plate_drawer_code && (
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400">
+                            {t("operators.printing.plateDrawerCode")}
+                          </p>
+                          <p
+                            className="font-bold text-purple-900 dark:text-purple-200"
+                            data-testid={`text-plate-drawer-code-${order.production_order_id}`}
+                          >
+                            {order.plate_drawer_code}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 

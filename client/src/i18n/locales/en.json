@@ -2687,6 +2687,7 @@
       "noRolls": "No rolls in printing stage",
       "noRollsReady": "No rolls ready for printing currently",
       "cylinderSize": "Cylinder Size",
+      "plateDrawerCode": "Plate Drawer Code",
       "print": "Print",
       "rollMoved": "Roll moved to printing stage",
       "moveRollFailed": "Failed to move roll",
