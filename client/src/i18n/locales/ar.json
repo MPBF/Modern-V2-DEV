@@ -1647,6 +1647,8 @@
       "managePackagingUnits": "إدارة وحدات التعبئة",
       "managePackagingUnitsShort": "إدارة",
       "managePackagingUnitsTitle": "إدارة وحدات التعبئة",
+      "inactivePackagingUnits": "غير نشطة",
+      "inactivePackagingUnitsHint": "أعد تفعيلها من «إدارة» لاستخدامها",
       "computedWeight": "الوزن المحسوب",
       "packagingUnitDetails": "وحدة التعبئة: {{name}} ({{kg}} كجم/وحدة)",
       "receiveRolls": "استلام رولات",

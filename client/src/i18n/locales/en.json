@@ -1374,6 +1374,8 @@
       "managePackagingUnits": "Manage packaging units",
       "managePackagingUnitsShort": "Manage",
       "managePackagingUnitsTitle": "Manage packaging units",
+      "inactivePackagingUnits": "Inactive",
+      "inactivePackagingUnitsHint": "Reactivate from Manage to use",
       "computedWeight": "Computed weight",
       "packagingUnitDetails": "Packaging unit: {{name}} ({{kg}} kg/unit)"
     },

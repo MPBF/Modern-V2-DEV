@@ -41,7 +41,10 @@ import { Input } from "../components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
@@ -1733,6 +1736,7 @@ function PackagingUnitPicker({
   });
 
   const activeUnits = (units || []).filter((u: any) => u.is_active);
+  const inactiveUnits = (units || []).filter((u: any) => !u.is_active);
   const selectedUnit = activeUnits.find(
     (u: any) => String(u.id) === selected.puId,
   );
@@ -1903,6 +1907,40 @@ function PackagingUnitPicker({
                 {t("warehouse.units.kilo")}
               </SelectItem>
             ))}
+            {inactiveUnits.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {t("warehouse.production.inactivePackagingUnits")}
+                  </SelectLabel>
+                  {inactiveUnits.map((u: any) => (
+                    <SelectItem
+                      key={u.id}
+                      value={`inactive-${u.id}`}
+                      disabled
+                      className="opacity-60 line-through"
+                    >
+                      {u.name} — {parseFloat(u.unit_weight_kg).toFixed(3)}{" "}
+                      {t("warehouse.units.kilo")}
+                    </SelectItem>
+                  ))}
+                  {canManageItems && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setManageOpen(true);
+                      }}
+                      className="block w-full text-right px-2 py-1 text-[11px] text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      {t("warehouse.production.inactivePackagingUnitsHint")}
+                    </button>
+                  )}
+                </SelectGroup>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
