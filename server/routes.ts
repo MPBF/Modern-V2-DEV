@@ -2307,13 +2307,19 @@ export async function registerRoutes(
       const orderId = req.query.order_id
         ? parseInt(String(req.query.order_id))
         : null;
+      const customerId = req.query.customer_id
+        ? String(req.query.customer_id).trim()
+        : null;
+      let result: any[] = productionOrders;
       if (orderId && !isNaN(orderId)) {
-        const filtered = productionOrders.filter(
-          (po: any) => po.order_id === orderId,
-        );
-        return res.json(filtered);
+        result = result.filter((po: any) => po.order_id === orderId);
       }
-      res.json(productionOrders);
+      if (customerId) {
+        result = result.filter(
+          (po: any) => String(po.customer_id ?? "") === customerId,
+        );
+      }
+      res.json(result);
     } catch (error) {
       console.error("Error fetching production orders:", error);
       res.status(500).json({ message: "خطأ في جلب أوامر الإنتاج" });

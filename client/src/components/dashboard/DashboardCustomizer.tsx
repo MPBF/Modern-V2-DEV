@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Activity,
   Wrench,
+  Search,
   GripVertical,
   RotateCcw,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const ICON_MAP: Record<string, any> = {
   ShoppingCart,
   Activity,
   Wrench,
+  Search,
 };
 
 interface Props {

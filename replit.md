@@ -36,6 +36,9 @@ A full-stack Manufacturing Resource Planning (MRP) system for a plastic bag manu
 │   │   │   ├── hr/                  # Attendance, leaves, performance, training
 │   │   │   ├── maintenance/         # Consumable parts tab
 │   │   │   ├── dashboard/           # Stats, widgets, customizer, quick notes
+│   │   │   │                         # widgets include: recent orders, production progress, machine status,
+│   │   │   │                         # inventory, attendance, maintenance, quotes, and a customer-scoped
+│   │   │   │                         # production-orders lookup (search a customer → orders grouped by sales order)
 │   │   │   ├── factory/             # Factory floor map component
 │   │   │   ├── charts/              # Recharts wrappers
 │   │   │   ├── modals/              # Shared modal components

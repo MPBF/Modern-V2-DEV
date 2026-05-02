@@ -160,6 +160,20 @@ export const WIDGET_REGISTRY: Record<string, WidgetMeta> = {
     requiredPermissions: ["manage_maintenance", "view_production"],
     defaultSize: "medium",
   },
+  customer_production_orders_widget: {
+    id: "customer_production_orders_widget",
+    name: "Customer Production Orders",
+    name_ar: "أوامر إنتاج العميل",
+    description:
+      "Search a customer and view their production orders grouped by sales order",
+    description_ar:
+      "ابحث عن عميل واعرض أوامر إنتاجه مجمعة حسب رقم الطلب",
+    category: "Orders",
+    category_ar: "الطلبات",
+    icon: "Search",
+    requiredPermissions: ["manage_orders"],
+    defaultSize: "large",
+  },
 };
 
 export type WidgetId = keyof typeof WIDGET_REGISTRY;
@@ -182,6 +196,7 @@ export const ROLE_DEFAULT_WIDGETS: Record<RoleCategory, string[]> = {
   admin: [
     "dashboard_stats",
     "recent_orders_widget",
+    "customer_production_orders_widget",
     "production_progress_widget",
     "machine_status",
     "inventory_widget",
@@ -193,6 +208,7 @@ export const ROLE_DEFAULT_WIDGETS: Record<RoleCategory, string[]> = {
   production_manager: [
     "dashboard_stats",
     "recent_orders_widget",
+    "customer_production_orders_widget",
     "production_progress_widget",
     "machine_status",
     "recent_rolls",
@@ -218,6 +234,7 @@ export const ROLE_DEFAULT_WIDGETS: Record<RoleCategory, string[]> = {
   ],
   sales: [
     "recent_orders_widget",
+    "customer_production_orders_widget",
     "quotes_widget",
     "dashboard_stats",
     "shortcuts",

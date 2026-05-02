@@ -41,6 +41,10 @@ const ProductionProgressWidget = lazyWithRetry(
 const MaintenanceWidget = lazyWithRetry(
   () => import("../components/dashboard/widgets/MaintenanceWidget"),
 );
+const CustomerProductionOrdersWidget = lazyWithRetry(
+  () =>
+    import("../components/dashboard/widgets/CustomerProductionOrdersWidget"),
+);
 
 function WidgetSkeleton() {
   return (
@@ -69,6 +73,7 @@ const WIDGET_COMPONENTS: Record<string, any> = {
   recent_orders_widget: RecentOrdersWidget,
   production_progress_widget: ProductionProgressWidget,
   maintenance_widget: MaintenanceWidget,
+  customer_production_orders_widget: CustomerProductionOrdersWidget,
 };
 
 const FULL_WIDTH_WIDGETS = new Set([
@@ -76,6 +81,7 @@ const FULL_WIDTH_WIDGETS = new Set([
   "shortcuts",
   "quick_notes",
   "production_progress_widget",
+  "customer_production_orders_widget",
 ]);
 
 export default function Dashboard() {
