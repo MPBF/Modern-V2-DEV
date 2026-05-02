@@ -12,6 +12,9 @@ import {
   BarChart3,
   Settings,
   Plus,
+  Edit,
+  Loader2,
+  Sliders,
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -1723,6 +1726,7 @@ function PackagingUnitPicker({
   const { user } = useAuth();
   const canManageItems = userHasPermission(user, "manage_items");
   const [addOpen, setAddOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const { data: units = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/items", itemId, "packaging-units"],
     enabled: !!itemId,
@@ -1733,17 +1737,38 @@ function PackagingUnitPicker({
     (u: any) => String(u.id) === selected.puId,
   );
 
-  // Auto-select the default packaging unit on first load (don't override
-  // an explicit user choice — if selected.puId is set or already attempted,
-  // skip). We mark "manual" intent only after the user picks something.
+  // Auto-select the default packaging unit on first load AND keep the picker
+  // in sync after edits/toggles from the manage dialog:
+  //   - If nothing is selected yet, pick the default (or first) active unit.
+  //   - If the previously-selected unit was deactivated/removed, fall back to
+  //     the new default; clear the selection if no active units remain.
+  //   - If the selected unit is still active, recompute kg using the latest
+  //     unit_weight_kg so weight edits are reflected immediately.
   useEffect(() => {
-    if (selected.puId) return;
-    if (activeUnits.length === 0) return;
-    const def = activeUnits.find((u: any) => u.is_default) || activeUnits[0];
-    if (!def) return;
-    const count = "1";
-    const kg = parseFloat(def.unit_weight_kg) * parseFloat(count);
-    onChange({ puId: String(def.id), count }, kg);
+    if (!selected.puId) {
+      if (activeUnits.length === 0) return;
+      const def = activeUnits.find((u: any) => u.is_default) || activeUnits[0];
+      if (!def) return;
+      const count = "1";
+      const kg = parseFloat(def.unit_weight_kg) * parseFloat(count);
+      onChange({ puId: String(def.id), count }, kg);
+      return;
+    }
+    const sel = activeUnits.find((u: any) => String(u.id) === selected.puId);
+    if (!sel) {
+      if (activeUnits.length === 0) {
+        onChange({ puId: "", count: "" }, null);
+        return;
+      }
+      const def = activeUnits.find((u: any) => u.is_default) || activeUnits[0];
+      const count = selected.count || "1";
+      const kg = parseFloat(def.unit_weight_kg) * parseFloat(count);
+      onChange({ puId: String(def.id), count }, kg);
+      return;
+    }
+    const count = selected.count || "1";
+    const kg = parseFloat(sel.unit_weight_kg) * parseFloat(count);
+    onChange({ puId: selected.puId, count }, kg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [units]);
 
@@ -1778,6 +1803,7 @@ function PackagingUnitPicker({
   if (!itemId) return null;
   if (isLoading) return null;
   if (activeUnits.length === 0) {
+    const hasInactive = (units || []).length > 0;
     return (
       <div className="space-y-1">
         <div className="text-[11px] text-gray-400 italic">
@@ -1785,21 +1811,41 @@ function PackagingUnitPicker({
         </div>
         {canManageItems && (
           <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2 text-[11px]"
-              onClick={() => setAddOpen(true)}
-            >
-              <Plus className="w-3 h-3 ml-1" />
-              {t("warehouse.production.addPackagingUnit")}
-            </Button>
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="w-3 h-3 ml-1" />
+                {t("warehouse.production.addPackagingUnit")}
+              </Button>
+              {hasInactive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px] text-blue-600 hover:text-blue-700"
+                  onClick={() => setManageOpen(true)}
+                  title={t("warehouse.production.managePackagingUnits")}
+                >
+                  <Sliders className="w-3 h-3 ml-1" />
+                  {t("warehouse.production.managePackagingUnitsShort")}
+                </Button>
+              )}
+            </div>
             <AddPackagingUnitDialog
               itemId={itemId}
               open={addOpen}
               onClose={() => setAddOpen(false)}
               onCreated={handleCreated}
+            />
+            <ManagePackagingUnitsDialog
+              itemId={itemId}
+              open={manageOpen}
+              onClose={() => setManageOpen(false)}
             />
           </>
         )}
@@ -1815,17 +1861,30 @@ function PackagingUnitPicker({
             {t("warehouse.production.packagingUnit")}
           </label>
           {canManageItems && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-[11px] text-blue-600 hover:text-blue-700"
-              onClick={() => setAddOpen(true)}
-              title={t("warehouse.production.addPackagingUnit")}
-            >
-              <Plus className="w-3 h-3 ml-0.5" />
-              {t("warehouse.production.addPackagingUnitShort")}
-            </Button>
+            <div className="flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-1.5 text-[11px] text-blue-600 hover:text-blue-700"
+                onClick={() => setAddOpen(true)}
+                title={t("warehouse.production.addPackagingUnit")}
+              >
+                <Plus className="w-3 h-3 ml-0.5" />
+                {t("warehouse.production.addPackagingUnitShort")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-1.5 text-[11px] text-blue-600 hover:text-blue-700"
+                onClick={() => setManageOpen(true)}
+                title={t("warehouse.production.managePackagingUnits")}
+              >
+                <Sliders className="w-3 h-3 ml-0.5" />
+                {t("warehouse.production.managePackagingUnitsShort")}
+              </Button>
+            </div>
           )}
         </div>
         <Select value={selected.puId || "manual"} onValueChange={handleUnit}>
@@ -1862,12 +1921,19 @@ function PackagingUnitPicker({
         />
       </div>
       {canManageItems && (
-        <AddPackagingUnitDialog
-          itemId={itemId}
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          onCreated={handleCreated}
-        />
+        <>
+          <AddPackagingUnitDialog
+            itemId={itemId}
+            open={addOpen}
+            onClose={() => setAddOpen(false)}
+            onCreated={handleCreated}
+          />
+          <ManagePackagingUnitsDialog
+            itemId={itemId}
+            open={manageOpen}
+            onClose={() => setManageOpen(false)}
+          />
+        </>
       )}
     </div>
   );
@@ -2057,6 +2123,312 @@ function AddPackagingUnitDialog({
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ManagePackagingUnitsDialog: inline edit / set-default / activate-toggle for
+// existing packaging units, opened from the receipt screen. Mutations target
+// PATCH /api/packaging-units/:id and invalidate the per-item units query so
+// the picker refreshes without closing the receipt dialog.
+function ManagePackagingUnitsDialog({
+  itemId,
+  open,
+  onClose,
+}: {
+  itemId: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const queryKey = ["/api/items", itemId, "packaging-units"];
+  const { data: units = [], isLoading } = useQuery<any[]>({
+    queryKey,
+    enabled: open,
+  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    roll_weight_g: "",
+    rolls_per_unit: "",
+  });
+
+  useEffect(() => {
+    if (!open) setEditingId(null);
+  }, [open]);
+
+  const editComputed =
+    parseFloat(editForm.roll_weight_g || "0") > 0 &&
+    parseInt(editForm.rolls_per_unit || "0") > 0
+      ? (parseFloat(editForm.roll_weight_g) *
+          parseInt(editForm.rolls_per_unit)) /
+        1000
+      : null;
+
+  const startEdit = (u: any) => {
+    setEditingId(u.id);
+    setEditForm({
+      name: u.name || "",
+      roll_weight_g: String(u.roll_weight_g ?? ""),
+      rolls_per_unit: String(u.rolls_per_unit ?? ""),
+    });
+  };
+
+  const updateMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest(`/api/packaging-units/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          roll_weight_g: parseFloat(editForm.roll_weight_g),
+          rolls_per_unit: parseInt(editForm.rolls_per_unit),
+        }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      setEditingId(null);
+      toast({ title: t("common.success") });
+    },
+    onError: (e: any) =>
+      toast({
+        title: t("definitions.items.packagingUnits.saveError"),
+        description: e?.message,
+        variant: "destructive",
+      }),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async (u: any) => {
+      const res = await apiRequest(`/api/packaging-units/${u.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: !u.is_active }),
+      });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onError: (e: any) =>
+      toast({
+        title: t("definitions.items.packagingUnits.saveError"),
+        description: e?.message,
+        variant: "destructive",
+      }),
+  });
+
+  const setDefaultMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest(`/api/packaging-units/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_default: true }),
+      });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onError: (e: any) =>
+      toast({
+        title: t("definitions.items.packagingUnits.saveError"),
+        description: e?.message,
+        variant: "destructive",
+      }),
+  });
+
+  const submitEdit = (id: number) => {
+    if (
+      !editForm.name.trim() ||
+      !(parseFloat(editForm.roll_weight_g) > 0) ||
+      !(parseInt(editForm.rolls_per_unit) > 0)
+    ) {
+      return;
+    }
+    updateMut.mutate(id);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {t("warehouse.production.managePackagingUnitsTitle")}
+          </DialogTitle>
+          <DialogDescription>
+            {t("definitions.items.packagingUnits.description")}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="border rounded-md overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="text-right p-2">
+                  {t("definitions.items.packagingUnits.name")}
+                </th>
+                <th className="text-center p-2">
+                  {t("definitions.items.packagingUnits.rollWeightG")}
+                </th>
+                <th className="text-center p-2">
+                  {t("definitions.items.packagingUnits.rollsPerUnit")}
+                </th>
+                <th className="text-center p-2">
+                  {t("definitions.items.packagingUnits.unitWeightKg")}
+                </th>
+                <th className="text-center p-2">
+                  {t("definitions.items.packagingUnits.isDefault")}
+                </th>
+                <th className="text-center p-2">
+                  {t("definitions.items.packagingUnits.isActive")}
+                </th>
+                <th className="text-center p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-gray-400">
+                    <Loader2 className="inline w-4 h-4 animate-spin" />
+                  </td>
+                </tr>
+              ) : units.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-gray-400">
+                    {t("definitions.items.packagingUnits.noUnits")}
+                  </td>
+                </tr>
+              ) : (
+                units.map((u: any) => {
+                  const isEditing = editingId === u.id;
+                  return (
+                    <tr key={u.id} className="border-t">
+                      <td className="p-2">
+                        {isEditing ? (
+                          <Input
+                            value={editForm.name}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                name: e.target.value,
+                              })
+                            }
+                            className="h-8"
+                          />
+                        ) : (
+                          u.name
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editForm.roll_weight_g}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                roll_weight_g: e.target.value,
+                              })
+                            }
+                            className="h-8 text-center"
+                          />
+                        ) : (
+                          parseFloat(u.roll_weight_g).toFixed(2)
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={editForm.rolls_per_unit}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                rolls_per_unit: e.target.value,
+                              })
+                            }
+                            className="h-8 text-center"
+                          />
+                        ) : (
+                          u.rolls_per_unit
+                        )}
+                      </td>
+                      <td className="p-2 text-center font-medium">
+                        {isEditing && editComputed !== null
+                          ? editComputed.toFixed(3)
+                          : parseFloat(u.unit_weight_kg).toFixed(3)}
+                      </td>
+                      <td className="p-2 text-center">
+                        {u.is_default ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            ✓
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={
+                              isEditing ||
+                              !u.is_active ||
+                              setDefaultMut.isPending
+                            }
+                            onClick={() => setDefaultMut.mutate(u.id)}
+                          >
+                            —
+                          </Button>
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <Checkbox
+                          checked={!!u.is_active}
+                          disabled={isEditing || toggleMut.isPending}
+                          onCheckedChange={() => toggleMut.mutate(u)}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        {isEditing ? (
+                          <div className="flex justify-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              disabled={updateMut.isPending}
+                              onClick={() => submitEdit(u.id)}
+                            >
+                              {t("common.save")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingId(null)}
+                            >
+                              {t("common.cancel")}
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEdit(u)}
+                            title={t("common.edit")}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-end pt-2">
+          <Button variant="outline" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

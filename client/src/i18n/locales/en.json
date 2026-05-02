@@ -1371,6 +1371,9 @@
       "addPackagingUnit": "Add packaging unit",
       "addPackagingUnitShort": "Add",
       "addPackagingUnitTitle": "New packaging unit",
+      "managePackagingUnits": "Manage packaging units",
+      "managePackagingUnitsShort": "Manage",
+      "managePackagingUnitsTitle": "Manage packaging units",
       "computedWeight": "Computed weight",
       "packagingUnitDetails": "Packaging unit: {{name}} ({{kg}} kg/unit)"
     },
