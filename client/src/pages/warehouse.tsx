@@ -11,6 +11,7 @@ import {
   Boxes,
   BarChart3,
   Settings,
+  Plus,
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -52,9 +53,13 @@ import { VoucherForm } from "../components/warehouse/VoucherForm";
 import { VouchersList } from "../components/warehouse/VouchersList";
 import { WarehouseDefinitions } from "../components/warehouse/WarehouseDefinitions";
 import { WarehouseReports } from "../components/warehouse/WarehouseReports";
+import { Checkbox } from "../components/ui/checkbox";
+import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/use-auth";
 import { useLocalizedName } from "../hooks/use-localized-name";
 import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
+import { userHasPermission } from "../utils/roleUtils";
 
 export default function Warehouse() {
   const { t } = useTranslation();
@@ -1715,6 +1720,9 @@ function PackagingUnitPicker({
   ) => void;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canManageItems = userHasPermission(user, "manage_items");
+  const [addOpen, setAddOpen] = useState(false);
   const { data: units = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/items", itemId, "packaging-units"],
     enabled: !!itemId,
@@ -1759,12 +1767,42 @@ function PackagingUnitPicker({
     onChange({ puId: selected.puId, count: val }, kg);
   };
 
+  const handleCreated = (created: any) => {
+    if (!created || !created.id) return;
+    const count = selected.count || "1";
+    const kg =
+      parseFloat(created.unit_weight_kg) * parseFloat(count) || null;
+    onChange({ puId: String(created.id), count }, kg);
+  };
+
   if (!itemId) return null;
   if (isLoading) return null;
   if (activeUnits.length === 0) {
     return (
-      <div className="text-[11px] text-gray-400 italic">
-        {t("warehouse.production.noPackagingUnits")}
+      <div className="space-y-1">
+        <div className="text-[11px] text-gray-400 italic">
+          {t("warehouse.production.noPackagingUnits")}
+        </div>
+        {canManageItems && (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus className="w-3 h-3 ml-1" />
+              {t("warehouse.production.addPackagingUnit")}
+            </Button>
+            <AddPackagingUnitDialog
+              itemId={itemId}
+              open={addOpen}
+              onClose={() => setAddOpen(false)}
+              onCreated={handleCreated}
+            />
+          </>
+        )}
       </div>
     );
   }
@@ -1772,9 +1810,24 @@ function PackagingUnitPicker({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       <div>
-        <label className="text-xs font-medium">
-          {t("warehouse.production.packagingUnit")}
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-medium">
+            {t("warehouse.production.packagingUnit")}
+          </label>
+          {canManageItems && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-[11px] text-blue-600 hover:text-blue-700"
+              onClick={() => setAddOpen(true)}
+              title={t("warehouse.production.addPackagingUnit")}
+            >
+              <Plus className="w-3 h-3 ml-0.5" />
+              {t("warehouse.production.addPackagingUnitShort")}
+            </Button>
+          )}
+        </div>
         <Select value={selected.puId || "manual"} onValueChange={handleUnit}>
           <SelectTrigger className="mt-1 h-9 text-xs">
             <SelectValue
@@ -1808,6 +1861,203 @@ function PackagingUnitPicker({
           className="mt-1 h-9 text-xs"
         />
       </div>
+      {canManageItems && (
+        <AddPackagingUnitDialog
+          itemId={itemId}
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onCreated={handleCreated}
+        />
+      )}
     </div>
+  );
+}
+
+// AddPackagingUnitDialog: compact dialog to create a packaging unit from the
+// receipt screen. Mirrors the create form on the Definitions page but trimmed
+// down to the essentials. On success, calls onCreated with the new unit so the
+// caller can auto-select it.
+function AddPackagingUnitDialog({
+  itemId,
+  open,
+  onClose,
+  onCreated,
+}: {
+  itemId: string;
+  open: boolean;
+  onClose: () => void;
+  onCreated: (unit: any) => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    name: "",
+    roll_weight_g: "",
+    rolls_per_unit: "",
+    is_default: false,
+  });
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        name: "",
+        roll_weight_g: "",
+        rolls_per_unit: "",
+        is_default: false,
+      });
+    }
+  }, [open]);
+
+  const computed =
+    parseFloat(form.roll_weight_g || "0") > 0 &&
+    parseInt(form.rolls_per_unit || "0") > 0
+      ? (parseFloat(form.roll_weight_g) * parseInt(form.rolls_per_unit)) /
+        1000
+      : null;
+
+  const createMut = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest(
+        `/api/items/${itemId}/packaging-units`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.name.trim(),
+            roll_weight_g: parseFloat(form.roll_weight_g),
+            rolls_per_unit: parseInt(form.rolls_per_unit),
+            is_default: form.is_default,
+            is_active: true,
+          }),
+        },
+      );
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/items", itemId, "packaging-units"],
+      });
+      toast({ title: t("common.success") });
+      onCreated(data);
+      onClose();
+    },
+    onError: (e: any) =>
+      toast({
+        title: t("definitions.items.packagingUnits.saveError"),
+        description: e?.message,
+        variant: "destructive",
+      }),
+  });
+
+  const isValid =
+    form.name.trim().length > 0 &&
+    parseFloat(form.roll_weight_g) > 0 &&
+    parseInt(form.rolls_per_unit) > 0;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValid) return;
+    createMut.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {t("warehouse.production.addPackagingUnitTitle")}
+          </DialogTitle>
+          <DialogDescription>
+            {t("definitions.items.packagingUnits.description")}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <Label className="text-xs">
+              {t("definitions.items.packagingUnits.name")}
+            </Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder={t(
+                "definitions.items.packagingUnits.namePlaceholder",
+              )}
+              className="mt-1"
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">
+                {t("definitions.items.packagingUnits.rollWeightG")}
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.roll_weight_g}
+                onChange={(e) =>
+                  setForm({ ...form, roll_weight_g: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">
+                {t("definitions.items.packagingUnits.rollsPerUnit")}
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={form.rolls_per_unit}
+                onChange={(e) =>
+                  setForm({ ...form, rolls_per_unit: e.target.value })
+                }
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="add-pu-default"
+              checked={form.is_default}
+              onCheckedChange={(c) =>
+                setForm({ ...form, is_default: !!c })
+              }
+            />
+            <Label htmlFor="add-pu-default" className="text-xs">
+              {t("definitions.items.packagingUnits.isDefault")}
+            </Label>
+          </div>
+          {computed !== null && (
+            <div className="text-xs text-gray-500">
+              {t("definitions.items.packagingUnits.computed", {
+                kg: computed.toFixed(3),
+              })}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              disabled={createMut.isPending}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!isValid || createMut.isPending}
+            >
+              <Plus className="w-4 h-4 ml-1" />
+              {t("definitions.items.packagingUnits.addNew")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

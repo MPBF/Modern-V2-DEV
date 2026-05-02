@@ -1368,6 +1368,9 @@
       "noPackagingUnits": "No packaging units for this item",
       "manualEntry": "Manual entry",
       "unitsCount": "Units count",
+      "addPackagingUnit": "Add packaging unit",
+      "addPackagingUnitShort": "Add",
+      "addPackagingUnitTitle": "New packaging unit",
       "computedWeight": "Computed weight",
       "packagingUnitDetails": "Packaging unit: {{name}} ({{kg}} kg/unit)"
     },
