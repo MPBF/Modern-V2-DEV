@@ -42,5 +42,11 @@
     "@babel/core": "^7.25.0",
     "@types/react": "~18.3.12",
     "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.9.10",
+    "tar": "7.5.13",
+    "postcss": "8.5.13",
+    "uuid": "14.0.0"
   }
 }
