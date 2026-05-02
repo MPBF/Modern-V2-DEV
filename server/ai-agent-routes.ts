@@ -5525,6 +5525,7 @@ export function registerAiAgentRoutes(app: Express): void {
   // نقطة نهاية لتقديم ملفات PDF من التخزين السحابي على الدومين الخاص
   app.get(
     "/api/pdf/quotes/:documentNumber",
+    requireAuth,
     async (req: Request, res: Response) => {
       try {
         const { documentNumber } = req.params;
@@ -5547,7 +5548,7 @@ export function registerAiAgentRoutes(app: Express): void {
                 "Content-Disposition",
                 `inline; filename="quote_${documentNumber}.pdf"`,
               );
-              res.setHeader("Cache-Control", "public, max-age=86400");
+              res.setHeader("Cache-Control", "private, no-store");
               return res.send(fileBuffer);
             }
           } catch (storageError) {
@@ -5576,7 +5577,7 @@ export function registerAiAgentRoutes(app: Express): void {
     },
   );
 
-  app.get("/api/quotes/:id/pdf", async (req: Request, res: Response) => {
+  app.get("/api/quotes/:id/pdf", requireAuth, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
