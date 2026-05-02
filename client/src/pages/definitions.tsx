@@ -1477,13 +1477,32 @@ export default function Definitions() {
   });
 
   // Category mutations
+  // Strip fields that are not columns on the categories table so we don't
+  // confuse the API and so any future column rename doesn't silently drop
+  // updates. Only `name`, `name_ar`, `code`, `parent_id` are persisted.
+  const buildCategoryPayload = (form: typeof categoryForm) => ({
+    name: form.name,
+    name_ar: form.name_ar,
+    code: form.code,
+    parent_id: form.parent_id,
+  });
+
   const createCategoryMutation = useMutation({
-    mutationFn: (data: any) => {
-      return fetch("/api/categories", {
+    mutationFn: async (data: any) => {
+      const res = await fetch("/api/categories", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(buildCategoryPayload(data)),
         headers: { "Content-Type": "application/json" },
-      }).then((res) => res.json());
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.message) msg = body.message;
+        } catch {}
+        throw new Error(msg);
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
@@ -1495,18 +1514,28 @@ export default function Definitions() {
       console.error("Error creating category:", error);
       toast({
         title: t("definitions.messages.categoryCreateError"),
+        description: error?.message,
         variant: "destructive",
       });
     },
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => {
-      return fetch(`/api/categories/${id}`, {
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/categories/${id}`, {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: JSON.stringify(buildCategoryPayload(data)),
         headers: { "Content-Type": "application/json" },
-      }).then((res) => res.json());
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body?.message) msg = body.message;
+        } catch {}
+        throw new Error(msg);
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
@@ -1518,6 +1547,7 @@ export default function Definitions() {
       console.error("Error updating category:", error);
       toast({
         title: t("definitions.messages.categoryUpdateError"),
+        description: error?.message,
         variant: "destructive",
       });
     },
@@ -4336,7 +4366,9 @@ export default function Definitions() {
                                 cat.id &&
                                 cat.id !== "" &&
                                 cat.id !== null &&
-                                cat.id !== undefined,
+                                cat.id !== undefined &&
+                                (!editingItem ||
+                                  cat.id !== editingItem.id),
                             )
                             .map((cat: any) => (
                               <SelectItem
