@@ -59,6 +59,16 @@ import { VoucherForm } from "../components/warehouse/VoucherForm";
 import { VouchersList } from "../components/warehouse/VouchersList";
 import { WarehouseDefinitions } from "../components/warehouse/WarehouseDefinitions";
 import { WarehouseReports } from "../components/warehouse/WarehouseReports";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 import { Checkbox } from "../components/ui/checkbox";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/use-auth";
@@ -1084,6 +1094,17 @@ function ProductionHallContent({
       .filter(Boolean);
   }, [selectedReceiptOrderId, selectedOrders, processedOrders]);
 
+  // Set of packaging-unit ids currently selected on any receipt line in this
+  // dialog. Used by ManagePackagingUnitsDialog to warn before deactivating a
+  // unit that a receipt line still references.
+  const inUsePackagingUnitIds = useMemo(() => {
+    const ids = new Set<string>();
+    Object.values(receiptPackaging).forEach((p) => {
+      if (p?.puId) ids.add(p.puId);
+    });
+    return ids;
+  }, [receiptPackaging]);
+
   const handleReceiptSubmit = async () => {
     if (!user?.id) {
       toast({
@@ -1277,6 +1298,7 @@ function ProductionHallContent({
                             <PackagingUnitPicker
                               itemId={order.item_id || null}
                               selected={pkg}
+                              inUseUnitIds={inUsePackagingUnitIds}
                               onChange={(next, computedKg) => {
                                 setReceiptPackaging((prev) => ({
                                   ...prev,
@@ -1717,6 +1739,7 @@ function PackagingUnitPicker({
   itemId,
   selected,
   onChange,
+  inUseUnitIds,
 }: {
   itemId: string | null;
   selected: { puId: string; count: string };
@@ -1724,6 +1747,7 @@ function PackagingUnitPicker({
     next: { puId: string; count: string },
     computedKg: number | null,
   ) => void;
+  inUseUnitIds?: Set<string>;
 }) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -1761,13 +1785,18 @@ function PackagingUnitPicker({
     const sel = activeUnits.find((u: any) => String(u.id) === selected.puId);
     if (!sel) {
       if (activeUnits.length === 0) {
+        // Keep the manually-entered received weight (pass null) but clear the
+        // packaging selection.
         onChange({ puId: "", count: "" }, null);
         return;
       }
       const def = activeUnits.find((u: any) => u.is_default) || activeUnits[0];
       const count = selected.count || "1";
-      const kg = parseFloat(def.unit_weight_kg) * parseFloat(count);
-      onChange({ puId: String(def.id), count }, kg);
+      // Fall back to the new default packaging unit, but DO NOT recompute the
+      // received weight — the user may have manually entered (or already
+      // confirmed) a weight for this line and we must not overwrite it just
+      // because the previously-selected unit was deactivated.
+      onChange({ puId: String(def.id), count }, null);
       return;
     }
     const count = selected.count || "1";
@@ -1850,6 +1879,7 @@ function PackagingUnitPicker({
               itemId={itemId}
               open={manageOpen}
               onClose={() => setManageOpen(false)}
+              inUseUnitIds={inUseUnitIds}
             />
           </>
         )}
@@ -1970,6 +2000,7 @@ function PackagingUnitPicker({
             itemId={itemId}
             open={manageOpen}
             onClose={() => setManageOpen(false)}
+            inUseUnitIds={inUseUnitIds}
           />
         </>
       )}
@@ -2174,10 +2205,12 @@ function ManagePackagingUnitsDialog({
   itemId,
   open,
   onClose,
+  inUseUnitIds,
 }: {
   itemId: string;
   open: boolean;
   onClose: () => void;
+  inUseUnitIds?: Set<string>;
 }) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -2193,9 +2226,17 @@ function ManagePackagingUnitsDialog({
     roll_weight_g: "",
     rolls_per_unit: "",
   });
+  // Tracks the unit a user requested to deactivate while it is still selected
+  // on a receipt line. We surface a confirmation prompt before letting the
+  // toggle mutation run so the line's manually-entered weight isn't quietly
+  // overwritten by the picker fallback.
+  const [pendingDeactivate, setPendingDeactivate] = useState<any | null>(null);
 
   useEffect(() => {
-    if (!open) setEditingId(null);
+    if (!open) {
+      setEditingId(null);
+      setPendingDeactivate(null);
+    }
   }, [open]);
 
   const editComputed =
@@ -2337,6 +2378,7 @@ function ManagePackagingUnitsDialog({
               ) : (
                 units.map((u: any) => {
                   const isEditing = editingId === u.id;
+                  const isInUse = !!inUseUnitIds?.has(String(u.id));
                   return (
                     <tr key={u.id} className="border-t">
                       <td className="p-2">
@@ -2352,7 +2394,19 @@ function ManagePackagingUnitsDialog({
                             className="h-8"
                           />
                         ) : (
-                          u.name
+                          <div className="flex items-center gap-2">
+                            <span>{u.name}</span>
+                            {isInUse && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] border-amber-400 text-amber-700 dark:text-amber-300"
+                              >
+                                {t(
+                                  "definitions.items.packagingUnits.inUse",
+                                )}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-2 text-center">
@@ -2422,7 +2476,13 @@ function ManagePackagingUnitsDialog({
                         <Checkbox
                           checked={!!u.is_active}
                           disabled={isEditing || toggleMut.isPending}
-                          onCheckedChange={() => toggleMut.mutate(u)}
+                          onCheckedChange={() => {
+                            if (u.is_active && isInUse) {
+                              setPendingDeactivate(u);
+                              return;
+                            }
+                            toggleMut.mutate(u);
+                          }}
                         />
                       </td>
                       <td className="p-2 text-center">
@@ -2467,6 +2527,41 @@ function ManagePackagingUnitsDialog({
             {t("common.close")}
           </Button>
         </div>
+        <AlertDialog
+          open={!!pendingDeactivate}
+          onOpenChange={(o) => {
+            if (!o) setPendingDeactivate(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t(
+                  "definitions.items.packagingUnits.confirmDeactivateTitle",
+                )}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  "definitions.items.packagingUnits.confirmDeactivateDesc",
+                  { name: pendingDeactivate?.name || "" },
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (pendingDeactivate) {
+                    toggleMut.mutate(pendingDeactivate);
+                  }
+                  setPendingDeactivate(null);
+                }}
+              >
+                {t("definitions.items.packagingUnits.deactivateAnyway")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

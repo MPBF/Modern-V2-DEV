@@ -3182,7 +3182,11 @@
         "noUnits": "No packaging units yet",
         "saveError": "Failed to save packaging unit",
         "deleteConfirm": "Delete this packaging unit?",
-        "computed": "Computed: {{kg}} kg"
+        "computed": "Computed: {{kg}} kg",
+        "inUse": "In use",
+        "confirmDeactivateTitle": "Deactivate packaging unit?",
+        "confirmDeactivateDesc": "\"{{name}}\" is currently selected on at least one open receipt line. Deactivating it will switch those lines to the default packaging unit, but their manually-entered received weights will be kept. Continue?",
+        "deactivateAnyway": "Deactivate"
       }
     },
     "customerProducts": {
