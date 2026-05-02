@@ -35,6 +35,7 @@ interface ProductionOrder {
   production_order_number?: string;
   order_id?: number;
   order_number?: string;
+  order_created_at?: string | null;
   customer_id?: string;
   customer_name?: string;
   customer_name_ar?: string;
@@ -146,15 +147,21 @@ export default function CustomerProductionOrdersWidget() {
       const orderKey =
         po.order_number ||
         (po.order_id !== undefined ? `#${po.order_id}` : `po-${po.id}`);
-      const existing = map.get(orderKey);
-      const startDate = po.production_start_time
+      // Prefer the sales-order creation date for the group header; fall back
+      // to the most recent production-start time when the order date is
+      // missing (e.g. legacy data).
+      const orderDate = po.order_created_at
+        ? new Date(po.order_created_at)
+        : null;
+      const fallbackDate = po.production_start_time
         ? new Date(po.production_start_time)
         : null;
+      const existing = map.get(orderKey);
       if (!existing) {
         map.set(orderKey, {
           orderKey,
           orderNumber: po.order_number || orderKey,
-          orderDate: startDate,
+          orderDate: orderDate ?? fallbackDate,
           totalFinalQty: toNumber(po.final_quantity_kg),
           totalProducedQty: toNumber(po.produced_quantity_kg),
           productionOrders: [po],
@@ -163,11 +170,8 @@ export default function CustomerProductionOrdersWidget() {
         existing.productionOrders.push(po);
         existing.totalFinalQty += toNumber(po.final_quantity_kg);
         existing.totalProducedQty += toNumber(po.produced_quantity_kg);
-        if (
-          startDate &&
-          (!existing.orderDate || startDate > existing.orderDate)
-        ) {
-          existing.orderDate = startDate;
+        if (!existing.orderDate) {
+          existing.orderDate = orderDate ?? fallbackDate;
         }
       }
     }

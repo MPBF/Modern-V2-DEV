@@ -1534,6 +1534,7 @@ export class DatabaseStorage implements IStorage {
             status: production_orders.status,
             previous_status: production_orders.previous_status,
             order_number: orders.order_number,
+            order_created_at: orders.created_at,
             customer_id: customers.id,
             customer_name: customers.name,
             customer_name_ar: customers.name_ar,
