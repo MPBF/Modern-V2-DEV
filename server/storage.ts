@@ -5447,75 +5447,101 @@ export class DatabaseStorage implements IStorage {
     }
     const unitWeightKg = (rollWeightG * rollsPerUnit) / 1000;
 
-    return await db.transaction(async (tx) => {
-      // Enforce single default per item
-      if (data.is_default) {
-        await tx
-          .update(packaging_units)
-          .set({ is_default: false })
-          .where(eq(packaging_units.item_id, data.item_id));
+    try {
+      return await db.transaction(async (tx) => {
+        // Enforce single default per item
+        if (data.is_default) {
+          await tx
+            .update(packaging_units)
+            .set({ is_default: false })
+            .where(eq(packaging_units.item_id, data.item_id));
+        }
+        const [pu] = await tx
+          .insert(packaging_units)
+          .values({
+            item_id: data.item_id,
+            name: String(data.name).trim(),
+            roll_weight_g: rollWeightG.toFixed(2),
+            rolls_per_unit: rollsPerUnit,
+            unit_weight_kg: unitWeightKg.toFixed(3),
+            is_default: !!data.is_default,
+            is_active: data.is_active !== undefined ? !!data.is_active : true,
+          } as any)
+          .returning();
+        return pu;
+      });
+    } catch (err: any) {
+      if (
+        err?.code === "23505" &&
+        typeof err?.constraint === "string" &&
+        err.constraint.includes("uniq_packaging_units_default_per_item")
+      ) {
+        throw new Error(
+          "لا يمكن تعيين أكثر من وحدة تعبئة افتراضية للصنف نفسه",
+        );
       }
-      const [pu] = await tx
-        .insert(packaging_units)
-        .values({
-          item_id: data.item_id,
-          name: String(data.name).trim(),
-          roll_weight_g: rollWeightG.toFixed(2),
-          rolls_per_unit: rollsPerUnit,
-          unit_weight_kg: unitWeightKg.toFixed(3),
-          is_default: !!data.is_default,
-          is_active: data.is_active !== undefined ? !!data.is_active : true,
-        } as any)
-        .returning();
-      return pu;
-    });
+      throw err;
+    }
   }
 
   async updatePackagingUnit(id: number, data: any): Promise<any> {
-    return await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(packaging_units)
-        .where(eq(packaging_units.id, id));
-      if (!existing) throw new Error("وحدة التعبئة غير موجودة");
+    try {
+      return await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(packaging_units)
+          .where(eq(packaging_units.id, id));
+        if (!existing) throw new Error("وحدة التعبئة غير موجودة");
 
-      const rollWeightG =
-        data.roll_weight_g !== undefined
-          ? parseFloat(String(data.roll_weight_g))
-          : parseFloat(String(existing.roll_weight_g));
-      const rollsPerUnit =
-        data.rolls_per_unit !== undefined
-          ? parseInt(String(data.rolls_per_unit))
-          : existing.rolls_per_unit;
-      if (!(rollWeightG > 0) || !(rollsPerUnit > 0)) {
-        throw new Error("بيانات وحدة التعبئة غير صحيحة");
-      }
-      const unitWeightKg = (rollWeightG * rollsPerUnit) / 1000;
+        const rollWeightG =
+          data.roll_weight_g !== undefined
+            ? parseFloat(String(data.roll_weight_g))
+            : parseFloat(String(existing.roll_weight_g));
+        const rollsPerUnit =
+          data.rolls_per_unit !== undefined
+            ? parseInt(String(data.rolls_per_unit))
+            : existing.rolls_per_unit;
+        if (!(rollWeightG > 0) || !(rollsPerUnit > 0)) {
+          throw new Error("بيانات وحدة التعبئة غير صحيحة");
+        }
+        const unitWeightKg = (rollWeightG * rollsPerUnit) / 1000;
 
-      if (data.is_default) {
-        await tx
+        if (data.is_default) {
+          await tx
+            .update(packaging_units)
+            .set({ is_default: false })
+            .where(eq(packaging_units.item_id, existing.item_id));
+        }
+
+        const updates: any = {
+          roll_weight_g: rollWeightG.toFixed(2),
+          rolls_per_unit: rollsPerUnit,
+          unit_weight_kg: unitWeightKg.toFixed(3),
+        };
+        if (data.name !== undefined) updates.name = String(data.name).trim();
+        if (data.is_default !== undefined)
+          updates.is_default = !!data.is_default;
+        if (data.is_active !== undefined) updates.is_active = !!data.is_active;
+
+        const [pu] = await tx
           .update(packaging_units)
-          .set({ is_default: false })
-          .where(eq(packaging_units.item_id, existing.item_id));
+          .set(updates)
+          .where(eq(packaging_units.id, id))
+          .returning();
+        return pu;
+      });
+    } catch (err: any) {
+      if (
+        err?.code === "23505" &&
+        typeof err?.constraint === "string" &&
+        err.constraint.includes("uniq_packaging_units_default_per_item")
+      ) {
+        throw new Error(
+          "لا يمكن تعيين أكثر من وحدة تعبئة افتراضية للصنف نفسه",
+        );
       }
-
-      const updates: any = {
-        roll_weight_g: rollWeightG.toFixed(2),
-        rolls_per_unit: rollsPerUnit,
-        unit_weight_kg: unitWeightKg.toFixed(3),
-      };
-      if (data.name !== undefined) updates.name = String(data.name).trim();
-      if (data.is_default !== undefined)
-        updates.is_default = !!data.is_default;
-      if (data.is_active !== undefined) updates.is_active = !!data.is_active;
-
-      const [pu] = await tx
-        .update(packaging_units)
-        .set(updates)
-        .where(eq(packaging_units.id, id))
-        .returning();
-      return pu;
-    });
+      throw err;
+    }
   }
 
   async deletePackagingUnit(id: number): Promise<void> {

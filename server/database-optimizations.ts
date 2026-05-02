@@ -64,6 +64,34 @@ export async function createPerformanceIndexes(): Promise<void> {
       ON notifications (status);
     `);
 
+    // Partial unique index enforcing a single default packaging unit per item.
+    // Mirrors migrations/0003_packaging_units_default_unique.sql so existing
+    // databases (where the SQL migration may not have been applied) still
+    // get the constraint created on startup.
+    try {
+      await db.execute(sql`
+        UPDATE "packaging_units" AS pu
+        SET "is_default" = false
+        WHERE pu."is_default" = true
+          AND pu."id" <> (
+            SELECT MIN(pu2."id")
+            FROM "packaging_units" AS pu2
+            WHERE pu2."item_id" = pu."item_id"
+              AND pu2."is_default" = true
+          );
+      `);
+      await db.execute(sql`
+        CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "uniq_packaging_units_default_per_item"
+        ON "packaging_units" ("item_id")
+        WHERE "is_default" = true;
+      `);
+    } catch (puErr) {
+      console.error(
+        "[DB Optimization] Failed to ensure packaging_units default uniqueness:",
+        puErr,
+      );
+    }
+
     console.log("[DB Optimization] Performance indexes created successfully");
   } catch (error) {
     console.error("[DB Optimization] Error creating indexes:", error);

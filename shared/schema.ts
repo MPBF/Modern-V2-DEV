@@ -14,6 +14,7 @@ import {
   doublePrecision,
   check,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1017,6 +1018,12 @@ export const packaging_units = pgTable(
   },
   (table) => [
     index("idx_packaging_units_item_id").on(table.item_id),
+    // Enforce a single default packaging unit per item at the database level.
+    // Partial unique index allows many rows with is_default = false (or NULL),
+    // but at most one row with is_default = true for any given item_id.
+    uniqueIndex("uniq_packaging_units_default_per_item")
+      .on(table.item_id)
+      .where(sql`${table.is_default} = true`),
   ],
 );
 
