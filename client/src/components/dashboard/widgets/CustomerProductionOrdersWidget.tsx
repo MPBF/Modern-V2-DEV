@@ -97,8 +97,14 @@ export default function CustomerProductionOrdersWidget() {
 
   const customers: Customer[] = useMemo(() => {
     if (Array.isArray(customersData)) return customersData;
-    if (customersData && Array.isArray((customersData as any).data))
-      return (customersData as any).data;
+    if (
+      customersData &&
+      typeof customersData === "object" &&
+      "data" in customersData &&
+      Array.isArray(customersData.data)
+    ) {
+      return customersData.data;
+    }
     return [];
   }, [customersData]);
 

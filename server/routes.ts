@@ -2303,20 +2303,29 @@ export async function registerRoutes(
   // Production Orders routes
   app.get("/api/production-orders", requireAuth, async (req, res) => {
     try {
-      const productionOrders = await storage.getAllProductionOrders();
+      interface ProductionOrderListRow {
+        order_id: number | null;
+        customer_id: string | null;
+        [key: string]: unknown;
+      }
+      const productionOrders =
+        (await storage.getAllProductionOrders()) as ProductionOrderListRow[];
       const orderId = req.query.order_id
         ? parseInt(String(req.query.order_id))
         : null;
       const customerId = req.query.customer_id
         ? String(req.query.customer_id).trim()
         : null;
-      let result: any[] = productionOrders;
+      let result: ProductionOrderListRow[] = productionOrders;
       if (orderId && !isNaN(orderId)) {
-        result = result.filter((po: any) => po.order_id === orderId);
+        result = result.filter(
+          (po: ProductionOrderListRow) => po.order_id === orderId,
+        );
       }
       if (customerId) {
         result = result.filter(
-          (po: any) => String(po.customer_id ?? "") === customerId,
+          (po: ProductionOrderListRow) =>
+            String(po.customer_id ?? "") === customerId,
         );
       }
       res.json(result);
