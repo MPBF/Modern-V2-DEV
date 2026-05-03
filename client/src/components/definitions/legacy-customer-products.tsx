@@ -175,9 +175,10 @@ export default function LegacyCustomerProductsTab() {
     error && typeof error === "object" && "status" in error
       ? (error as { status?: number }).status
       : undefined;
-  const notConfigured = errStatus === 503;
   const errorMessage =
     error instanceof Error ? error.message : "";
+  const notConfigured =
+    errStatus === 503 && /legacy_not_configured/i.test(errorMessage);
 
   const titleAr = "القاعدة القديمة (للعرض فقط)";
   const titleEn = "Legacy Database (read-only)";
