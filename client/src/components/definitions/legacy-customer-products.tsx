@@ -19,13 +19,10 @@ import {
 
 interface LegacyRow {
   id: number;
-  customer_id: string | null;
   customer_name: string | null;
   customer_name_ar: string | null;
-  category_id: string | null;
   category_name: string | null;
   category_name_ar: string | null;
-  item_id: string | null;
   item_name: string | null;
   item_full_name: string | null;
   size_caption: string | null;
@@ -38,7 +35,6 @@ interface LegacyRow {
   length_cm: string | number | null;
   cutting_length_cm: string | number | null;
   raw_material: string | null;
-  master_batch_id: string | null;
   master_batch_name: string | null;
   printed: string | null;
   cutting_unit: string | null;

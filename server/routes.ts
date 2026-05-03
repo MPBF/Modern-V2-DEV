@@ -16454,13 +16454,13 @@ Input: ${text}`;
         Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
 
       const cols = `cp.id,
-        cp.customer_id, cu.name AS customer_name, cu.name_ar AS customer_name_ar,
-        cp.category_id, ca.name AS category_name, ca.name_ar AS category_name_ar,
-        cp.item_id, it.name AS item_name, it.full_name AS item_full_name,
+        cu.name AS customer_name, cu.name_ar AS customer_name_ar,
+        ca.name AS category_name, ca.name_ar AS category_name_ar,
+        it.name AS item_name, it.full_name AS item_full_name,
         cp.size_caption, cp.width, cp.left_f, cp.right_f, cp.thickness,
         cp.thickness_one, cp.printing_cylinder, cp.length_cm, cp.cutting_length_cm,
         cp.raw_material,
-        cp.master_batch_id, mb.name AS master_batch_name,
+        mb.name AS master_batch_name,
         cp.printed, cp.cutting_unit, cp.unit_weight_kg, cp.packing, cp.punching,
         cp.cover, cp.volum, cp.knife, cp.notes, cp.unit_qty, cp.package_kg`;
 
