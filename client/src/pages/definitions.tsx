@@ -2073,7 +2073,7 @@ export default function Definitions() {
                 className="flex sm:grid w-max sm:w-full h-auto p-1 bg-white rounded-lg border border-gray-200 shadow-sm gap-1 flex-nowrap whitespace-nowrap"
                 dir="rtl"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.min(accessibleTabs.length, 8)}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(${Math.min(accessibleTabs.length, 9)}, minmax(0, 1fr))`,
                 }}
               >
                 {accessibleTabs.map((tab) => (
