@@ -16457,6 +16457,7 @@ Input: ${text}`;
 
       const cols = `cp.id,
         cu.name AS customer_name, cu.name_ar AS customer_name_ar,
+        cu.plate_drawer_code AS drawer_code,
         ca.name AS category_name, ca.name_ar AS category_name_ar,
         it.name AS item_name, it.full_name AS item_full_name,
         cp.size_caption, cp.width, cp.left_f, cp.right_f, cp.thickness,
@@ -16480,6 +16481,7 @@ Input: ${text}`;
           COALESCE(cp.customer_id::text,'') ILIKE ${p}
           OR COALESCE(cu.name,'') ILIKE ${p}
           OR COALESCE(cu.name_ar,'') ILIKE ${p}
+          OR COALESCE(cu.plate_drawer_code,'') ILIKE ${p}
           OR COALESCE(ca.name,'') ILIKE ${p}
           OR COALESCE(ca.name_ar,'') ILIKE ${p}
           OR COALESCE(it.name,'') ILIKE ${p}

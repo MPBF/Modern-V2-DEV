@@ -21,6 +21,7 @@ interface LegacyRow {
   id: number;
   customer_name: string | null;
   customer_name_ar: string | null;
+  drawer_code: string | null;
   category_name: string | null;
   category_name_ar: string | null;
   item_name: string | null;
@@ -84,6 +85,12 @@ const COLUMNS: ColumnDef[] = [
     ar: "العميل",
     en: "Customer",
     render: (r) => bilingualCell(r.customer_name_ar, r.customer_name),
+  },
+  {
+    key: "drawer_code",
+    ar: "رقم الدرج",
+    en: "Drawer No.",
+    render: (r) => formatCell(r.drawer_code),
   },
   {
     key: "category",
