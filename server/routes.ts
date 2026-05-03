@@ -16471,8 +16471,7 @@ Input: ${text}`;
           OR COALESCE(raw_material,'') ILIKE ${p}
           OR COALESCE(notes,'') ILIKE ${p}
           OR COALESCE(printed,'') ILIKE ${p}
-          OR COALESCE(packing,'') ILIKE ${p}
-          OR COALESCE(category_id::text,'') ILIKE ${p}`;
+          OR COALESCE(packing,'') ILIKE ${p}`;
       }
 
       const dataParams = [...params, limit, offset];
