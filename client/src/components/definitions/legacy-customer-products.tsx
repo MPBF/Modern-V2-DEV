@@ -7,6 +7,15 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
+import { Skeleton } from "../ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 
 interface LegacyRow {
   id: number;
@@ -192,63 +201,68 @@ export default function LegacyCustomerProductsTab() {
               {errorMessage}
             </div>
           </div>
-        ) : isLoading ? (
-          <div className="text-center py-10">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {isAr ? "جاري التحميل..." : "Loading..."}
-            </p>
-          </div>
         ) : (
           <>
             <div className="overflow-x-auto border rounded-md">
-              <table className="min-w-full divide-y divide-border text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
+              <Table>
+                <TableHeader>
+                  <TableRow>
                     {COLUMNS.map((c) => (
-                      <th
+                      <TableHead
                         key={String(c.key)}
-                        className="px-3 py-2 text-center text-xs font-medium text-muted-foreground whitespace-nowrap"
+                        className="text-center whitespace-nowrap"
                       >
                         <div>{headerLabel(c)}</div>
-                        <div className="text-[10px] opacity-70">
+                        <div className="text-[10px] opacity-70 font-normal">
                           {subLabel(c)}
                         </div>
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-background">
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <TableRow key={`sk-${i}`}>
+                        {COLUMNS.map((c) => (
+                          <TableCell
+                            key={String(c.key)}
+                            className="text-center"
+                          >
+                            <Skeleton className="h-4 w-full mx-auto" />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell
                         colSpan={COLUMNS.length}
-                        className="px-3 py-8 text-center text-muted-foreground"
+                        className="py-8 text-center text-muted-foreground"
                         data-testid="legacy-empty"
                       >
                         {isAr ? "لا توجد نتائج" : "No results"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     rows.map((row) => (
-                      <tr
+                      <TableRow
                         key={row.id}
-                        className="hover:bg-muted/30"
                         data-testid={`legacy-row-${row.id}`}
                       >
                         {COLUMNS.map((c) => (
-                          <td
+                          <TableCell
                             key={String(c.key)}
-                            className="px-3 py-2 text-center whitespace-nowrap text-foreground"
+                            className="text-center whitespace-nowrap"
                           >
                             {formatCell(row[c.key])}
-                          </td>
+                          </TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
