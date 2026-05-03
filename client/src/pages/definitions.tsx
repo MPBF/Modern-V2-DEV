@@ -24,6 +24,7 @@ import {
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import LegacyCustomerProductsTab from "../components/definitions/legacy-customer-products";
 import PageLayout from "../components/layout/PageLayout";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -77,6 +78,7 @@ const DEFINITIONS_TABS = [
     value: "master-batch-colors",
     labelKey: "definitions.tabs.masterBatchColors",
   },
+  { value: "legacy", labelKey: "definitions.tabs.legacy" },
 ];
 
 export default function Definitions() {
@@ -3808,6 +3810,10 @@ export default function Definitions() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="legacy" className="space-y-6">
+              <LegacyCustomerProductsTab />
             </TabsContent>
           </Tabs>
         </div>

@@ -16417,6 +16417,92 @@ Input: ${text}`;
     }
   });
 
+  // ===== Legacy database (read-only reference) =====
+  // Reads from a separate, older PostgreSQL database for reference only.
+  // No write/update/delete endpoints are exposed.
+  const { getLegacyPool, isLegacyDbConfigured } = await import("./legacy-db");
+
+  app.get(
+    "/api/legacy/customer-products",
+    requireAuth,
+    requirePermission("manage_customers", "manage_definitions", "admin"),
+    async (req, res) => {
+    try {
+      if (!isLegacyDbConfigured()) {
+        return res.status(503).json({
+          message: "legacy_not_configured",
+          detail:
+            "قاعدة البيانات القديمة غير مهيأة. أضف السر LEGACY_DATABASE_URL.",
+        });
+      }
+      const pool = getLegacyPool();
+      if (!pool) {
+        return res.status(503).json({
+          message: "legacy_not_configured",
+          detail: "تعذر الاتصال بقاعدة البيانات القديمة.",
+        });
+      }
+
+      const q = String(req.query.q || "").trim();
+      const limitRaw = parseInt(String(req.query.limit || "50"), 10);
+      const offsetRaw = parseInt(String(req.query.offset || "0"), 10);
+      const limit =
+        Number.isFinite(limitRaw) && limitRaw > 0
+          ? Math.min(limitRaw, 200)
+          : 50;
+      const offset =
+        Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+      const cols = `id, customer_id, category_id, item_id, size_caption,
+        width, left_f, right_f, thickness, thickness_one, printing_cylinder,
+        length_cm, cutting_length_cm, raw_material, master_batch_id, printed,
+        cutting_unit, unit_weight_kg, packing, punching, cover, volum, knife,
+        notes, unit_qty, package_kg`;
+
+      const params: any[] = [];
+      let where = "";
+      if (q) {
+        params.push(`%${q}%`);
+        const p = `$${params.length}`;
+        where = `WHERE
+          COALESCE(customer_id::text,'') ILIKE ${p}
+          OR COALESCE(item_id::text,'') ILIKE ${p}
+          OR COALESCE(size_caption,'') ILIKE ${p}
+          OR COALESCE(raw_material,'') ILIKE ${p}
+          OR COALESCE(notes,'') ILIKE ${p}
+          OR COALESCE(printed,'') ILIKE ${p}
+          OR COALESCE(packing,'') ILIKE ${p}
+          OR COALESCE(category_id::text,'') ILIKE ${p}`;
+      }
+
+      const dataParams = [...params, limit, offset];
+      const dataSql = `SELECT ${cols} FROM public.customer_products ${where}
+        ORDER BY id DESC
+        LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
+
+      const countSql = `SELECT COUNT(*)::int AS total FROM public.customer_products ${where}`;
+
+      const [dataRes, countRes] = await Promise.all([
+        pool.query(dataSql, dataParams),
+        pool.query(countSql, params),
+      ]);
+
+      res.json({
+        rows: dataRes.rows,
+        total: countRes.rows[0]?.total ?? 0,
+        limit,
+        offset,
+      });
+    } catch (error: any) {
+      console.error("Error reading legacy customer_products:", error);
+      res.status(500).json({
+        message: "legacy_query_failed",
+        detail: "خطأ في قراءة بيانات القاعدة القديمة",
+      });
+    }
+    },
+  );
+
   const httpServer = existingServer || createServer(app);
   return httpServer;
 }

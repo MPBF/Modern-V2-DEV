@@ -848,6 +848,7 @@ export const DEFINITIONS_TAB_PERMISSIONS: Record<string, PermissionKey[]> = {
   machines: ["manage_machines", "manage_definitions", "admin"],
   users: ["manage_users", "admin"],
   "master-batch-colors": ["manage_master_batch", "manage_definitions", "admin"],
+  legacy: ["manage_customers", "manage_definitions", "admin"],
 };
 
 export const SETTINGS_TAB_PERMISSIONS: Record<string, PermissionKey[]> = {

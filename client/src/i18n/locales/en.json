@@ -3087,7 +3087,8 @@
       "locations": "Locations",
       "machines": "Machines",
       "users": "Users",
-      "masterBatchColors": "Master Batch Colors"
+      "masterBatchColors": "Master Batch Colors",
+      "legacy": "Legacy Database"
     },
     "add": "Add",
     "edit": "Edit",
