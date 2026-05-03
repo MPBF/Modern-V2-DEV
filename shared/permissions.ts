@@ -87,6 +87,8 @@ export type PermissionKey =
   | "view_mcp_settings"
   | "view_system_monitoring_tab"
   | "view_ai_agent_settings"
+  | "view_legacy_database"
+  | "manage_legacy_database"
   | "admin"; // Super admin permission
 
 export interface Permission {
@@ -706,6 +708,22 @@ export const PERMISSIONS: Permission[] = [
     description: "Access to AI agent settings tab inside settings",
   },
 
+  // Legacy Database (read-only reference)
+  {
+    id: "view_legacy_database",
+    name: "View Legacy Database",
+    name_ar: "عرض القاعدة القديمة",
+    category: "التعريفات",
+    description: "View the legacy (read-only) customer products database",
+  },
+  {
+    id: "manage_legacy_database",
+    name: "Manage Legacy Database Access",
+    name_ar: "إدارة القاعدة القديمة",
+    category: "التعريفات",
+    description: "Manage access and configuration for the legacy database",
+  },
+
   // Admin
   {
     id: "admin",
@@ -848,7 +866,12 @@ export const DEFINITIONS_TAB_PERMISSIONS: Record<string, PermissionKey[]> = {
   machines: ["manage_machines", "manage_definitions", "admin"],
   users: ["manage_users", "admin"],
   "master-batch-colors": ["manage_master_batch", "manage_definitions", "admin"],
-  legacy: ["manage_definitions", "admin"],
+  legacy: [
+    "view_legacy_database",
+    "manage_legacy_database",
+    "manage_definitions",
+    "admin",
+  ],
 };
 
 export const SETTINGS_TAB_PERMISSIONS: Record<string, PermissionKey[]> = {

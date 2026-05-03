@@ -16427,7 +16427,12 @@ Input: ${text}`;
   app.get(
     "/api/legacy/customer-products",
     requireAuth,
-    requirePermission("manage_definitions", "admin"),
+    requirePermission(
+      "view_legacy_database",
+      "manage_legacy_database",
+      "manage_definitions",
+      "admin",
+    ),
     async (req, res) => {
     try {
       if (!isLegacyDbConfigured()) {
