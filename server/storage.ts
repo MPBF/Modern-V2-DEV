@@ -5314,7 +5314,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFinalRoll(data: any): Promise<Roll> {
-    return this.createRollWithTiming(data);
+    const roll = await this.createRollWithTiming({ ...data, is_last_roll: true });
+    await db
+      .update(production_orders)
+      .set({
+        is_final_roll_created: true,
+        film_completed: true,
+        production_end_time: new Date(),
+      })
+      .where(eq(production_orders.id, data.production_order_id));
+    return roll;
   }
 
   async getSections(): Promise<Section[]> {
@@ -6332,11 +6341,13 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN items i ON i.id = cp.item_id
       LEFT JOIN master_batch_colors mb ON mb.id = cp.master_batch_id
       LEFT JOIN rolls r ON r.production_order_id = po.id
-      WHERE o.status = 'in_production'
-        AND po.status IN ('pending', 'active')
-        AND po.film_completed = false
+      WHERE po.film_completed = false
+        AND po.is_final_roll_created = false
+        AND (
+          po.status = 'active'
+          OR (po.status = 'pending' AND o.status = 'in_production')
+        )
       GROUP BY po.id, o.id, c.id, cp.id, i.id, mb.id
-      HAVING COALESCE(SUM(r.weight_kg), 0) < (CASE WHEN po.final_quantity_kg IS NOT NULL AND po.final_quantity_kg > 0 THEN po.final_quantity_kg ELSE po.quantity_kg END)::numeric
       ORDER BY po.id DESC
     `);
     return result.rows as any[];
