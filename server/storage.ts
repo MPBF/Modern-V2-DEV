@@ -5606,7 +5606,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePackagingUnit(id: number): Promise<void> {
-    await db.delete(packaging_units).where(eq(packaging_units.id, id));
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(packaging_units)
+        .where(eq(packaging_units.id, id));
+      if (!existing) return;
+
+      await tx.delete(packaging_units).where(eq(packaging_units.id, id));
+
+      if (existing.is_default) {
+        const [replacement] = await tx
+          .select()
+          .from(packaging_units)
+          .where(
+            and(
+              eq(packaging_units.item_id, existing.item_id),
+              eq(packaging_units.is_active, true),
+            ),
+          )
+          .orderBy(desc(packaging_units.id))
+          .limit(1);
+        if (replacement) {
+          await tx
+            .update(packaging_units)
+            .set({ is_default: true })
+            .where(eq(packaging_units.id, replacement.id));
+        }
+      }
+    });
   }
 
   async getCustomerProducts(options?: {
