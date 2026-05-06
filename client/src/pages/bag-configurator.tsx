@@ -400,29 +400,21 @@ export default function BagConfigurator() {
   return (
     <div
       dir="rtl"
-      className="relative w-full flex"
-      style={{ height: "calc(100vh - 4rem)", minHeight: "600px" }}
+      className="relative pt-16 lg:pr-64 min-h-screen bg-slate-100"
     >
-      <div ref={containerRef} className="relative flex-1 min-w-0 h-full" />
-
-      {!panelOpen && (
-        <button
-          onClick={() => setPanelOpen(true)}
-          className="absolute top-4 right-4 z-20 bg-white p-2 rounded-lg shadow-md text-blue-600"
-          aria-label="فتح اللوحة"
-        >
-          <Menu className="h-6 w-6" />
-        </button>
-      )}
-
       <div
-        className={`relative h-full bg-white/95 backdrop-blur shadow-2xl overflow-y-auto flex-shrink-0 flex-col gap-4 border-l border-slate-200 transition-all duration-300 ${
-          panelOpen
-            ? "w-full sm:w-[22rem] p-4 flex"
-            : "w-0 p-0 overflow-hidden hidden"
-        }`}
-        style={{ fontFamily: "Tajawal, sans-serif" }}
+        className="relative w-full flex"
+        style={{ height: "calc(100vh - 4rem)", minHeight: "600px" }}
       >
+        {/* Panel first in DOM → in RTL flex it appears on the RIGHT (matches mockup) */}
+        <div
+          className={`relative h-full bg-white/95 backdrop-blur shadow-2xl overflow-y-auto flex-shrink-0 flex-col gap-4 border-l border-slate-200 transition-all duration-300 ${
+            panelOpen
+              ? "w-full sm:w-[22rem] p-4 flex"
+              : "w-0 p-0 overflow-hidden hidden"
+          }`}
+          style={{ fontFamily: "Tajawal, sans-serif" }}
+        >
         <div className="border-b border-slate-200 pb-2 flex justify-between items-center sticky top-0 bg-white/95 z-10">
           <h1 className="text-lg font-bold text-slate-900 flex items-center gap-1.5">
             <Boxes className="h-5 w-5 text-blue-500" />
@@ -655,6 +647,20 @@ export default function BagConfigurator() {
             </button>
           </div>
         </div>
+        </div>
+
+        {/* 3D canvas container — visually on the LEFT in RTL flex (after panel in DOM) */}
+        <div ref={containerRef} className="relative flex-1 min-w-0 h-full" />
+
+        {!panelOpen && (
+          <button
+            onClick={() => setPanelOpen(true)}
+            className="absolute top-4 right-4 z-20 bg-white p-2 rounded-lg shadow-md text-blue-600"
+            aria-label="فتح اللوحة"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        )}
       </div>
 
       <canvas
