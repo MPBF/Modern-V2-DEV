@@ -306,12 +306,17 @@ export default function BagConfigurator() {
     // Vest (T-shirt) handle dims — height scales with bag, clamped 11..16 cm
     const vestHandleHeightCm = Math.min(16, Math.max(11, h_cm * 0.32));
     const vestHandleUnits = vestHandleHeightCm / SCALE;
-    // Wide neck (central U-cut) — like a real T-shirt bag.
-    const neckHalfW = w * 0.22;
+    // Central U-shaped neck cut — width scales with bag width, clamped 14..50 cm,
+    // and never exceeds 80% of the bag width. Depth scales with bag height,
+    // clamped 10..16 cm.
+    const neckWidthCm = Math.min(50, Math.max(14, Math.min(w_cm * 0.8, w_cm * 0.55)));
+    const neckHalfW = neckWidthCm / 2 / SCALE;
+    const neckDepthCm = Math.min(16, Math.max(10, h_cm * 0.25));
+    const neckDepthUnits = Math.min(vestHandleUnits, neckDepthCm / SCALE);
     // Strap base center sits between neck edge and bag edge.
     const strapBaseCenter = (neckHalfW + w / 2) * 0.5;
     // Half-width of the strap at the top (the grip) — narrow.
-    const strapTopHalfW = w * 0.045;
+    const strapTopHalfW = Math.min((w / 2 - neckHalfW) * 0.25, w * 0.045);
     const shoulderDropUnits = Math.min(0.22, h * 0.06); // soft shoulder below handles
 
     const pos = geo.getAttribute("position");
@@ -336,9 +341,9 @@ export default function BagConfigurator() {
           const sign = Math.sign(x) || 1;
 
           if (ax < neckHalfW) {
-            // Central U-shaped neck cutout — smooth cosine dip down to shoulder
+            // Central U-shaped neck cutout — smooth cosine dip
             const dip =
-              vestHandleUnits *
+              neckDepthUnits *
               0.5 *
               (1 + Math.cos((x / neckHalfW) * Math.PI));
             y -= dip;
@@ -361,7 +366,7 @@ export default function BagConfigurator() {
             // (this carves the inside of the strap into the neck cut)
             if (newAx < neckHalfW + 0.001) {
               const dip =
-                vestHandleUnits * 0.5 * (1 + Math.cos(Math.PI * (1 - e)));
+                neckDepthUnits * 0.5 * (1 + Math.cos(Math.PI * (1 - e)));
               y -= dip;
             } else {
               x = sign * newAx;
