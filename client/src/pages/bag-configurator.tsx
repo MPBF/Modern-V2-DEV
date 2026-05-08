@@ -370,6 +370,26 @@ export default function BagConfigurator() {
 
     const shapeGeo = new THREE.ShapeGeometry(shape, 32);
 
+    // ShapeGeometry assigns raw (x,y) world coords as UVs, which makes the
+    // print texture sample only a tiny 1cm×1cm corner of the canvas. We
+    // recompute UVs so the 1024×1024 print canvas maps across the whole
+    // shape's bounding rectangle.
+    {
+      const pos = shapeGeo.attributes.position as THREE.BufferAttribute;
+      const minX = -hw;
+      const maxX = hw;
+      const minY = -hh;
+      const maxY = type === "tshirt" ? hh + handleHeight : hh;
+      const dx = maxX - minX || 1;
+      const dy = maxY - minY || 1;
+      const uvs = new Float32Array(pos.count * 2);
+      for (let i = 0; i < pos.count; i++) {
+        uvs[i * 2] = (pos.getX(i) - minX) / dx;
+        uvs[i * 2 + 1] = (pos.getY(i) - minY) / dy;
+      }
+      shapeGeo.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+    }
+
     const frontMesh = new THREE.Mesh(shapeGeo, bagMaterial);
     frontMesh.position.z = hd;
     frontMesh.castShadow = true;
