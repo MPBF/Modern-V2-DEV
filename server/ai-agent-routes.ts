@@ -2488,7 +2488,6 @@ async function generatePdfDocument(
 
     const safeText = (text: string) => {
       if (!text) return "";
-      if (isArabicText(text) && hasArabicFont) return text;
       if (isArabicText(text)) return processArabicText(text);
       return text;
     };
