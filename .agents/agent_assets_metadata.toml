@@ -24,3 +24,9 @@ id = "dh3bqSVJhg2q0C_p59SHj"
 uri = "file://attached_assets/project-deploy.zip"
 type = "unspecified"
 title = "Project Deploy Package (4.04 MB)"
+
+[[outputs]]
+id = "B2SfXzOZSMegxXYWEwPSv"
+uri = "file://exports/debt_notice_test.pdf"
+type = "pdf"
+title = "إشعار مديونية - اختبار العربية بعد الإصلاح"
