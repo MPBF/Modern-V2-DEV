@@ -892,6 +892,7 @@ export const SETTINGS_TAB_PERMISSIONS: Record<string, PermissionKey[]> = {
     "admin",
   ],
   "ai-agent": ["view_ai_agent_settings", "manage_ai_agent", "admin"],
+  "letter-template": ["manage_settings", "admin"],
   user: [],
 };
 

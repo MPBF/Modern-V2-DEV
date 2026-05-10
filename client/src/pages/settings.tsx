@@ -23,6 +23,8 @@ import {
   Eye,
   EyeOff,
   ImageIcon,
+  FileText,
+  X,
 } from "lucide-react";
 import { Plug, Gauge, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -63,6 +65,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Separator } from "../components/ui/separator";
+import { Textarea } from "../components/ui/textarea";
 import { useCompanyLogo } from "../hooks/use-company-logo";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
@@ -86,6 +89,7 @@ const SECTIONS = [
   { id: "roles", icon: Shield, label: "الأدوار والصلاحيات" },
   { id: "notifications", icon: Bell, label: "الإشعارات" },
   { id: "location", icon: MapPin, label: "المواقع" },
+  { id: "letter-template", icon: FileText, label: "ترويسة الخطابات" },
   { id: "ai-agent", icon: Sparkles, label: "إعدادات الوكيل الذكي" },
   { id: "system-monitoring", icon: Gauge, label: "مراقبة النظام" },
   { id: "mcp", icon: Plug, label: "إعدادات MCP" },
@@ -186,6 +190,7 @@ export default function Settings() {
           {activeSection === "roles" && <RolesSection />}
           {activeSection === "notifications" && <NotificationsSection />}
           {activeSection === "location" && <LocationSection />}
+          {activeSection === "letter-template" && <LetterTemplateSection />}
           {activeSection === "ai-agent" && (
             <div className="space-y-6">
               <div className="flex items-center gap-3 mb-2">
@@ -341,6 +346,293 @@ function CompanyLogoUpload() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+type Signature = { title: string; name: string };
+type LetterTemplate = {
+  letter_header_image_url: string | null;
+  letter_footer_image_url: string | null;
+  letter_footer_text: string | null;
+  letter_default_signatures: Signature[] | null;
+};
+
+function LetterImageUpload({
+  label,
+  description,
+  imageUrl,
+  onUploaded,
+  onClear,
+}: {
+  label: string;
+  description: string;
+  imageUrl: string | null;
+  onUploaded: (objectPath: string) => void;
+  onClear: () => void;
+}) {
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "يرجى اختيار ملف صورة", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "حجم الصورة يجب أن يكون أقل من 5 ميجابايت", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const urlRes = await apiRequest("/api/uploads/request-url", {
+        method: "POST",
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json();
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      if (!uploadRes.ok) throw new Error("فشل رفع الملف");
+      onUploaded(objectPath);
+      toast({ title: "تم رفع الصورة بنجاح" });
+    } catch {
+      toast({ title: "خطأ في رفع الصورة", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-semibold">{label}</Label>
+      <p className="text-xs text-muted-foreground">{description}</p>
+      <div className="border-2 border-dashed rounded-lg p-4 bg-muted/30">
+        {imageUrl ? (
+          <div className="space-y-3">
+            <img
+              src={imageUrl}
+              alt={label}
+              className="max-h-32 w-full object-contain bg-white rounded"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+                {uploading ? <Loader2 className="w-4 h-4 ml-2 animate-spin" /> : <Upload className="w-4 h-4 ml-2" />}
+                استبدال
+              </Button>
+              <Button variant="outline" size="sm" onClick={onClear}>
+                <X className="w-4 h-4 ml-2" /> حذف
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6">
+            <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
+              {uploading ? (
+                <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جاري الرفع...</>
+              ) : (
+                <><Upload className="w-4 h-4 ml-2" /> اختيار صورة</>
+              )}
+            </Button>
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+      </div>
+    </div>
+  );
+}
+
+function LetterTemplateSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery<LetterTemplate>({
+    queryKey: ["/api/company/letter-template"],
+  });
+
+  const [headerUrl, setHeaderUrl] = useState<string | null>(null);
+  const [footerUrl, setFooterUrl] = useState<string | null>(null);
+  const [footerText, setFooterText] = useState("");
+  const [signatures, setSignatures] = useState<Signature[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (data && !hydrated) {
+      setHeaderUrl(data.letter_header_image_url || null);
+      setFooterUrl(data.letter_footer_image_url || null);
+      setFooterText(data.letter_footer_text || "");
+      setSignatures(
+        Array.isArray(data.letter_default_signatures)
+          ? data.letter_default_signatures
+          : [],
+      );
+      setHydrated(true);
+    }
+  }, [data, hydrated]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: Partial<LetterTemplate>) => {
+      const res = await apiRequest("/api/company/letter-template", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/company/letter-template"] });
+      toast({ title: "تم حفظ القالب بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "خطأ في حفظ القالب", variant: "destructive" });
+    },
+  });
+
+  const handleSave = () => {
+    const cleanSigs = signatures
+      .map((s) => ({ title: (s.title || "").trim(), name: (s.name || "").trim() }))
+      .filter((s) => s.title || s.name);
+    saveMutation.mutate({
+      letter_header_image_url: headerUrl,
+      letter_footer_image_url: footerUrl,
+      letter_footer_text: footerText.trim() || null,
+      letter_default_signatures: cleanSigs.length > 0 ? cleanSigs : null,
+    });
+  };
+
+  const addSignature = () => setSignatures((s) => [...s, { title: "", name: "" }]);
+  const removeSignature = (i: number) =>
+    setSignatures((s) => s.filter((_, idx) => idx !== i));
+  const updateSignature = (i: number, field: keyof Signature, value: string) =>
+    setSignatures((s) => s.map((sig, idx) => (idx === i ? { ...sig, [field]: value } : sig)));
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-2">
+        <FileText className="h-6 w-6 text-primary" />
+        <div>
+          <h2 className="text-xl font-bold">ترويسة الخطابات والمستندات</h2>
+          <p className="text-sm text-muted-foreground">
+            إعداد قالب موحد يطبق تلقائياً على جميع المستندات (PDF / Word) التي يولّدها الوكيل الذكي
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>الترويسة والتذييل</CardTitle>
+          <CardDescription>
+            يتم إدراج الصور والنص تلقائياً في كل صفحة من صفحات المستند
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <LetterImageUpload
+            label="صورة الترويسة (Header)"
+            description="تظهر في أعلى كل صفحة. الأبعاد المثالية: 1240×200 بكسل"
+            imageUrl={headerUrl}
+            onUploaded={setHeaderUrl}
+            onClear={() => setHeaderUrl(null)}
+          />
+          <Separator />
+          <LetterImageUpload
+            label="صورة التذييل (Footer)"
+            description="تظهر في أسفل كل صفحة. الأبعاد المثالية: 1240×140 بكسل"
+            imageUrl={footerUrl}
+            onUploaded={setFooterUrl}
+            onClear={() => setFooterUrl(null)}
+          />
+          <Separator />
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">نص التذييل</Label>
+            <p className="text-xs text-muted-foreground">
+              نص قصير يظهر أسفل كل صفحة (مثل: العنوان، الهاتف، الموقع الإلكتروني)
+            </p>
+            <Textarea
+              value={footerText}
+              onChange={(e) => setFooterText(e.target.value)}
+              placeholder="مثال: الرياض، شارع الملك فهد — هاتف: 011-1234567 — www.example.com"
+              rows={2}
+              maxLength={2000}
+              dir="rtl"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>التوقيعات الافتراضية</CardTitle>
+          <CardDescription>
+            تظهر في نهاية كل مستند. يمكن للوكيل الذكي تجاوزها عند الحاجة.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {signatures.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              لا توجد توقيعات افتراضية
+            </p>
+          )}
+          {signatures.map((sig, i) => (
+            <div key={i} className="flex gap-2 items-end">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">المسمى الوظيفي</Label>
+                <Input
+                  value={sig.title}
+                  onChange={(e) => updateSignature(i, "title", e.target.value)}
+                  placeholder="مثال: المدير العام"
+                  dir="rtl"
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">الاسم</Label>
+                <Input
+                  value={sig.name}
+                  onChange={(e) => updateSignature(i, "name", e.target.value)}
+                  placeholder="مثال: م. أحمد محمد"
+                  dir="rtl"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => removeSignature(i)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={addSignature} className="w-full">
+            <Plus className="w-4 h-4 ml-2" /> إضافة توقيع
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saveMutation.isPending} size="lg">
+          {saveMutation.isPending ? (
+            <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جاري الحفظ...</>
+          ) : (
+            <><Save className="w-4 h-4 ml-2" /> حفظ القالب</>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -62,6 +62,80 @@ import {
   isArabicText,
 } from "./services/arabic-text-service";
 
+async function fetchStorageImageBuffer(
+  objectPath: string | null | undefined,
+): Promise<Buffer | null> {
+  if (!objectPath || !objectPath.startsWith("/objects/")) return null;
+  try {
+    const parts = objectPath.slice(1).split("/");
+    const entityId = parts.slice(1).join("/");
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) return null;
+    const fullPath = privateDir.endsWith("/")
+      ? `${privateDir}${entityId}`
+      : `${privateDir}/${entityId}`;
+    const pathParts = fullPath.startsWith("/")
+      ? fullPath.slice(1).split("/")
+      : fullPath.split("/");
+    const bucketName = pathParts[0];
+    const objectName = pathParts.slice(1).join("/");
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+    const [contents] = await file.download();
+    return contents;
+  } catch (e) {
+    console.error("fetchStorageImageBuffer error:", e);
+    return null;
+  }
+}
+
+async function getLetterTemplate(): Promise<{
+  headerImage: Buffer | null;
+  footerImage: Buffer | null;
+  footerText: string | null;
+  defaultSignatures: any[] | null;
+}> {
+  try {
+    const [profile] = await db
+      .select({
+        h: company_profile.letter_header_image_url,
+        f: company_profile.letter_footer_image_url,
+        t: company_profile.letter_footer_text,
+        s: company_profile.letter_default_signatures,
+      })
+      .from(company_profile)
+      .limit(1);
+    if (!profile) {
+      return {
+        headerImage: null,
+        footerImage: null,
+        footerText: null,
+        defaultSignatures: null,
+      };
+    }
+    const [headerImage, footerImage] = await Promise.all([
+      fetchStorageImageBuffer(profile.h),
+      fetchStorageImageBuffer(profile.f),
+    ]);
+    return {
+      headerImage,
+      footerImage,
+      footerText: profile.t || null,
+      defaultSignatures: Array.isArray(profile.s) ? (profile.s as any[]) : null,
+    };
+  } catch (e) {
+    console.error("getLetterTemplate error:", e);
+    return {
+      headerImage: null,
+      footerImage: null,
+      footerText: null,
+      defaultSignatures: null,
+    };
+  }
+}
+
 async function getCompanyLogoForPdf(
   fallbackPath: string,
 ): Promise<{ buffer: Buffer | null; path: string | null }> {
@@ -2382,10 +2456,30 @@ async function generatePdfDocument(
   const arabicFontPath = fontSearchPaths.find((p) => fs.existsSync(p)) || "";
   const hasArabicFont = !!arabicFontPath;
 
-  return new Promise((resolve, reject) => {
+  const template = await getLetterTemplate();
+  if (
+    template.defaultSignatures &&
+    (!content.footer || !content.footer.signatures)
+  ) {
+    content.footer = {
+      ...(content.footer || {}),
+      signatures: template.defaultSignatures,
+    };
+  }
+  const HEADER_H = template.headerImage ? 95 : 0;
+  const FOOTER_IMG_H = template.footerImage ? 55 : 0;
+  const FOOTER_TEXT_H = template.footerText ? 18 : 0;
+  const FOOTER_H = FOOTER_IMG_H + FOOTER_TEXT_H + (FOOTER_IMG_H + FOOTER_TEXT_H > 0 ? 10 : 0);
+
+  return new Promise<string>((resolve, reject) => {
     const doc = new PDFDocument({
       size: "A4",
-      margin: 40,
+      margins: {
+        top: 40 + HEADER_H,
+        bottom: 40 + FOOTER_H,
+        left: 40,
+        right: 40,
+      },
       layout: "portrait",
       bufferPages: true,
     });
@@ -2570,6 +2664,53 @@ async function generatePdfDocument(
         .fontSize(8)
         .fillColor("#a0aec0")
         .text(safeText(footer.text), { align: "center" });
+    }
+
+    try {
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        if (template.headerImage) {
+          try {
+            doc.image(template.headerImage, 40, 20, {
+              fit: [515, 80],
+              align: "center",
+              valign: "center",
+            });
+          } catch (e) {
+            console.error("PDF header image error:", e);
+          }
+        }
+        const PAGE_BOTTOM = 842;
+        const footerTop = PAGE_BOTTOM - FOOTER_H + 5;
+        if (template.footerImage) {
+          try {
+            doc.image(template.footerImage, 40, footerTop, {
+              fit: [515, FOOTER_IMG_H],
+              align: "center",
+              valign: "center",
+            });
+          } catch (e) {
+            console.error("PDF footer image error:", e);
+          }
+        }
+        if (template.footerText) {
+          if (hasArabicFont) doc.font(arabicFontPath);
+          const textY = template.footerImage
+            ? footerTop + FOOTER_IMG_H + 4
+            : PAGE_BOTTOM - FOOTER_TEXT_H - 8;
+          doc
+            .fontSize(8)
+            .fillColor("#718096")
+            .text(safeText(template.footerText), 40, textY, {
+              width: 515,
+              align: "center",
+              lineBreak: false,
+            });
+        }
+      }
+    } catch (e) {
+      console.error("PDF letterhead drawing error:", e);
     }
 
     doc.end();
@@ -2765,6 +2906,11 @@ async function generateWordDocument(
   const header = content.header || {};
   const sections = content.sections || [];
   const footer = content.footer || {};
+
+  const template = await getLetterTemplate();
+  if (template.defaultSignatures && !footer.signatures) {
+    footer.signatures = template.defaultSignatures;
+  }
 
   const children: any[] = [];
 
@@ -3012,8 +3158,64 @@ async function generateWordDocument(
     );
   }
 
+  const sectionProps: any = {};
+  if (template.headerImage) {
+    try {
+      sectionProps.headers = {
+        default: new docx.Header({
+          children: [
+            arPara({
+              alignment: docx.AlignmentType.CENTER,
+              children: [
+                new docx.ImageRun({
+                  data: template.headerImage,
+                  transformation: { width: 600, height: 90 },
+                }),
+              ],
+            }),
+          ],
+        }),
+      };
+    } catch (e) {
+      console.error("Word header image error:", e);
+    }
+  }
+  if (template.footerImage || template.footerText) {
+    try {
+      const footerChildren: any[] = [];
+      if (template.footerImage) {
+        footerChildren.push(
+          arPara({
+            alignment: docx.AlignmentType.CENTER,
+            children: [
+              new docx.ImageRun({
+                data: template.footerImage,
+                transformation: { width: 600, height: 60 },
+              }),
+            ],
+          }),
+        );
+      }
+      if (template.footerText) {
+        footerChildren.push(
+          arPara({
+            alignment: docx.AlignmentType.CENTER,
+            children: [
+              arRun({ text: template.footerText, size: 16, color: "718096" }),
+            ],
+          }),
+        );
+      }
+      sectionProps.footers = {
+        default: new docx.Footer({ children: footerChildren }),
+      };
+    } catch (e) {
+      console.error("Word footer build error:", e);
+    }
+  }
+
   const document = new docx.Document({
-    sections: [{ properties: {}, children }],
+    sections: [{ properties: sectionProps, children }],
   });
 
   const buffer = await docx.Packer.toBuffer(document);

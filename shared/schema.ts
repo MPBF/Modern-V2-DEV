@@ -1458,6 +1458,10 @@ export const company_profile = pgTable("company_profile", {
   logo_url: varchar("logo_url", { length: 255 }),
   working_hours_per_day: integer("working_hours_per_day").default(8),
   default_language: varchar("default_language", { length: 10 }).default("ar"),
+  letter_header_image_url: varchar("letter_header_image_url", { length: 255 }),
+  letter_footer_image_url: varchar("letter_footer_image_url", { length: 255 }),
+  letter_footer_text: text("letter_footer_text"),
+  letter_default_signatures: jsonb("letter_default_signatures"),
 });
 
 // 📢 جدول الإشعارات والرسائل

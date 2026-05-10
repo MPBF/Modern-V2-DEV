@@ -9193,6 +9193,106 @@ Input: ${text}`;
     },
   );
 
+  // Letter template (header/footer for AI-generated documents)
+  app.get("/api/company/letter-template", requireAuth, async (_req, res) => {
+    try {
+      const [profile] = await db
+        .select({
+          letter_header_image_url: company_profile.letter_header_image_url,
+          letter_footer_image_url: company_profile.letter_footer_image_url,
+          letter_footer_text: company_profile.letter_footer_text,
+          letter_default_signatures: company_profile.letter_default_signatures,
+        })
+        .from(company_profile)
+        .limit(1);
+      res.json(
+        profile || {
+          letter_header_image_url: null,
+          letter_footer_image_url: null,
+          letter_footer_text: null,
+          letter_default_signatures: null,
+        },
+      );
+    } catch (error) {
+      console.error("Error fetching letter template:", error);
+      res.status(500).json({ message: "خطأ في جلب قالب الخطابات" });
+    }
+  });
+
+  app.patch(
+    "/api/company/letter-template",
+    requireAuth,
+    requirePermission("manage_settings"),
+    async (req: AuthRequest, res) => {
+      try {
+        const {
+          letter_header_image_url,
+          letter_footer_image_url,
+          letter_footer_text,
+          letter_default_signatures,
+        } = req.body || {};
+
+        const validateObjPath = (v: any) => {
+          if (v === null || v === undefined || v === "") return null;
+          if (typeof v !== "string" || !v.startsWith("/objects/")) {
+            throw new Error("INVALID_OBJECT_PATH");
+          }
+          return v;
+        };
+
+        const updates: any = {};
+        if (letter_header_image_url !== undefined) {
+          updates.letter_header_image_url = validateObjPath(
+            letter_header_image_url,
+          );
+        }
+        if (letter_footer_image_url !== undefined) {
+          updates.letter_footer_image_url = validateObjPath(
+            letter_footer_image_url,
+          );
+        }
+        if (letter_footer_text !== undefined) {
+          updates.letter_footer_text =
+            typeof letter_footer_text === "string"
+              ? letter_footer_text.slice(0, 2000)
+              : null;
+        }
+        if (letter_default_signatures !== undefined) {
+          if (
+            letter_default_signatures !== null &&
+            !Array.isArray(letter_default_signatures)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "قائمة التوقيعات يجب أن تكون مصفوفة" });
+          }
+          updates.letter_default_signatures = letter_default_signatures || null;
+        }
+
+        const [existing] = await db.select().from(company_profile).limit(1);
+        if (existing) {
+          await db
+            .update(company_profile)
+            .set(updates)
+            .where(eq(company_profile.id, existing.id));
+        } else {
+          await db
+            .insert(company_profile)
+            .values({ name: "Company", ...updates });
+        }
+        res.json({ message: "تم حفظ قالب الخطابات بنجاح" });
+      } catch (error: any) {
+        if (error?.message === "INVALID_OBJECT_PATH") {
+          return res
+            .status(400)
+            .json({ message: "مسار الصورة غير صالح" });
+        }
+        console.error("Error saving letter template:", error);
+        res.status(500).json({ message: "خطأ في حفظ قالب الخطابات" });
+      }
+    },
+  );
+
   // Database Management routes
   app.get("/api/database/stats", requireAdmin, async (req, res) => {
     try {
