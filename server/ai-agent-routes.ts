@@ -2372,6 +2372,9 @@ async function generatePdfDocument(
 ): Promise<string> {
   const filePath = path.join(DOCS_DIR, `${filename}.pdf`);
   const fontSearchPaths = [
+    path.join(__dirname, "fonts", "Amiri-Regular.ttf"),
+    path.join(__dirname, "..", "server", "fonts", "Amiri-Regular.ttf"),
+    path.join(__dirname, "..", "public", "fonts", "Amiri-Regular.ttf"),
     path.join(__dirname, "..", "public", "fonts", "NotoSansArabic-Regular.ttf"),
     path.join(__dirname, "..", "server", "fonts", "NotoSansArabic-Regular.ttf"),
     path.join(__dirname, "fonts", "NotoSansArabic-Regular.ttf"),
@@ -2391,7 +2394,6 @@ async function generatePdfDocument(
 
     const safeText = (text: string) => {
       if (!text) return "";
-      if (isArabicText(text) && hasArabicFont) return text;
       if (isArabicText(text)) return processArabicText(text);
       return text;
     };
@@ -2765,11 +2767,28 @@ async function generateWordDocument(
 
   const children: any[] = [];
 
+  const TextRunCtor = docx.TextRun;
+  const ParagraphCtor = docx.Paragraph;
+  const arRun = (opts: any) => {
+    const text = String(opts?.text ?? "");
+    return new TextRunCtor({
+      ...opts,
+      text,
+      rtl: opts?.rtl ?? isArabicText(text),
+    });
+  };
+  const arPara = (opts: any) =>
+    new ParagraphCtor({
+      ...opts,
+      bidirectional: opts?.bidirectional ?? true,
+      alignment: opts?.alignment ?? docx.AlignmentType.RIGHT,
+    });
+
   if (header.company_name) {
     children.push(
-      new docx.Paragraph({
+      arPara({
         children: [
-          new docx.TextRun({
+          arRun({
             text: header.company_name,
             bold: true,
             size: 36,
@@ -2782,9 +2801,9 @@ async function generateWordDocument(
     );
   }
   children.push(
-    new docx.Paragraph({
+    arPara({
       children: [
-        new docx.TextRun({
+        arRun({
           text: title,
           bold: true,
           size: 28,
@@ -2797,9 +2816,9 @@ async function generateWordDocument(
   );
   if (header.subtitle) {
     children.push(
-      new docx.Paragraph({
+      arPara({
         children: [
-          new docx.TextRun({
+          arRun({
             text: header.subtitle,
             size: 20,
             color: "718096",
@@ -2811,9 +2830,9 @@ async function generateWordDocument(
   }
   if (header.date) {
     children.push(
-      new docx.Paragraph({
+      arPara({
         children: [
-          new docx.TextRun({ text: header.date, size: 18, color: "A0AEC0" }),
+          arRun({ text: header.date, size: 18, color: "A0AEC0" }),
         ],
         alignment: docx.AlignmentType.CENTER,
       }),
@@ -2822,9 +2841,9 @@ async function generateWordDocument(
   if (header.extra_info) {
     for (const info of header.extra_info) {
       children.push(
-        new docx.Paragraph({
+        arPara({
           children: [
-            new docx.TextRun({ text: info, size: 18, color: "718096" }),
+            arRun({ text: info, size: 18, color: "718096" }),
           ],
           alignment: docx.AlignmentType.CENTER,
         }),
@@ -2832,7 +2851,7 @@ async function generateWordDocument(
     }
   }
   children.push(
-    new docx.Paragraph({
+    arPara({
       children: [],
       spacing: { after: 200 },
       border: {
@@ -2844,9 +2863,9 @@ async function generateWordDocument(
   for (const section of sections) {
     if (section.title) {
       children.push(
-        new docx.Paragraph({
+        arPara({
           children: [
-            new docx.TextRun({
+            arRun({
               text: section.title,
               bold: true,
               size: 24,
@@ -2861,8 +2880,8 @@ async function generateWordDocument(
 
     if (section.type === "text" && section.text) {
       children.push(
-        new docx.Paragraph({
-          children: [new docx.TextRun({ text: section.text, size: 20 })],
+        arPara({
+          children: [arRun({ text: section.text, size: 20 })],
           spacing: { after: 200 },
         }),
       );
@@ -2871,10 +2890,10 @@ async function generateWordDocument(
     if (section.type === "key_value" && section.data) {
       for (const [key, value] of Object.entries(section.data)) {
         children.push(
-          new docx.Paragraph({
+          arPara({
             children: [
-              new docx.TextRun({ text: `${key}: `, bold: true, size: 20 }),
-              new docx.TextRun({ text: String(value), size: 20 }),
+              arRun({ text: `${key}: `, bold: true, size: 20 }),
+              arRun({ text: String(value), size: 20 }),
             ],
             spacing: { after: 60 },
           }),
@@ -2885,14 +2904,14 @@ async function generateWordDocument(
     if (section.type === "summary" && section.items) {
       for (const item of section.items) {
         children.push(
-          new docx.Paragraph({
+          arPara({
             children: [
-              new docx.TextRun({
+              arRun({
                 text: `${item.label}: `,
                 bold: true,
                 size: 20,
               }),
-              new docx.TextRun({ text: String(item.value), size: 20 }),
+              arRun({ text: String(item.value), size: 20 }),
             ],
             spacing: { after: 60 },
           }),
@@ -2905,9 +2924,9 @@ async function generateWordDocument(
         (col: string) =>
           new docx.TableCell({
             children: [
-              new docx.Paragraph({
+              arPara({
                 children: [
-                  new docx.TextRun({
+                  arRun({
                     text: col,
                     bold: true,
                     size: 18,
@@ -2929,9 +2948,9 @@ async function generateWordDocument(
               (cell: string) =>
                 new docx.TableCell({
                   children: [
-                    new docx.Paragraph({
+                    arPara({
                       children: [
-                        new docx.TextRun({
+                        arRun({
                           text: String(cell || ""),
                           size: 18,
                         }),
@@ -2956,21 +2975,21 @@ async function generateWordDocument(
         }),
       );
       children.push(
-        new docx.Paragraph({ children: [], spacing: { after: 200 } }),
+        arPara({ children: [], spacing: { after: 200 } }),
       );
     }
   }
 
   if (footer.signatures && Array.isArray(footer.signatures)) {
     children.push(
-      new docx.Paragraph({ children: [], spacing: { before: 400 } }),
+      arPara({ children: [], spacing: { before: 400 } }),
     );
     for (const sig of footer.signatures) {
       children.push(
-        new docx.Paragraph({
+        arPara({
           children: [
-            new docx.TextRun({ text: sig.title || "", bold: true, size: 20 }),
-            new docx.TextRun({
+            arRun({ text: sig.title || "", bold: true, size: 20 }),
+            arRun({
               text: `    ${sig.name || "_______________"}`,
               size: 20,
             }),
@@ -2982,9 +3001,9 @@ async function generateWordDocument(
   }
   if (footer.text) {
     children.push(
-      new docx.Paragraph({
+      arPara({
         children: [
-          new docx.TextRun({ text: footer.text, size: 16, color: "A0AEC0" }),
+          arRun({ text: footer.text, size: 16, color: "A0AEC0" }),
         ],
         alignment: docx.AlignmentType.CENTER,
         spacing: { before: 400 },
