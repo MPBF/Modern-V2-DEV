@@ -24,3 +24,17 @@ export function processArabicText(text: string): string {
     return text;
   }
 }
+
+// لاستخدامها مع pdfkit + fontkit: يعيد ترتيب الكلمات (Bidi) فقط دون إعادة تشكيل،
+// لأن fontkit يتولى تشكيل الحروف تلقائياً من حروف Unicode الأصلية.
+export function bidiReorderArabic(text: string): string {
+  if (!text) return "";
+  if (!ARABIC_REGEX.test(text)) return text;
+  try {
+    const embeddingLevels = bidi.getEmbeddingLevels(text, "rtl");
+    return bidi.getReorderedString(text, embeddingLevels);
+  } catch (e) {
+    console.error("Arabic bidi reorder error:", e);
+    return text;
+  }
+}

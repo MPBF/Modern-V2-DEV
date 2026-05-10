@@ -59,6 +59,7 @@ import { db } from "./db";
 import { objectStorageClient } from "./replit_integrations/object_storage";
 import {
   processArabicText,
+  bidiReorderArabic,
   isArabicText,
 } from "./services/arabic-text-service";
 
@@ -2488,9 +2489,9 @@ async function generatePdfDocument(
 
     const safeText = (text: string) => {
       if (!text) return "";
-      if (isArabicText(text) && hasArabicFont) return text;
-      if (isArabicText(text)) return processArabicText(text);
-      return text;
+      if (!isArabicText(text)) return text;
+      if (hasArabicFont) return bidiReorderArabic(text);
+      return processArabicText(text);
     };
 
     if (hasArabicFont) {
