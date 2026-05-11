@@ -4622,7 +4622,7 @@ export default function Definitions() {
         {/* Customer Products Add/Edit Dialog */}
         {selectedTab === "customer-products" && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto sm:max-w-[95vw] w-full mx-4">
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto w-full mx-4">
               <DialogHeader>
                 <DialogTitle className="text-lg sm:text-xl">
                   {editingItem
