@@ -525,7 +525,20 @@ function ChatPanel() {
   };
 
   const sendMessage = async (overrideInput?: string) => {
-    const messageText = overrideInput ?? input;
+    let messageText = overrideInput ?? input;
+    const trimmed = messageText.trim();
+    if (trimmed.startsWith("/") && customCommands.length > 0) {
+      const firstWord = trimmed.split(/\s+/)[0];
+      const matched = customCommands.find(
+        (c) => c.is_active && c.trigger === firstWord,
+      );
+      if (matched) {
+        const rest = trimmed.slice(firstWord.length).trim();
+        messageText = rest
+          ? `${matched.prompt_template}\n\n${rest}`
+          : matched.prompt_template;
+      }
+    }
     if ((!messageText.trim() && !selectedFile) || isLoading) return;
 
     abortRef.current?.abort();
