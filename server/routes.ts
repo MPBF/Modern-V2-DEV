@@ -5,6 +5,13 @@ import { createServer, type Server } from "http";
 
 import bcrypt from "bcrypt";
 
+const TRANSLATE_NAME_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const TRANSLATE_NAME_CACHE_MAX = 1000;
+const translateNameCache = new Map<
+  string,
+  { translatedText: string; expiresAt: number }
+>();
+
 // Helper: add a sheet from an array of objects to a workbook
 function addJsonSheet(
   workbook: ExcelJS.Workbook,
@@ -4935,6 +4942,19 @@ export async function registerRoutes(
           .json({ message: "النص واللغة المستهدفة مطلوبان" });
       }
 
+      const normalizedText =
+        targetLanguage === "ar"
+          ? String(text).trim().toLowerCase()
+          : String(text).trim();
+      const cacheKey = `${targetLanguage}:${normalizedText}`;
+      const cached = translateNameCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        translateNameCache.delete(cacheKey);
+        translateNameCache.set(cacheKey, cached);
+        return res.json({ translatedText: cached.translatedText });
+      }
+      if (cached) translateNameCache.delete(cacheKey);
+
       // Check if OpenAI is available
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI();
@@ -4999,6 +5019,17 @@ Input: ${text}`;
         if (dq % 2 !== 0 && translatedText.endsWith('"')) {
           translatedText = translatedText.slice(0, -1).trim();
         }
+      }
+
+      if (translatedText) {
+        if (translateNameCache.size >= TRANSLATE_NAME_CACHE_MAX) {
+          const firstKey = translateNameCache.keys().next().value;
+          if (firstKey !== undefined) translateNameCache.delete(firstKey);
+        }
+        translateNameCache.set(cacheKey, {
+          translatedText,
+          expiresAt: Date.now() + TRANSLATE_NAME_CACHE_TTL_MS,
+        });
       }
 
       res.json({ translatedText });
