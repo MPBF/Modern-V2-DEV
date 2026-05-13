@@ -1,11 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Database, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Skeleton } from "../ui/skeleton";
 import {
@@ -183,8 +189,45 @@ export default function LegacyCustomerProductsTab() {
   const notConfigured =
     errStatus === 503 && /legacy_not_configured/i.test(errorMessage);
 
+  const [clicheRow, setClicheRow] = useState<LegacyRow | null>(null);
+  const {
+    data: clicheData,
+    isLoading: clicheLoading,
+    error: clicheError,
+  } = useQuery<{ front: string | null; back: string | null }>({
+    queryKey: [
+      "/api/legacy/customer-products",
+      clicheRow?.id,
+      "cliches",
+    ],
+    enabled: clicheRow !== null,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const titleAr = "القاعدة القديمة";
   const titleEn = "Legacy Database";
+
+  const renderCliche = (raw: string | null | undefined) => {
+    if (!raw) {
+      return (
+        <div className="flex items-center justify-center h-48 text-sm text-muted-foreground border rounded">
+          {isAr ? "لا توجد صورة" : "No image"}
+        </div>
+      );
+    }
+    const trimmed = raw.trim();
+    const src = trimmed.startsWith("data:")
+      ? trimmed
+      : `data:image/png;base64,${trimmed}`;
+    return (
+      <img
+        src={src}
+        alt="cliche"
+        className="max-h-72 w-auto mx-auto object-contain border rounded bg-white"
+      />
+    );
+  };
 
   const headerLabel = (c: { ar: string; en: string }) =>
     isAr ? `${c.ar}` : `${c.en}`;
@@ -258,6 +301,12 @@ export default function LegacyCustomerProductsTab() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="text-center whitespace-nowrap px-2 text-xs">
+                      <div>{isAr ? "إجراءات" : "Actions"}</div>
+                      <div className="text-[10px] opacity-70 font-normal">
+                        {isAr ? "Actions" : "إجراءات"}
+                      </div>
+                    </TableHead>
                     {COLUMNS.map((c) => (
                       <TableHead
                         key={String(c.key)}
@@ -275,6 +324,9 @@ export default function LegacyCustomerProductsTab() {
                   {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <TableRow key={`sk-${i}`}>
+                        <TableCell className="text-center px-2">
+                          <Skeleton className="h-4 w-12 mx-auto" />
+                        </TableCell>
                         {COLUMNS.map((c) => (
                           <TableCell
                             key={String(c.key)}
@@ -288,7 +340,7 @@ export default function LegacyCustomerProductsTab() {
                   ) : rows.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={COLUMNS.length}
+                        colSpan={COLUMNS.length + 1}
                         className="py-8 text-center text-muted-foreground"
                         data-testid="legacy-empty"
                       >
@@ -301,6 +353,19 @@ export default function LegacyCustomerProductsTab() {
                         key={row.id}
                         data-testid={`legacy-row-${row.id}`}
                       >
+                        <TableCell className="text-center whitespace-nowrap px-2 text-xs">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => setClicheRow(row)}
+                            data-testid={`legacy-view-cliche-${row.id}`}
+                            title={isAr ? "عرض الكليشة" : "View clichés"}
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            {isAr ? "عرض" : "View"}
+                          </Button>
+                        </TableCell>
                         {COLUMNS.map((c) => (
                           <TableCell
                             key={String(c.key)}
@@ -376,6 +441,60 @@ export default function LegacyCustomerProductsTab() {
           </>
         )}
       </CardContent>
+
+      <Dialog
+        open={clicheRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setClicheRow(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-3xl"
+          dir={isAr ? "rtl" : "ltr"}
+          data-testid="legacy-cliche-dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {isAr ? "صور الكليشة" : "Cliché images"}
+              {clicheRow ? (
+                <span className="ms-2 text-xs text-muted-foreground font-normal">
+                  #{clicheRow.id}
+                  {clicheRow.item_full_name || clicheRow.item_name
+                    ? ` · ${clicheRow.item_full_name || clicheRow.item_name}`
+                    : ""}
+                </span>
+              ) : null}
+            </DialogTitle>
+          </DialogHeader>
+          {clicheLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-72 w-full" />
+              <Skeleton className="h-72 w-full" />
+            </div>
+          ) : clicheError ? (
+            <div className="text-center py-8 text-red-600 text-sm">
+              {isAr
+                ? "تعذر تحميل صور الكليشة."
+                : "Failed to load cliché images."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs font-medium mb-2 text-center">
+                  {isAr ? "الوجه الأمامي" : "Front"}
+                </div>
+                {renderCliche(clicheData?.front)}
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-2 text-center">
+                  {isAr ? "الوجه الخلفي" : "Back"}
+                </div>
+                {renderCliche(clicheData?.back)}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

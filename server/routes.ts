@@ -16682,6 +16682,64 @@ Input: ${text}`;
     },
   );
 
+  app.get(
+    "/api/legacy/customer-products/:id/cliches",
+    requireAuth,
+    requirePermission(
+      "view_legacy_database",
+      "manage_legacy_database",
+      "manage_definitions",
+      "admin",
+    ),
+    async (req, res) => {
+      try {
+        if (!isLegacyDbConfigured()) {
+          return res.status(503).json({
+            message: "legacy_not_configured",
+            detail:
+              "قاعدة البيانات القديمة غير مهيأة. أضف السر LEGACY_DATABASE_URL.",
+          });
+        }
+        const pool = getLegacyPool();
+        if (!pool) {
+          return res.status(503).json({
+            message: "legacy_not_configured",
+            detail: "تعذر الاتصال بقاعدة البيانات القديمة.",
+          });
+        }
+
+        const id = parseInt(String(req.params.id), 10);
+        if (!Number.isFinite(id) || id <= 0) {
+          return res.status(400).json({ message: "invalid_id" });
+        }
+
+        const result = await pool.query(
+          `SELECT cliche_front_design AS front, cliche_back_design AS back
+             FROM public.customer_products
+            WHERE id = $1
+            LIMIT 1`,
+          [id],
+        );
+        if (result.rows.length === 0) {
+          return res.status(404).json({ message: "not_found" });
+        }
+        const row = result.rows[0] as { front: string | null; back: string | null };
+        res.json({
+          front: row.front || null,
+          back: row.back || null,
+        });
+      } catch (error) {
+        const detail =
+          error instanceof Error ? error.message : String(error);
+        console.error("Error reading legacy clichés:", detail);
+        res.status(500).json({
+          message: "legacy_query_failed",
+          detail: "خطأ في قراءة صور الكليشة",
+        });
+      }
+    },
+  );
+
   const httpServer = existingServer || createServer(app);
   return httpServer;
 }
