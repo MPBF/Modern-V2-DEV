@@ -2034,6 +2034,14 @@ function AddPackagingUnitDialog({
     is_default: false,
   });
 
+  const { data: existingUnits = [] } = useQuery<any[]>({
+    queryKey: ["/api/items", itemId, "packaging-units"],
+    enabled: open,
+  });
+  const currentDefault = existingUnits.find(
+    (u: any) => u.is_default && u.is_active,
+  );
+
   useEffect(() => {
     if (open) {
       setForm({
@@ -2161,6 +2169,13 @@ function AddPackagingUnitDialog({
               {t("definitions.items.packagingUnits.isDefault")}
             </Label>
           </div>
+          {form.is_default && currentDefault && (
+            <div className="text-xs text-amber-700 dark:text-amber-300">
+              {t("definitions.items.packagingUnits.swapDefaultWarning", {
+                name: currentDefault.name,
+              })}
+            </div>
+          )}
           {computed !== null && (
             <div className="text-xs text-gray-500">
               {t("definitions.items.packagingUnits.computed", {

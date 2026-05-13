@@ -6652,6 +6652,20 @@ function PackagingUnitsManagerDialog({
               {t("definitions.items.packagingUnits.addNew")}
             </Button>
           </div>
+          {form.is_default &&
+            (() => {
+              const currentDefault = (units as any[]).find(
+                (u: any) => u.is_default && u.is_active,
+              );
+              return currentDefault ? (
+                <div className="sm:col-span-12 text-xs text-amber-700 dark:text-amber-300">
+                  {t(
+                    "definitions.items.packagingUnits.swapDefaultWarning",
+                    { name: currentDefault.name },
+                  )}
+                </div>
+              ) : null;
+            })()}
         </form>
 
         <div className="mt-2 border rounded-md overflow-hidden">

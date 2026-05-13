@@ -3189,7 +3189,8 @@
         "inUse": "In use",
         "confirmDeactivateTitle": "Deactivate packaging unit?",
         "confirmDeactivateDesc": "\"{{name}}\" is currently selected on at least one open receipt line. Deactivating it will switch those lines to the default packaging unit, but their manually-entered received weights will be kept. Continue?",
-        "deactivateAnyway": "Deactivate"
+        "deactivateAnyway": "Deactivate",
+        "swapDefaultWarning": "\"{{name}}\" will be replaced as the default"
       }
     },
     "customerProducts": {
