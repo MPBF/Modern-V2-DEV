@@ -30,3 +30,9 @@ id = "B2SfXzOZSMegxXYWEwPSv"
 uri = "file://exports/debt_notice_test.pdf"
 type = "pdf"
 title = "إشعار مديونية - اختبار العربية بعد الإصلاح"
+
+[[outputs]]
+id = "Lfe5ohHrmTef8N2FTF_eb"
+uri = "file://DEVELOPER_GUIDE.md"
+type = "text"
+title = "MPBF Developer Guide"
