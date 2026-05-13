@@ -1,0 +1,105 @@
+026-05-11 19:55:56.91
+819179aa
+User
+⚠️ [WARNING] GET /api/company/logo took 603ms
+2026-05-12 09:56:54.42
+819179aa
+User
+⚠️ [WARNING] GET /api/company/logo took 751ms
+2026-05-12 17:00:42.53
+819179aa
+User
+⚠️ [WARNING] GET /api/categories took 800ms
+
+2026-05-12 17:48:51.96
+819179aa
+User
+⚠️ [WARNING] GET /api/dashboard/stats took 1245ms
+2026-05-12 18:12:29.53
+819179aa
+User
+⚠️ [WARNING] GET /api/production/monitoring-dashboard took 511ms
+2026-05-12 18:32:43.16
+819179aa
+User
+⚠️ [WARNING] POST /api/rolls/create-with-timing took 519ms
+2026-05-12 18:40:35.59
+819179aa
+User
+⚠️ [CRITICAL] POST /api/translate-name took 3535ms
+2026-05-12 18:46:57.11
+819179aa
+User
+⚠️ [WARNING] POST /api/translate-name took 1096ms
+2026-05-12 18:49:03.37
+819179aa
+User
+⚠️ [CRITICAL] POST /api/translate-name took 2476ms
+2026-05-12 18:50:24.44
+819179aa
+User
+⚠️ [WARNING] POST /api/translate-name took 1277ms
+2026-05-12 18:53:01.34
+819179aa
+User
+⚠️ [WARNING] POST /api/translate-name took 1417ms
+2026-05-12 19:37:22.45
+819179aa
+User
+⚠️ [CRITICAL] GET /api/company/logo took 4723ms
+2026-05-12 19:39:10.15
+819179aa
+User
+⚠️ [WARNING] GET /api/login-replit took 796ms
+2026-05-12 22:08:46.82
+819179aa
+User
+💡 The application will continue running and attempt to reconnect on next query
+2026-05-12 22:08:46.82
+819179aa
+User
+📍 Error code: 57P01
+2026-05-12 22:08:46.82
+819179aa
+User
+🔴 Database pool error (non-fatal): terminating connection due to administrator command
+2026-05-13 00:26:29.29
+819179aa
+User
+⚠️ [WARNING] GET /api/company/logo took 710ms
+2026-05-13 08:30:33.33
+819179aa
+User
+⚠️ [WARNING] POST /api/translate-name took 1837ms
+2026-05-13 08:58:28.53
+819179aa
+User
+⚠️ [CRITICAL] POST /api/translate-name took 2804ms
+2026-05-13 09:50:35.85
+819179aa
+User
+⚠️ [CRITICAL] GET /api/company/logo took 2667ms
+2026-05-13 11:14:04.47
+819179aa
+User
+⚠️ [WARNING] POST /api/rolls/create-with-timing took 510ms
+2026-05-13 14:51:45.46
+819179aa
+User
+⚠️ [WARNING] POST /api/rolls/create-with-timing took 511ms
+2026-05-13 18:53:16.85
+819179aa
+User
+💡 The application will continue running and attempt to reconnect on next query
+2026-05-13 18:53:16.85
+819179aa
+User
+🔴 Database pool error (non-fatal): terminating connection due to administrator command
+2026-05-13 18:53:16.85
+819179aa
+User
+📍 Error code: 57P01
+2026-05-13 19:32:32.50
+819179aa
+User
+⚠️ [CRITICAL] POST /api/translate-name took 3057ms
