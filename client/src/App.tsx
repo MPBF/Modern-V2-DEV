@@ -79,6 +79,7 @@ const WhatsAppWebhooks = lazyWithRetry(
   () => import("./pages/whatsapp-webhooks"),
 );
 const ToolsPage = lazyWithRetry(() => import("./pages/tools_page"));
+const AdminTools = lazyWithRetry(() => import("./pages/admin-tools"));
 const FilmOperatorDashboard = lazyWithRetry(
   () => import("./pages/FilmOperatorDashboard"),
 );
@@ -184,6 +185,11 @@ function AppRoutes() {
         <Route path="/tools">
           <ProtectedRoute path="/tools">
             <ToolsPage />
+          </ProtectedRoute>
+        </Route>
+        <Route path="/admin-tools">
+          <ProtectedRoute path="/admin-tools">
+            <AdminTools />
           </ProtectedRoute>
         </Route>
 

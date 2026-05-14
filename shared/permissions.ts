@@ -816,6 +816,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey[]> = {
 
   // Tools and utilities
   "/tools": ["view_tools", "view_production", "manage_production"],
+  "/admin-tools": ["view_tools", "view_production", "manage_production"],
   "/material-mixing": ["view_mixing", "manage_mixing", "view_production"],
 
   // Factory simulation

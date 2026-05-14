@@ -18,6 +18,7 @@ import {
   Tv,
   Plug,
   Wand2,
+  ClipboardList,
 } from "lucide-react";
 
 export interface NavigationItem {
@@ -136,6 +137,15 @@ export const navigationItems: NavigationItem[] = [
     name_en: "Tools",
     icon: Wrench,
     path: "/tools",
+    priority: 12,
+    group: "admin",
+  },
+  {
+    name: "الأدوات الإدارية",
+    name_ar: "الأدوات الإدارية",
+    name_en: "Admin Tools",
+    icon: ClipboardList,
+    path: "/admin-tools",
     priority: 12,
     group: "admin",
   },
