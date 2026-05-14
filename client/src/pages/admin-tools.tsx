@@ -165,7 +165,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
   const [rows, setRows] = useState<RollRow[]>([
     { id: uid(), description: "", quantity: "", weight: "", notes: "" },
   ]);
-  const defaultDisclaimer = `أقر أنا الموقع أدناه باستلام البضاعة المذكورة أعلاه بحالتها وكميتها ومواصفاتها كما هي مبينة في هذا النموذج، وأخلي مسؤولية الشركة (مصنع أكياس البلاستيك) من أي عيوب أو نواقص أو أضرار قد تظهر بعد توقيعي على هذا النموذج، حيث تم فحص البضاعة والتأكد من مطابقتها قبل التوقيع. كما أتحمل كامل المسؤولية عن نقل البضاعة وتخزينها بعد لحظة الاستلام.`;
+  const defaultDisclaimer = `أقر أنا الموقع أدناه باستلام الاصناف المذكورة أعلاه بحالتها وكميتها ومواصفاتها كما هي مبينة في هذا النموذج، وأخلي مسؤولية  (مصنع أكياس البلاستيك الحديث) من أي عيوب أو نواقص أو أضرار قد تظهر بعد توقيعي على هذا النموذج، حيث تم فحص البضاعة والتأكد من مطابقتها قبل التوقيع. كما أتحمل كامل المسؤولية عن نقل البضاعة وتخزينها بعد لحظة الاستلام.`;
   const [disclaimer, setDisclaimer] = useState(defaultDisclaimer);
   const printArea = useRef<HTMLDivElement>(null);
 
@@ -235,11 +235,11 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
               />
             </div>
             <div>
-              <Label>السيارة / اللوحة</Label>
+              <Label>رقم الجوال:</Label>
               <Input value={vehicle} onChange={(e) => setVehicle(e.target.value)} />
             </div>
             <div>
-              <Label>اسم السائق</Label>
+              <Label>اسم المفوض</Label>
               <Input value={driver} onChange={(e) => setDriver(e.target.value)} />
             </div>
             <div>
@@ -269,7 +269,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
                   <tr>
                     <th className="p-2 text-start">الوصف</th>
                     <th className="p-2 text-start w-24">الكمية</th>
-                    <th className="p-2 text-start w-28">الوزن (كجم)</th>
+                    <th className="p-2 text-start w-28">الوحدة </th>
                     <th className="p-2 text-start">ملاحظات</th>
                     <th className="p-2 w-12"></th>
                   </tr>
@@ -281,7 +281,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
                         <Input
                           value={r.description}
                           onChange={(e) => updateRow(r.id, "description", e.target.value)}
-                          placeholder="نوع/مقاس الرول"
+                          placeholder="نوع/مقاس "
                         />
                       </td>
                       <td className="p-1">
@@ -351,7 +351,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
         <div ref={printArea} className="doc">
           <DocHeader
             logoUrl={logoUrl}
-            title="نموذج تسليم رولات وإخلاء مسؤولية"
+            title="نموذج تسليم وإخلاء مسؤولية"
             subtitle="Delivery & Disclaimer Form"
           />
           <div className="doc-meta">
@@ -368,10 +368,10 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
               <b>رقم النموذج:</b> {reference}
             </div>
             <div>
-              <b>السيارة:</b> {vehicle || "-"}
+              <b>الجوال:</b> {vehicle || "-"}
             </div>
             <div>
-              <b>السائق:</b> {driver || "-"}
+              <b>المفوض:</b> {driver || "-"}
             </div>
           </div>
 
@@ -382,7 +382,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
                 <th>#</th>
                 <th>الوصف</th>
                 <th>الكمية</th>
-                <th>الوزن (كجم)</th>
+                <th>الوحدة </th>
                 <th>ملاحظات</th>
               </tr>
             </thead>
@@ -413,7 +413,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
           <SignatureBlock
             labels={[
               { label: "توقيع المستلم", name: recipientName || customer?.name_ar || customer?.name },
-              { label: "توقيع السائق", name: driver },
+              { label: "توقيع المفوض", name: driver },
               { label: "توقيع المسؤول" },
             ]}
           />
