@@ -239,6 +239,11 @@ import {
   bag_weight_records,
   type BagWeightRecord,
   type InsertBagWeightRecord,
+
+  // Delivery Manifests
+  delivery_manifests,
+  type DeliveryManifest,
+  type InsertDeliveryManifest,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { eq, desc, and, sql, count, inArray, or } from "drizzle-orm";
@@ -986,6 +991,19 @@ export interface IStorage {
     slide: Partial<DisplaySlide>,
   ): Promise<DisplaySlide>;
   deleteDisplaySlide(id: number): Promise<void>;
+
+  // Delivery Manifests
+  getDeliveryManifests(): Promise<DeliveryManifest[]>;
+  getDeliveryManifestById(id: number): Promise<DeliveryManifest | undefined>;
+  createDeliveryManifest(
+    data: InsertDeliveryManifest,
+    userId: number,
+  ): Promise<DeliveryManifest>;
+  updateDeliveryManifest(
+    id: number,
+    updates: Partial<InsertDeliveryManifest>,
+  ): Promise<DeliveryManifest>;
+  deleteDeliveryManifest(id: number): Promise<void>;
 
   // Experimental Blends
   getExperimentalBlends(): Promise<ExperimentalBlend[]>;
@@ -8719,6 +8737,52 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(bag_weight_records)
       .where(eq(bag_weight_records.user_id, userId));
+  }
+
+  // ============ DELIVERY MANIFESTS ============
+
+  async getDeliveryManifests(): Promise<DeliveryManifest[]> {
+    return await db
+      .select()
+      .from(delivery_manifests)
+      .orderBy(desc(delivery_manifests.created_at));
+  }
+
+  async getDeliveryManifestById(
+    id: number,
+  ): Promise<DeliveryManifest | undefined> {
+    const [m] = await db
+      .select()
+      .from(delivery_manifests)
+      .where(eq(delivery_manifests.id, id));
+    return m;
+  }
+
+  async createDeliveryManifest(
+    data: InsertDeliveryManifest,
+    userId: number,
+  ): Promise<DeliveryManifest> {
+    const [m] = await db
+      .insert(delivery_manifests)
+      .values({ ...data, created_by: userId })
+      .returning();
+    return m;
+  }
+
+  async updateDeliveryManifest(
+    id: number,
+    updates: Partial<InsertDeliveryManifest>,
+  ): Promise<DeliveryManifest> {
+    const [u] = await db
+      .update(delivery_manifests)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(delivery_manifests.id, id))
+      .returning();
+    return u;
+  }
+
+  async deleteDeliveryManifest(id: number): Promise<void> {
+    await db.delete(delivery_manifests).where(eq(delivery_manifests.id, id));
   }
 }
 

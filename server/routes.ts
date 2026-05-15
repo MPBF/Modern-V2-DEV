@@ -158,6 +158,7 @@ import {
   updateUserSchema,
   insertMixingRecipeSchema,
   insertBagWeightRecordSchema,
+  insertDeliveryManifestSchema,
   insertPackagingUnitSchema,
 } from "@shared/schema";
 import { eq, sql, and, gte, lte, gt, desc, inArray } from "drizzle-orm";
@@ -16736,6 +16737,148 @@ Input: ${text}`;
           message: "legacy_query_failed",
           detail: "خطأ في قراءة صور الكليشة",
         });
+      }
+    },
+  );
+
+  // ============ DELIVERY MANIFESTS (Admin Tools) ============
+  const deliveryStopSchema = z.object({
+    id: z.string().optional(),
+    customerId: z.string().max(100),
+    customerName: z.string().max(200).optional().default(""),
+    contactPhone: z.string().max(50).optional().default(""),
+    inChargeName: z.string().max(200).optional().default(""),
+    notes: z.string().max(2000).optional().default(""),
+    imageDataUrl: z.string().max(2_000_000).optional().default(""),
+    zone: z.number().int().min(1).max(20),
+  });
+  const deliveryManifestPayloadSchema = insertDeliveryManifestSchema.extend({
+    reference: z.string().min(1).max(50),
+    stops: z.array(deliveryStopSchema).max(50),
+  });
+
+  function parseManifestId(raw: string, res: any): number | null {
+    const id = Number(raw);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ message: "معرف الكشف غير صحيح" });
+      return null;
+    }
+    return id;
+  }
+
+  app.get(
+    "/api/delivery-manifests",
+    requireAuth,
+    requirePermission("manage_production"),
+    async (_req: AuthRequest, res) => {
+      try {
+        const list = await storage.getDeliveryManifests();
+        res.json({ data: list });
+      } catch (error) {
+        console.error("Error listing delivery manifests:", error);
+        res.status(500).json({ message: "خطأ في جلب كشوف التوصيل" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/delivery-manifests/:id",
+    requireAuth,
+    requirePermission("manage_production"),
+    async (req: AuthRequest, res) => {
+      try {
+        const id = parseManifestId(req.params.id, res);
+        if (id === null) return;
+        const m = await storage.getDeliveryManifestById(id);
+        if (!m) {
+          return res.status(404).json({ message: "الكشف غير موجود" });
+        }
+        res.json(m);
+      } catch (error) {
+        console.error("Error fetching delivery manifest:", error);
+        res.status(500).json({ message: "خطأ في جلب الكشف" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/delivery-manifests",
+    requireAuth,
+    requirePermission("manage_production"),
+    async (req: AuthRequest, res) => {
+      try {
+        const parsed = deliveryManifestPayloadSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({
+            message: "بيانات غير صحيحة",
+            errors: parsed.error.errors,
+          });
+        }
+        if (!parsed.data.stops.some((s) => s.customerId)) {
+          return res
+            .status(400)
+            .json({ message: "أضف عميلاً واحداً على الأقل" });
+        }
+        const userId = getAuthUserId(req);
+        const created = await storage.createDeliveryManifest(
+          parsed.data,
+          userId as number,
+        );
+        res.json(created);
+      } catch (error) {
+        console.error("Error creating delivery manifest:", error);
+        res.status(500).json({ message: "خطأ في حفظ الكشف" });
+      }
+    },
+  );
+
+  app.put(
+    "/api/delivery-manifests/:id",
+    requireAuth,
+    requirePermission("manage_production"),
+    async (req: AuthRequest, res) => {
+      try {
+        const id = parseManifestId(req.params.id, res);
+        if (id === null) return;
+        const existing = await storage.getDeliveryManifestById(id);
+        if (!existing) {
+          return res.status(404).json({ message: "الكشف غير موجود" });
+        }
+        const parsed = deliveryManifestPayloadSchema
+          .partial()
+          .safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({
+            message: "بيانات غير صحيحة",
+            errors: parsed.error.errors,
+          });
+        }
+        const updated = await storage.updateDeliveryManifest(id, parsed.data);
+        res.json(updated);
+      } catch (error) {
+        console.error("Error updating delivery manifest:", error);
+        res.status(500).json({ message: "خطأ في تعديل الكشف" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/delivery-manifests/:id",
+    requireAuth,
+    requirePermission("manage_production"),
+    async (req: AuthRequest, res) => {
+      try {
+        const id = parseManifestId(req.params.id, res);
+        if (id === null) return;
+        const existing = await storage.getDeliveryManifestById(id);
+        if (!existing) {
+          return res.status(404).json({ message: "الكشف غير موجود" });
+        }
+        await storage.deleteDeliveryManifest(id);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error deleting delivery manifest:", error);
+        res.status(500).json({ message: "خطأ في حذف الكشف" });
       }
     },
   );

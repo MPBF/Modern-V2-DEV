@@ -4466,3 +4466,28 @@ export const insertBagWeightRecordSchema = createInsertSchema(
   user_id: true,
   created_at: true,
 });
+
+// 🚚 جدول كشوف التوصيل (Admin Tools - Delivery Route Manifests)
+export const delivery_manifests = pgTable("delivery_manifests", {
+  id: serial("id").primaryKey(),
+  reference: varchar("reference", { length: 50 }).notNull(),
+  delivery_date: varchar("delivery_date", { length: 20 }),
+  vehicle_plate: varchar("vehicle_plate", { length: 50 }),
+  driver: varchar("driver", { length: 100 }),
+  driver_phone: varchar("driver_phone", { length: 20 }),
+  stops: jsonb("stops").notNull(),
+  created_by: integer("created_by"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDeliveryManifestSchema = createInsertSchema(
+  delivery_manifests,
+).omit({
+  id: true,
+  created_by: true,
+  created_at: true,
+  updated_at: true,
+});
+export type InsertDeliveryManifest = z.infer<typeof insertDeliveryManifestSchema>;
+export type DeliveryManifest = typeof delivery_manifests.$inferSelect;

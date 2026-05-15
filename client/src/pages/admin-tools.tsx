@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ClipboardList,
   FileSignature,
@@ -6,6 +6,10 @@ import {
   Plus,
   Printer,
   Trash2,
+  Edit,
+  FilePlus,
+  FolderOpen,
+  Save,
   Truck,
   Upload,
   Users2,
@@ -29,9 +33,20 @@ import {
 } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Textarea } from "../components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 import { useAuth } from "../hooks/use-auth";
 import { useCompanyLogo } from "../hooks/use-company-logo";
 import { useToast } from "../hooks/use-toast";
+import { apiRequest, queryClient } from "../lib/queryClient";
 
 type Customer = {
   id: string;
@@ -1484,7 +1499,153 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
       zone: 1,
     },
   ]);
+  const [currentId, setCurrentId] = useState<number | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const printArea = useRef<HTMLDivElement>(null);
+
+  type SavedManifest = {
+    id: number;
+    reference: string;
+    delivery_date: string | null;
+    vehicle_plate: string | null;
+    driver: string | null;
+    driver_phone: string | null;
+    stops: DeliveryStop[];
+    created_at: string;
+    updated_at: string;
+  };
+
+  const {
+    data: manifestsResp,
+    isLoading: isLoadingManifests,
+    isError: isManifestsError,
+  } = useQuery<{ data: SavedManifest[] }>({
+    queryKey: ["/api/delivery-manifests"],
+    staleTime: 30 * 1000,
+  });
+  const manifests = manifestsResp?.data || [];
+
+  const resetForm = () => {
+    setCurrentId(null);
+    setReference(`RT-${Date.now().toString().slice(-6)}`);
+    setDate(todayISO());
+    setVehiclePlate("");
+    setDriver("");
+    setDriverPhone("");
+    setStops([
+      {
+        id: uid(),
+        customerId: "",
+        customerName: "",
+        contactPhone: "",
+        inChargeName: "",
+        notes: "",
+        imageDataUrl: "",
+        zone: 1,
+      },
+    ]);
+  };
+
+  const loadManifest = (m: SavedManifest) => {
+    setCurrentId(m.id);
+    setReference(m.reference);
+    setDate(m.delivery_date || todayISO());
+    setVehiclePlate(m.vehicle_plate || "");
+    setDriver(m.driver || "");
+    setDriverPhone(m.driver_phone || "");
+    const loadedStops = Array.isArray(m.stops) && m.stops.length > 0
+      ? m.stops.map((s) => ({ ...s, id: s.id || uid() }))
+      : [
+          {
+            id: uid(),
+            customerId: "",
+            customerName: "",
+            contactPhone: "",
+            inChargeName: "",
+            notes: "",
+            imageDataUrl: "",
+            zone: 1,
+          },
+        ];
+    setStops(loadedStops);
+    toast({
+      title: "تم التحميل",
+      description: `تم تحميل الكشف ${m.reference} للتعديل`,
+    });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        reference,
+        delivery_date: date,
+        vehicle_plate: vehiclePlate,
+        driver,
+        driver_phone: driverPhone,
+        stops,
+      };
+      const res = await apiRequest(
+        currentId
+          ? `/api/delivery-manifests/${currentId}`
+          : "/api/delivery-manifests",
+        {
+          method: currentId ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      );
+      return (await res.json()) as SavedManifest;
+    },
+    onSuccess: (saved) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/delivery-manifests"] });
+      if (saved && typeof saved.id === "number") {
+        setCurrentId(saved.id);
+      }
+      toast({
+        title: "تم الحفظ",
+        description: currentId
+          ? "تم تحديث الكشف بنجاح"
+          : "تم حفظ الكشف بنجاح",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "خطأ",
+        description: err?.message || "تعذر حفظ الكشف",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest(`/api/delivery-manifests/${id}`, { method: "DELETE" });
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/delivery-manifests"] });
+      if (currentId === id) resetForm();
+      toast({ title: "تم الحذف", description: "تم حذف الكشف" });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "خطأ",
+        description: err?.message || "تعذر حذف الكشف",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    if (stops.every((s) => !s.customerId)) {
+      toast({
+        title: "تنبيه",
+        description: "أضف عميلاً واحداً على الأقل قبل الحفظ",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveMutation.mutate();
+  };
 
   const addStop = () => {
     if (stops.length >= TRUCK_ZONES) {
@@ -1620,8 +1781,110 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Saved Manifests Panel */}
+      <Card>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              الكشوف المحفوظة ({manifests.length})
+            </Label>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={resetForm}
+              data-testid="btn-new-manifest"
+            >
+              <FilePlus className="h-4 w-4 me-1" /> كشف جديد
+            </Button>
+          </div>
+          {isLoadingManifests ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              جاري تحميل الكشوف...
+            </p>
+          ) : isManifestsError ? (
+            <p className="text-sm text-red-600 text-center py-4">
+              تعذر تحميل الكشوف المحفوظة
+            </p>
+          ) : manifests.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              لا توجد كشوف محفوظة بعد — املأ النموذج أدناه واضغط "حفظ"
+            </p>
+          ) : (
+            <div className="border rounded-md overflow-x-auto max-h-64 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted sticky top-0">
+                  <tr>
+                    <th className="p-2 text-start">رقم الكشف</th>
+                    <th className="p-2 text-start">التاريخ</th>
+                    <th className="p-2 text-start">السائق</th>
+                    <th className="p-2 text-start">اللوحة</th>
+                    <th className="p-2 text-center">عدد العملاء</th>
+                    <th className="p-2 text-center w-32">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {manifests.map((m) => {
+                    const stopsCount = Array.isArray(m.stops)
+                      ? m.stops.filter((s: any) => s.customerId).length
+                      : 0;
+                    const isCurrent = currentId === m.id;
+                    return (
+                      <tr
+                        key={m.id}
+                        className={`border-t ${isCurrent ? "bg-blue-50 dark:bg-blue-950/30" : ""}`}
+                      >
+                        <td className="p-2 font-medium">
+                          {m.reference}
+                          {isCurrent && (
+                            <span className="ms-2 text-xs text-blue-600">
+                              (قيد التعديل)
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-2">{m.delivery_date || "-"}</td>
+                        <td className="p-2">{m.driver || "-"}</td>
+                        <td className="p-2">{m.vehicle_plate || "-"}</td>
+                        <td className="p-2 text-center">{stopsCount}</td>
+                        <td className="p-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => loadManifest(m)}
+                              aria-label="تعديل الكشف"
+                              data-testid={`btn-load-manifest-${m.id}`}
+                            >
+                              <Edit className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setPendingDeleteId(m.id)}
+                              aria-label="حذف الكشف"
+                              data-testid={`btn-delete-manifest-${m.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="pt-6 space-y-4">
+          {currentId && (
+            <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm text-blue-700 dark:text-blue-300 border border-blue-200">
+              تقوم بتعديل كشف محفوظ. اضغط "كشف جديد" لإلغاء التعديل والبدء من جديد.
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>رقم الكشف</Label>
@@ -1823,13 +2086,61 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={resetForm}
+              data-testid="btn-reset-route"
+            >
+              <FilePlus className="h-4 w-4 me-2" /> كشف جديد
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              data-testid="btn-save-route"
+            >
+              <Save className="h-4 w-4 me-2" />
+              {saveMutation.isPending
+                ? "جاري الحفظ..."
+                : currentId
+                  ? "حفظ التعديلات"
+                  : "حفظ الكشف"}
+            </Button>
             <Button onClick={handlePrint} data-testid="btn-print-route">
               <Printer className="h-4 w-4 me-2" /> طباعة كشف A4
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(o) => !o && setPendingDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد حذف الكشف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا الكشف؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeleteId !== null) {
+                  deleteMutation.mutate(pendingDeleteId);
+                  setPendingDeleteId(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Hidden printable area */}
       <div style={{ display: "none" }}>
