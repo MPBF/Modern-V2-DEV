@@ -6,8 +6,11 @@ import {
   Plus,
   Printer,
   Trash2,
+  Truck,
+  Upload,
   Users2,
   Package,
+  X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +61,29 @@ type AssetItem = {
   condition: string;
 };
 
+type DeliveryStop = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  contactPhone: string;
+  inChargeName: string;
+  notes: string;
+  imageDataUrl: string;
+  zone: number; // 1..TRUCK_ZONES
+};
+
+const TRUCK_ZONES = 8;
+const ZONE_COLORS = [
+  "#fca5a5",
+  "#fcd34d",
+  "#86efac",
+  "#7dd3fc",
+  "#c4b5fd",
+  "#f9a8d4",
+  "#fdba74",
+  "#a3e635",
+];
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -73,7 +99,7 @@ function escapeHtml(s: string) {
 
 function printRef(el: HTMLElement | null, title: string) {
   if (!el) return;
-  const w = window.open("", "_blank", "width=900,height=1100,noopener=no");
+  const w = window.open("", "_blank", "width=900,height=1100");
   if (!w) return;
   const safeTitle = escapeHtml(title);
   const styles = `
@@ -1322,6 +1348,579 @@ function AssetHandoverTab({ logoUrl }: { logoUrl: string }) {
   );
 }
 
+// ------------------------------- Truck SVG ------------------------------
+function TruckDiagram({
+  assignments,
+  onZoneClick,
+  selectedZone,
+}: {
+  assignments: Record<number, { name: string; color: string }>;
+  onZoneClick?: (zone: number) => void;
+  selectedZone?: number;
+}) {
+  // 8 cargo zones inside the trailer body. Trailer drawn side-view.
+  const zoneW = 80;
+  const zoneH = 110;
+  const startX = 30;
+  const startY = 30;
+  const cols = 8;
+  return (
+    <svg
+      viewBox="0 0 760 240"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ width: "100%", maxHeight: 260 }}
+    >
+      {/* Cab */}
+      <rect x="660" y="60" width="80" height="80" rx="6" fill="#1e3a8a" stroke="#0f172a" strokeWidth="2" />
+      <rect x="668" y="70" width="55" height="35" rx="3" fill="#bfdbfe" stroke="#0f172a" />
+      <rect x="685" y="115" width="35" height="22" fill="#374151" />
+      {/* Trailer body outline */}
+      <rect
+        x={startX - 10}
+        y={startY - 10}
+        width={cols * zoneW + 20}
+        height={zoneH + 20}
+        rx="4"
+        fill="#f3f4f6"
+        stroke="#0f172a"
+        strokeWidth="2"
+      />
+      {/* Zones */}
+      {Array.from({ length: cols }).map((_, i) => {
+        const zone = i + 1;
+        const a = assignments[zone];
+        const x = startX + i * zoneW;
+        const isSel = selectedZone === zone;
+        return (
+          <g
+            key={zone}
+            onClick={() => onZoneClick?.(zone)}
+            style={{ cursor: onZoneClick ? "pointer" : "default" }}
+          >
+            <rect
+              x={x}
+              y={startY}
+              width={zoneW - 4}
+              height={zoneH}
+              fill={a?.color || "#ffffff"}
+              stroke={isSel ? "#dc2626" : "#475569"}
+              strokeWidth={isSel ? 3 : 1}
+            />
+            <text
+              x={x + (zoneW - 4) / 2}
+              y={startY + 16}
+              textAnchor="middle"
+              fontSize="13"
+              fontWeight="700"
+              fill="#0f172a"
+            >
+              {zone}
+            </text>
+            {a?.name && (
+              <foreignObject x={x + 2} y={startY + 22} width={zoneW - 8} height={zoneH - 26}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    textAlign: "center",
+                    lineHeight: 1.25,
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                    direction: "rtl",
+                    fontFamily: "Tahoma, Arial, sans-serif",
+                  }}
+                >
+                  {a.name}
+                </div>
+              </foreignObject>
+            )}
+          </g>
+        );
+      })}
+      {/* Back door indicator */}
+      <line x1={startX - 10} y1={startY - 10} x2={startX - 10} y2={startY + zoneH + 10} stroke="#dc2626" strokeWidth="3" />
+      <text x={startX - 18} y={startY + zoneH / 2} textAnchor="middle" fontSize="10" fill="#dc2626" transform={`rotate(-90 ${startX - 18} ${startY + zoneH / 2})`}>الباب الخلفي</text>
+      {/* Wheels */}
+      <circle cx={startX + 30} cy={startY + zoneH + 18} r="14" fill="#111827" />
+      <circle cx={startX + 30} cy={startY + zoneH + 18} r="6" fill="#9ca3af" />
+      <circle cx={startX + 110} cy={startY + zoneH + 18} r="14" fill="#111827" />
+      <circle cx={startX + 110} cy={startY + zoneH + 18} r="6" fill="#9ca3af" />
+      <circle cx={startX + cols * zoneW - 30} cy={startY + zoneH + 18} r="14" fill="#111827" />
+      <circle cx={startX + cols * zoneW - 30} cy={startY + zoneH + 18} r="6" fill="#9ca3af" />
+      <circle cx={680} cy={startY + zoneH + 18} r="14" fill="#111827" />
+      <circle cx={680} cy={startY + zoneH + 18} r="6" fill="#9ca3af" />
+      <circle cx={720} cy={startY + zoneH + 18} r="14" fill="#111827" />
+      <circle cx={720} cy={startY + zoneH + 18} r="6" fill="#9ca3af" />
+      {/* Ground */}
+      <line x1="0" y1={startY + zoneH + 35} x2="760" y2={startY + zoneH + 35} stroke="#9ca3af" strokeWidth="2" strokeDasharray="6 4" />
+    </svg>
+  );
+}
+
+// ------------------------------- Tab 6 ----------------------------------
+function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
+  const { toast } = useToast();
+  const { data: customersResp } = useQuery<Customer[]>({
+    queryKey: ["/api/customers", { all: true }],
+    staleTime: 5 * 60 * 1000,
+  });
+  const customers = Array.isArray(customersResp) ? customersResp : [];
+
+  const [date, setDate] = useState(todayISO());
+  const [vehiclePlate, setVehiclePlate] = useState("");
+  const [driver, setDriver] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+  const [reference, setReference] = useState(`RT-${Date.now().toString().slice(-6)}`);
+  const [stops, setStops] = useState<DeliveryStop[]>([
+    {
+      id: uid(),
+      customerId: "",
+      customerName: "",
+      contactPhone: "",
+      inChargeName: "",
+      notes: "",
+      imageDataUrl: "",
+      zone: 1,
+    },
+  ]);
+  const printArea = useRef<HTMLDivElement>(null);
+
+  const addStop = () => {
+    if (stops.length >= TRUCK_ZONES) {
+      toast({
+        title: "تنبيه",
+        description: `الحد الأقصى ${TRUCK_ZONES} عملاء (مواقع الشاحنة)`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const used = new Set(stops.map((s) => s.zone));
+    let nextZone = 1;
+    while (used.has(nextZone) && nextZone <= TRUCK_ZONES) nextZone++;
+    setStops((s) => [
+      ...s,
+      {
+        id: uid(),
+        customerId: "",
+        customerName: "",
+        contactPhone: "",
+        inChargeName: "",
+        notes: "",
+        imageDataUrl: "",
+        zone: nextZone,
+      },
+    ]);
+  };
+  const removeStop = (id: string) =>
+    setStops((s) => (s.length > 1 ? s.filter((x) => x.id !== id) : s));
+  const updateStop = <K extends keyof DeliveryStop>(
+    id: string,
+    k: K,
+    v: DeliveryStop[K],
+  ) => setStops((s) => s.map((x) => (x.id === id ? { ...x, [k]: v } : x)));
+
+  const handleImageUpload = (id: string, file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "تنبيه",
+        description: "الملف يجب أن يكون صورة فقط",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "تنبيه",
+        description: "حجم الصورة يجب أن يكون أقل من 2 ميجابايت",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Resize to max 600px width for memory + print stability
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 600;
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          updateStop(id, "imageDataUrl", String(reader.result || ""));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        updateStop(id, "imageDataUrl", canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = () => {
+        updateStop(id, "imageDataUrl", String(reader.result || ""));
+      };
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onCustomerChange = (id: string, customerId: string) => {
+    const c = customers.find((x) => x.id === customerId);
+    setStops((s) =>
+      s.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              customerId,
+              customerName: c ? c.name_ar || c.name : "",
+              contactPhone: x.contactPhone || c?.phone || "",
+            }
+          : x,
+      ),
+    );
+  };
+
+  const assignments = useMemo(() => {
+    const map: Record<number, { name: string; color: string }> = {};
+    stops.forEach((s, i) => {
+      if (s.customerName) {
+        map[s.zone] = {
+          name: s.customerName,
+          color: ZONE_COLORS[i % ZONE_COLORS.length],
+        };
+      }
+    });
+    return map;
+  }, [stops]);
+
+  const handlePrint = () => {
+    if (stops.every((s) => !s.customerId)) {
+      toast({
+        title: "تنبيه",
+        description: "أضف عميلاً واحداً على الأقل قبل الطباعة",
+        variant: "destructive",
+      });
+      return;
+    }
+    const filled = stops.filter((s) => s.customerId);
+    const zonesUsed = filled.map((s) => s.zone);
+    const dupZone = zonesUsed.find((z, i) => zonesUsed.indexOf(z) !== i);
+    if (dupZone !== undefined) {
+      toast({
+        title: "تنبيه",
+        description: `الموقع رقم ${dupZone} مستخدم لأكثر من عميل، يرجى تعديل المواقع`,
+        variant: "destructive",
+      });
+      return;
+    }
+    printRef(printArea.current, `Route-${reference}`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>رقم الكشف</Label>
+              <Input
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>تاريخ التوصيل</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>رقم لوحة الشاحنة</Label>
+              <Input
+                value={vehiclePlate}
+                onChange={(e) => setVehiclePlate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>اسم السائق</Label>
+              <Input value={driver} onChange={(e) => setDriver(e.target.value)} />
+            </div>
+            <div>
+              <Label>جوال السائق</Label>
+              <Input
+                value={driverPhone}
+                onChange={(e) => setDriverPhone(e.target.value)}
+                placeholder="05xxxxxxxx"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-base font-semibold">
+              مخطط الشاحنة (تريلر) — الأرقام تمثل مواقع البضاعة
+            </Label>
+            <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+              <TruckDiagram assignments={assignments} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              لكل عميل يمكنك تحديد رقم الموقع (1-8) من القائمة في الجدول، وسيظهر
+              اسمه على الرسم تلقائياً.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">قائمة العملاء والتوصيل</Label>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addStop}
+                data-testid="btn-add-stop"
+              >
+                <Plus className="h-4 w-4 me-1" /> إضافة عميل
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {stops.map((s, i) => (
+                <Card key={s.id} className="border-dashed">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-gray-900"
+                          style={{
+                            background:
+                              ZONE_COLORS[i % ZONE_COLORS.length],
+                          }}
+                        >
+                          {s.zone}
+                        </span>
+                        <span className="text-sm font-semibold">
+                          محطة {i + 1}
+                        </span>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeStop(s.id)}
+                        aria-label="حذف العميل"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">العميل</Label>
+                        <Select
+                          value={s.customerId}
+                          onValueChange={(v) => onCustomerChange(s.id, v)}
+                        >
+                          <SelectTrigger
+                            data-testid={`select-stop-customer-${i}`}
+                          >
+                            <SelectValue placeholder="اختر العميل" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customers.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name_ar || c.name} ({c.id})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">رقم التواصل</Label>
+                        <Input
+                          value={s.contactPhone}
+                          onChange={(e) =>
+                            updateStop(s.id, "contactPhone", e.target.value)
+                          }
+                          placeholder="05xxxxxxxx"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">اسم المسؤول</Label>
+                        <Input
+                          value={s.inChargeName}
+                          onChange={(e) =>
+                            updateStop(s.id, "inChargeName", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">موقع البضاعة على الشاحنة</Label>
+                        <Select
+                          value={String(s.zone)}
+                          onValueChange={(v) =>
+                            updateStop(s.id, "zone", parseInt(v, 10))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: TRUCK_ZONES }).map((_, z) => (
+                              <SelectItem key={z + 1} value={String(z + 1)}>
+                                موقع {z + 1}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label className="text-xs">ملاحظات</Label>
+                        <Input
+                          value={s.notes}
+                          onChange={(e) => updateStop(s.id, "notes", e.target.value)}
+                          placeholder="مثلاً: التوصيل بعد الظهر / يحتاج رافعة"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <Label className="text-xs">صورة الكيس / البضاعة</Label>
+                        <div className="flex items-center gap-3 mt-1">
+                          <label
+                            className="flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted text-sm"
+                          >
+                            <Upload className="h-4 w-4" />
+                            <span>{s.imageDataUrl ? "تغيير الصورة" : "رفع صورة"}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) =>
+                                handleImageUpload(s.id, e.target.files?.[0])
+                              }
+                            />
+                          </label>
+                          {s.imageDataUrl && (
+                            <div className="relative">
+                              <img
+                                src={s.imageDataUrl}
+                                alt="bag"
+                                className="h-16 w-16 object-cover rounded border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => updateStop(s.id, "imageDataUrl", "")}
+                                aria-label="إزالة الصورة"
+                                className="absolute -top-2 -end-2 bg-red-500 text-white rounded-full p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handlePrint} data-testid="btn-print-route">
+              <Printer className="h-4 w-4 me-2" /> طباعة كشف A4
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hidden printable area */}
+      <div style={{ display: "none" }}>
+        <div ref={printArea} className="doc">
+          <DocHeader
+            logoUrl={logoUrl}
+            title="كشف توصيل البضائع للعملاء"
+            subtitle="Customer Delivery Route Sheet"
+          />
+          <div className="doc-meta">
+            <div>
+              <b>رقم الكشف:</b> {reference}
+            </div>
+            <div>
+              <b>تاريخ التوصيل:</b> {date}
+            </div>
+            <div>
+              <b>لوحة الشاحنة:</b> {vehiclePlate || "-"}
+            </div>
+            <div>
+              <b>السائق:</b> {driver || "-"}
+            </div>
+            <div>
+              <b>جوال السائق:</b> {driverPhone || "-"}
+            </div>
+            <div>
+              <b>عدد العملاء:</b> {stops.filter((s) => s.customerId).length}
+            </div>
+          </div>
+
+          <h2 className="section">مخطط توزيع البضاعة على الشاحنة</h2>
+          <div style={{ border: "1px solid #999", padding: 8, borderRadius: 6, background: "#fafafa" }}>
+            <TruckDiagram assignments={assignments} />
+          </div>
+
+          <h2 className="section">قائمة العملاء</h2>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 30 }}>#</th>
+                <th style={{ width: 40 }}>الموقع</th>
+                <th>العميل</th>
+                <th>رقم التواصل</th>
+                <th>المسؤول</th>
+                <th>صورة</th>
+                <th>ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stops.map((s, i) => (
+                <tr key={s.id}>
+                  <td>{i + 1}</td>
+                  <td style={{ textAlign: "center", fontWeight: 700, background: ZONE_COLORS[i % ZONE_COLORS.length] }}>
+                    {s.zone}
+                  </td>
+                  <td>{s.customerName || "-"}</td>
+                  <td style={{ direction: "ltr", textAlign: "start" }}>{s.contactPhone || "-"}</td>
+                  <td>{s.inChargeName || "-"}</td>
+                  <td style={{ textAlign: "center" }}>
+                    {s.imageDataUrl ? (
+                      <img
+                        src={s.imageDataUrl}
+                        alt=""
+                        style={{ width: 56, height: 56, objectFit: "cover", border: "1px solid #999" }}
+                      />
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>{s.notes || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <SignatureBlock
+            labels={[
+              { label: "السائق", name: driver },
+              { label: "مسؤول التوصيل" },
+              { label: "اعتماد الإدارة" },
+            ]}
+          />
+          <div className="footer">
+            صادر من نظام MPBF • {date} • هذا الكشف لتنظيم خط سير التوصيل فقط
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================== Page Root ===============================
 export default function AdminToolsPage() {
   const { t } = useTranslation();
@@ -1337,7 +1936,7 @@ export default function AdminToolsPage() {
       )}
     >
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 h-auto w-full bg-muted p-1 gap-1">
+        <TabsList className="grid grid-cols-2 md:grid-cols-6 h-auto w-full bg-muted p-1 gap-1">
           <TabsTrigger value="delivery" className="flex items-center gap-2">
             <FileSignature className="h-4 w-4" />
             <span className="hidden sm:inline">تسليم وإخلاء مسؤولية</span>
@@ -1363,6 +1962,11 @@ export default function AdminToolsPage() {
             <span className="hidden sm:inline">تسليم عهدة</span>
             <span className="sm:hidden">عهدة</span>
           </TabsTrigger>
+          <TabsTrigger value="route" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            <span className="hidden sm:inline">كشف توصيل</span>
+            <span className="sm:hidden">توصيل</span>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="delivery" className="border-0 mt-4">
           <DeliveryDisclaimerTab logoUrl={logoUrl} />
@@ -1378,6 +1982,9 @@ export default function AdminToolsPage() {
         </TabsContent>
         <TabsContent value="handover" className="border-0 mt-4">
           <AssetHandoverTab logoUrl={logoUrl} />
+        </TabsContent>
+        <TabsContent value="route" className="border-0 mt-4">
+          <DeliveryRouteTab logoUrl={logoUrl} />
         </TabsContent>
       </Tabs>
     </PageLayout>
