@@ -16745,7 +16745,7 @@ Input: ${text}`;
   // ============ DELIVERY MANIFESTS (Admin Tools) ============
   const deliveryStopSchema = z.object({
     id: z.string().optional(),
-    customerId: z.string().max(100),
+    customerId: z.string().max(100).optional().default(""),
     customerName: z.string().max(200).optional().default(""),
     contactPhone: z.string().max(50).optional().default(""),
     inChargeName: z.string().max(200).optional().default(""),
@@ -16815,10 +16815,14 @@ Input: ${text}`;
             errors: parsed.error.errors,
           });
         }
-        if (!parsed.data.stops.some((s) => s.customerId)) {
+        if (
+          !parsed.data.stops.some(
+            (s) => s.customerId || (s.customerName && s.customerName.trim()),
+          )
+        ) {
           return res
             .status(400)
-            .json({ message: "أضف عميلاً واحداً على الأقل" });
+            .json({ message: "أضف عميلاً أو اسماً يدوياً واحداً على الأقل" });
         }
         const userId = getAuthUserId(req);
         const created = await storage.createDeliveryManifest(

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  ChevronsUpDown,
   ClipboardList,
   FileSignature,
   FileText,
@@ -9,7 +10,9 @@ import {
   Edit,
   FilePlus,
   FolderOpen,
+  PenLine,
   Save,
+  Search,
   Truck,
   Upload,
   Users2,
@@ -33,6 +36,19 @@ import {
 } from "../components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Textarea } from "../components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../components/ui/command";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,6 +116,172 @@ const ZONE_COLORS = [
 ];
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+type CustomerPick = { id: string; name: string };
+
+function CustomerCombobox({
+  value,
+  customers,
+  onChange,
+  placeholder = "اختر العميل",
+  testId,
+}: {
+  value: CustomerPick;
+  customers: Customer[];
+  onChange: (v: CustomerPick) => void;
+  placeholder?: string;
+  testId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [manualText, setManualText] = useState("");
+
+  const isManualValue = !!value.name && !value.id;
+  const display = value.name
+    ? value.id
+      ? `${value.name} (${value.id})`
+      : `${value.name} — اسم يدوي`
+    : "";
+
+  const commitManual = () => {
+    const t = manualText.trim();
+    if (!t) return;
+    onChange({ id: "", name: t });
+    setManual(false);
+    setManualText("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) {
+          setManual(isManualValue);
+          setManualText(isManualValue ? value.name : "");
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+          data-testid={testId}
+        >
+          <span className={`truncate ${display ? "" : "text-muted-foreground"}`}>
+            {display || placeholder}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[320px] p-0"
+        align="start"
+        onOpenAutoFocus={(e) => {
+          if (manual) e.preventDefault();
+        }}
+      >
+        {!manual ? (
+          <Command
+            filter={(itemValue, search) => {
+              const s = search.trim().toLowerCase();
+              if (!s) return 1;
+              return itemValue.toLowerCase().includes(s) ? 1 : 0;
+            }}
+          >
+            <CommandInput placeholder="ابحث بالاسم أو الكود..." />
+            <CommandList>
+              <CommandEmpty>
+                <div className="p-3 text-sm text-muted-foreground text-center">
+                  لا يوجد عميل مطابق
+                </div>
+              </CommandEmpty>
+              <CommandGroup>
+                {customers.map((c) => {
+                  const label = c.name_ar || c.name;
+                  const filterText = `${c.name_ar || ""} ${c.name || ""} ${c.id}`;
+                  const isSel = value.id === c.id;
+                  return (
+                    <CommandItem
+                      key={c.id}
+                      value={filterText}
+                      onSelect={() => {
+                        onChange({ id: c.id, name: label });
+                        setOpen(false);
+                      }}
+                      className={isSel ? "bg-accent" : ""}
+                    >
+                      <span className="truncate">{label}</span>
+                      <span className="ms-auto text-xs text-muted-foreground">
+                        {c.id}
+                      </span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+            <div className="border-t p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => {
+                  setManual(true);
+                  setManualText(isManualValue ? value.name : "");
+                }}
+              >
+                <PenLine className="h-4 w-4 me-2" />
+                إدخال اسم يدوي (شخص أو مؤسسة)
+              </Button>
+            </div>
+          </Command>
+        ) : (
+          <div className="p-3 space-y-2">
+            <Label className="text-xs">اسم شخص أو مؤسسة</Label>
+            <Input
+              autoFocus
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+              placeholder="اكتب الاسم يدوياً"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitManual();
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="flex-1"
+                onClick={commitManual}
+                disabled={!manualText.trim()}
+              >
+                حفظ
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setManual(false);
+                  setManualText("");
+                }}
+              >
+                <Search className="h-4 w-4 me-1" /> القائمة
+              </Button>
+            </div>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -514,6 +696,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
   const customers = Array.isArray(customersResp) ? customersResp : [];
 
   const [customerId, setCustomerId] = useState("");
+  const [manualCustomerName, setManualCustomerName] = useState("");
   const [date, setDate] = useState(todayISO());
   const [reference, setReference] = useState(`DLV-${Date.now().toString().slice(-6)}`);
   const [vehicle, setVehicle] = useState("");
@@ -527,9 +710,12 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
   const printArea = useRef<HTMLDivElement>(null);
 
   const customer = customers.find((c) => c.id === customerId);
+  const customerDisplayName =
+    customer?.name_ar || customer?.name || manualCustomerName || "";
 
   const resetDeliveryForm = () => {
     setCustomerId("");
+    setManualCustomerName("");
     setDate(todayISO());
     setReference(`DLV-${Date.now().toString().slice(-6)}`);
     setVehicle("");
@@ -543,12 +729,22 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
     docType: "delivery_disclaimer",
     getPayload: () => ({
       reference,
-      title: customer?.name_ar || customer?.name || recipientName || "",
-      data: { customerId, date, vehicle, driver, recipientName, rows, disclaimer },
+      title: customerDisplayName || recipientName || "",
+      data: {
+        customerId,
+        manualCustomerName,
+        date,
+        vehicle,
+        driver,
+        recipientName,
+        rows,
+        disclaimer,
+      },
     }),
     applyDoc: (data, ref) => {
       setReference(ref);
       setCustomerId(data.customerId || "");
+      setManualCustomerName(data.manualCustomerName || "");
       setDate(data.date || todayISO());
       setVehicle(data.vehicle || "");
       setDriver(data.driver || "");
@@ -580,10 +776,10 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
   }, [rows]);
 
   const handlePrint = () => {
-    if (!customer) {
+    if (!customer && !manualCustomerName.trim()) {
       toast({
         title: "تنبيه",
-        description: "اختر العميل أولاً",
+        description: "اختر العميل أو اكتب اسماً يدوياً أولاً",
         variant: "destructive",
       });
       return;
@@ -600,18 +796,20 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>العميل *</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger data-testid="select-delivery-customer">
-                  <SelectValue placeholder="اختر العميل" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name_ar || c.name} ({c.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CustomerCombobox
+                value={{
+                  id: customerId,
+                  name: customer
+                    ? customer.name_ar || customer.name
+                    : manualCustomerName,
+                }}
+                customers={customers}
+                testId="select-delivery-customer"
+                onChange={(v) => {
+                  setCustomerId(v.id);
+                  setManualCustomerName(v.id ? "" : v.name);
+                }}
+              />
             </div>
             <div>
               <Label>التاريخ</Label>
@@ -746,7 +944,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
           />
           <div className="doc-meta">
             <div>
-              <b>العميل:</b> {customer?.name_ar || customer?.name || "-"}
+              <b>العميل:</b> {customerDisplayName || "-"}
             </div>
             <div>
               <b>كود العميل:</b> {customer?.id || "-"}
@@ -802,7 +1000,7 @@ function DeliveryDisclaimerTab({ logoUrl }: { logoUrl: string }) {
 
           <SignatureBlock
             labels={[
-              { label: "توقيع المستلم", name: recipientName || customer?.name_ar || customer?.name },
+              { label: "توقيع المستلم", name: recipientName || customerDisplayName },
               { label: "توقيع المفوض", name: driver },
               { label: "توقيع المسؤول" },
             ]}
@@ -2114,7 +2312,7 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
   });
 
   const handleSave = () => {
-    if (stops.every((s) => !s.customerId)) {
+    if (stops.every((s) => !s.customerName)) {
       toast({
         title: "تنبيه",
         description: "أضف عميلاً واحداً على الأقل قبل الحفظ",
@@ -2205,15 +2403,15 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
     reader.readAsDataURL(file);
   };
 
-  const onCustomerChange = (id: string, customerId: string) => {
-    const c = customers.find((x) => x.id === customerId);
+  const onCustomerChange = (id: string, pick: CustomerPick) => {
+    const c = pick.id ? customers.find((x) => x.id === pick.id) : undefined;
     setStops((s) =>
       s.map((x) =>
         x.id === id
           ? {
               ...x,
-              customerId,
-              customerName: c ? c.name_ar || c.name : "",
+              customerId: pick.id,
+              customerName: pick.name,
               contactPhone: x.contactPhone || c?.phone || "",
             }
           : x,
@@ -2235,7 +2433,7 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
   }, [stops]);
 
   const handlePrint = () => {
-    if (stops.every((s) => !s.customerId)) {
+    if (stops.every((s) => !s.customerName)) {
       toast({
         title: "تنبيه",
         description: "أضف عميلاً واحداً على الأقل قبل الطباعة",
@@ -2243,7 +2441,7 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
       });
       return;
     }
-    const filled = stops.filter((s) => s.customerId);
+    const filled = stops.filter((s) => s.customerName);
     const zonesUsed = filled.map((s) => s.zone);
     const dupZone = zonesUsed.find((z, i) => zonesUsed.indexOf(z) !== i);
     if (dupZone !== undefined) {
@@ -2304,7 +2502,7 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
                 <tbody>
                   {manifests.map((m) => {
                     const stopsCount = Array.isArray(m.stops)
-                      ? m.stops.filter((s: any) => s.customerId).length
+                      ? m.stops.filter((s: any) => s.customerName || s.customerId).length
                       : 0;
                     const isCurrent = currentId === m.id;
                     return (
@@ -2456,23 +2654,12 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <Label className="text-xs">العميل</Label>
-                        <Select
-                          value={s.customerId}
-                          onValueChange={(v) => onCustomerChange(s.id, v)}
-                        >
-                          <SelectTrigger
-                            data-testid={`select-stop-customer-${i}`}
-                          >
-                            <SelectValue placeholder="اختر العميل" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customers.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name_ar || c.name} ({c.id})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <CustomerCombobox
+                          value={{ id: s.customerId, name: s.customerName }}
+                          customers={customers}
+                          testId={`select-stop-customer-${i}`}
+                          onChange={(v) => onCustomerChange(s.id, v)}
+                        />
                       </div>
                       <div>
                         <Label className="text-xs">رقم التواصل</Label>
@@ -2645,7 +2832,7 @@ function DeliveryRouteTab({ logoUrl }: { logoUrl: string }) {
               <b>جوال السائق:</b> {driverPhone || "-"}
             </div>
             <div>
-              <b>عدد العملاء:</b> {stops.filter((s) => s.customerId).length}
+              <b>عدد العملاء:</b> {stops.filter((s) => s.customerName).length}
             </div>
           </div>
 
