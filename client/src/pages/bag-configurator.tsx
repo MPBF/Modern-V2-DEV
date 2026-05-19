@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Printer, Mail, Loader2, FileText } from "lucide-react";
 import { Link } from "wouter";
 
 import PageLayout from "../components/layout/PageLayout";
 import { Button } from "../components/ui/button";
+import { useToast } from "../hooks/use-toast";
 
 type BagType = "tshirt" | "diecut" | "softloop" | "none";
 type PrintMode = "text" | "image";
@@ -97,8 +98,8 @@ export default function BagConfigurator() {
   const [height, setHeight] = useState(40);
   const [gusset, setGusset] = useState(10);
   const [colorName, setColorName] = useState<string>("أزرق");
-  const [colorsSide1, setColorsSide1] = useState(2);
-  const [colorsSide2, setColorsSide2] = useState(1);
+  const [printColorsCount, setPrintColorsCount] = useState(1);
+  const [thicknessMicrons, setThicknessMicrons] = useState(20);
   const [printMode, setPrintMode] = useState<PrintMode>("text");
   const [printText, setPrintText] = useState("علامتك التجارية");
   const [printColor, setPrintColor] = useState("#000000");
@@ -106,8 +107,208 @@ export default function BagConfigurator() {
   const [printImgSize, setPrintImgSize] = useState(150);
   const [imageVersion, setImageVersion] = useState(0);
 
-  const totalColors = colorsSide1 + colorsSide2;
-  const colorsExceeded = totalColors > 8;
+  // Customer report state
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const { toast } = useToast();
+
+  const escapeHtml = (s: string) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  // Approximate bags per kg (assumes HDPE ~0.95 g/cm^3, 2-layer film, +5% scrap)
+  const bagsPerKg = useMemo(() => {
+    if (width <= 0 || height <= 0 || thicknessMicrons <= 0) return 0;
+    const thicknessCm = thicknessMicrons / 10000;
+    const gussetCm = gusset > 0 ? gusset : 0;
+    const filmArea = 2 * height * (width + gussetCm); // cm^2
+    const grams = filmArea * thicknessCm * 0.95 * 1.05;
+    if (grams <= 0) return 0;
+    return Math.round(1000 / grams);
+  }, [width, height, gusset, thicknessMicrons]);
+
+  // Capture the 3D viewer as a PNG data URL for reports/emails
+  const captureBagImage = (): string | null => {
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    if (!renderer || !scene || !camera) return null;
+    try {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL("image/png");
+    } catch {
+      return null;
+    }
+  };
+
+  const bagTypeLabel = useMemo(
+    () => BAG_TYPE_OPTIONS.find((o) => o.value === type)?.label || "-",
+    [type],
+  );
+
+  const buildReportHtml = (imageDataUrl: string | null) => {
+    const dateStr = new Date().toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const ref = `BC-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    const rows: Array<[string, string]> = [
+      ["العميل", escapeHtml(customerName.trim()) || "—"],
+      ["الجوال", escapeHtml(customerPhone.trim()) || "—"],
+      ["نوع الكيس", escapeHtml(bagTypeLabel)],
+      ["العرض", `${width} سم`],
+      ["الطول", `${height} سم`],
+      ["الطية / العمق", gusset > 0 ? `${gusset} سم` : "بدون"],
+      ["السماكة التقديرية", `${thicknessMicrons} ميكرون`],
+      ["لون الكيس", escapeHtml(colorName)],
+      ["عدد ألوان الطباعة", `${printColorsCount}`],
+      [
+        "نص الطباعة",
+        printMode === "text"
+          ? escapeHtml(printText) || "—"
+          : "شعار مرفوع",
+      ],
+      ["عدد الأكياس / كجم (تقريبي)", `≈ ${bagsPerKg.toLocaleString("ar-EG")}`],
+    ];
+    const rowsHtml = rows
+      .map(
+        ([k, v]) =>
+          `<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`,
+      )
+      .join("");
+    return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>طلب تصميم كيس — ${ref}</title>
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Tajawal','Segoe UI',Tahoma,Arial,sans-serif; color:#1f2937; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .hdr { background: linear-gradient(135deg,#1e3a5f,#2563eb); color:#fff; padding:14px 18px; border-radius:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .hdr h1 { font-size:18px; font-weight:700; }
+  .hdr .meta { font-size:11px; opacity:.85; text-align:left; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:start; }
+  .img-card { border:2px solid #2563eb; border-radius:10px; padding:8px; background:#f8fafc; text-align:center; }
+  .img-card img { max-width:100%; max-height:360px; object-fit:contain; }
+  .img-card .lbl { font-size:11px; color:#1e3a5f; font-weight:700; margin-top:6px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td { padding:8px 10px; border-bottom:1px solid #e5e7eb; }
+  td.k { font-weight:600; color:#374151; width:45%; }
+  td.v { color:#111827; text-align:left; }
+  tr:nth-child(even) td { background:#f9fafb; }
+  .highlight { background:#dcfce7; color:#166534; padding:10px 14px; border-radius:8px; margin-top:12px; font-weight:700; text-align:center; font-size:14px; }
+  .footer { margin-top:18px; padding-top:10px; border-top:1px solid #e5e7eb; font-size:10px; color:#9ca3af; text-align:center; }
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <div>
+      <h1>طلب تصميم كيس — تقرير العميل</h1>
+      <div style="font-size:11px;opacity:.85;margin-top:2px;">MPBF — معالج تصميم الأكياس</div>
+    </div>
+    <div class="meta">
+      <div>${dateStr}</div>
+      <div style="margin-top:4px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:4px;display:inline-block;">المرجع: ${ref}</div>
+    </div>
+  </div>
+  <div class="grid">
+    ${
+      imageDataUrl
+        ? `<div class="img-card"><img src="${imageDataUrl}" alt="صورة الكيس" /><div class="lbl">معاينة الكيس ${escapeHtml(bagTypeLabel)} — ${width}×${height} سم</div></div>`
+        : `<div class="img-card" style="padding:40px 8px;color:#9ca3af;">(تعذّر التقاط صورة الكيس)</div>`
+    }
+    <div>
+      <table>${rowsHtml}</table>
+      <div class="highlight">عدد الأكياس في الكيلو تقريباً: ${bagsPerKg.toLocaleString("ar-EG")}</div>
+    </div>
+  </div>
+  <div class="footer">تم إنشاء هذا التقرير آلياً من معالج تصميم الأكياس — MPBF</div>
+</body>
+</html>`;
+  };
+
+  const handlePrintReport = () => {
+    setIsPrinting(true);
+    try {
+      const img = captureBagImage();
+      const html = buildReportHtml(img);
+      const w = window.open("", "_blank");
+      if (!w) {
+        toast({
+          title: "تعذر فتح نافذة الطباعة",
+          description: "يرجى السماح بالنوافذ المنبثقة",
+          variant: "destructive",
+        });
+        return;
+      }
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => {
+        w.print();
+      }, 600);
+    } finally {
+      setTimeout(() => setIsPrinting(false), 800);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    setIsSendingEmail(true);
+    try {
+      const imageDataUrl = captureBagImage();
+      const res = await fetch("/api/public/bag-configurator-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: {
+            name: customerName.trim(),
+            phone: customerPhone.trim(),
+          },
+          configuration: {
+            bagType: type,
+            bagTypeLabel,
+            width,
+            length: height,
+            sideGusset: gusset,
+            thicknessMicrons,
+            bagColor: colorName,
+            printColorsCount,
+            printText: printMode === "text" ? printText : "",
+            bagsPerKg,
+          },
+          imageDataUrl,
+        }),
+      });
+      const json = await res.json();
+      if (json?.success) {
+        toast({
+          title: "تم إرسال التقرير",
+          description: "تم إرسال طلب العميل إلى إدارة المصنع بنجاح",
+        });
+      } else {
+        toast({
+          title: "تعذر إرسال البريد",
+          description: json?.error || "حدث خطأ غير متوقع",
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "خطأ في الشبكة",
+        description: err?.message || "تعذر الاتصال بالخادم",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   // ---- Init scene (run once) ----
   useEffect(() => {
@@ -737,58 +938,62 @@ export default function BagConfigurator() {
             {/* 4. Print Colors */}
             <div className="space-y-4 bg-gray-50 dark:bg-gray-700/40 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
               {stepHeader(4, "تفاصيل الطباعة", "purple")}
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                الحد الأقصى الإجمالي للألوان هو 8 ألوان. (ملاحظة: إذا كان اللون
-                أسود في الوجه الأول وأسود في الوجه الثاني، فإنه يُحسب كلونين).
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                اختر عدد ألوان الطباعة المطلوبة على الكيس
               </p>
 
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm mb-1">الوجه الأول (A)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={8}
-                    value={colorsSide1}
-                    onChange={(e) =>
-                      setColorsSide1(Math.max(0, parseInt(e.target.value) || 0))
-                    }
-                    className="w-full border rounded p-2 text-center text-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white dark:bg-gray-800 dark:border-gray-600"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm mb-1">الوجه الثاني (B)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={8}
-                    value={colorsSide2}
-                    onChange={(e) =>
-                      setColorsSide2(Math.max(0, parseInt(e.target.value) || 0))
-                    }
-                    className="w-full border rounded p-2 text-center text-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white dark:bg-gray-800 dark:border-gray-600"
-                  />
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  عدد الألوان
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPrintColorsCount(n)}
+                      className={`p-3 rounded-lg border-2 text-center font-bold text-lg transition ${
+                        printColorsCount === n
+                          ? "border-purple-600 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 shadow-sm"
+                          : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-purple-400"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="pt-1">
-                <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-3 rounded shadow-sm border dark:border-gray-700">
-                  <span className="text-sm font-bold">
-                    إجمالي الألوان المستخدمة:
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700 space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">
+                    السماكة (ميكرون)
+                  </label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={200}
+                    value={thicknessMicrons}
+                    onChange={(e) =>
+                      setThicknessMicrons(
+                        Math.max(5, parseInt(e.target.value) || 20),
+                      )
+                    }
+                    className="w-24 border rounded p-1.5 text-center bg-white dark:bg-gray-700 dark:border-gray-600"
+                  />
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t dark:border-gray-700">
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                    عدد الأكياس / كجم (تقريبي):
                   </span>
-                  <span
-                    className={`text-lg font-bold ${
-                      colorsExceeded ? "text-red-600" : "text-purple-600"
-                    }`}
-                  >
-                    {totalColors} / 8
+                  <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {bagsPerKg > 0 ? bagsPerKg.toLocaleString("ar-EG") : "—"}
                   </span>
                 </div>
-                {colorsExceeded && (
-                  <p className="text-red-500 text-xs mt-2 font-bold">
-                    عذراً، لا يمكن تجاوز 8 ألوان كحد أقصى للطباعة!
-                  </p>
-                )}
+                <p className="text-[10px] text-gray-400 leading-tight">
+                  تقدير افتراضي لمادة HDPE (كثافة 0.95 جم/سم³) شامل ~5% للحواف
+                  واللحامات.
+                </p>
               </div>
             </div>
 
@@ -879,6 +1084,72 @@ export default function BagConfigurator() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* 6. Customer Report & Email */}
+            <div className="space-y-3 bg-gray-50 dark:bg-gray-700/40 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              {stepHeader(6, "تقرير العميل وإرسال للإدارة", "blue")}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                اطبع تقريراً واضحاً بمواصفات الكيس وصورته، أو أرسله للإدارة عبر
+                البريد الإلكتروني
+              </p>
+
+              <div className="grid grid-cols-1 gap-2">
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value.slice(0, 100))}
+                  placeholder="اسم العميل (اختياري)"
+                  className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-600 text-sm"
+                  aria-label="اسم العميل"
+                />
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value.slice(0, 30))}
+                  placeholder="جوال العميل (اختياري)"
+                  className="w-full p-2 border rounded bg-white dark:bg-gray-800 dark:border-gray-600 text-sm"
+                  dir="ltr"
+                  aria-label="جوال العميل"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handlePrintReport}
+                  disabled={isPrinting}
+                  data-testid="button-print-report"
+                >
+                  {isPrinting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4" />
+                  )}
+                  <span className="text-sm">طباعة التقرير</span>
+                </Button>
+                <Button
+                  type="button"
+                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                  data-testid="button-email-management"
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  <span className="text-sm">إرسال للإدارة</span>
+                </Button>
+              </div>
+              <p className="text-[10px] text-gray-400 leading-tight flex items-start gap-1">
+                <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                يتضمن التقرير صورة الكيس بمواصفاته الكاملة وعدد الأكياس
+                التقريبي في الكيلو
+              </p>
             </div>
           </div>
         </div>

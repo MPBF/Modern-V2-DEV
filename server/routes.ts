@@ -593,6 +593,274 @@ export async function registerRoutes(
     }
   });
 
+  // ---- Bag configurator: email customer-request report to management ----
+  app.post("/api/public/bag-configurator-report", async (req, res) => {
+    try {
+      // Rate limiting (shares the bag-quote window state)
+      const ip =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+        req.socket.remoteAddress ||
+        "unknown";
+      const now = Date.now();
+      while (
+        bagQuoteGlobalHits.length &&
+        now - bagQuoteGlobalHits[0] > GLOBAL_WINDOW_MS
+      ) {
+        bagQuoteGlobalHits.shift();
+      }
+      if (bagQuoteGlobalHits.length >= GLOBAL_MAX) {
+        return res
+          .status(429)
+          .json({ success: false, error: "الخدمة مزدحمة، حاول بعد قليل" });
+      }
+      const ipHits = (bagQuoteIpHits.get(ip) || []).filter(
+        (t) => now - t < IP_WINDOW_MS,
+      );
+      if (ipHits.length >= IP_MAX) {
+        return res.status(429).json({
+          success: false,
+          error: "تم تجاوز عدد الطلبات المسموح. يرجى المحاولة لاحقاً.",
+        });
+      }
+
+      // Recipient is server-configured only — never trust client-supplied addresses
+      const recipients = (process.env.MANAGEMENT_EMAIL || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+      if (recipients.length === 0) {
+        return res.status(503).json({
+          success: false,
+          error:
+            "لم يتم تكوين بريد الإدارة. يرجى إضافة MANAGEMENT_EMAIL في إعدادات الخادم.",
+        });
+      }
+
+      const schema = z.object({
+        customer: z
+          .object({
+            name: z.string().trim().max(100).optional().default(""),
+            phone: z.string().trim().max(30).optional().default(""),
+          })
+          .default({ name: "", phone: "" }),
+        configuration: z.object({
+          bagType: z.string().max(50),
+          bagTypeLabel: z.string().max(100),
+          width: z.number().nonnegative().max(500),
+          length: z.number().nonnegative().max(500),
+          sideGusset: z.number().nonnegative().max(200),
+          thicknessMicrons: z.number().nonnegative().max(500),
+          bagColor: z.string().max(50),
+          printColorsCount: z.number().int().min(0).max(8),
+          printText: z.string().max(200).optional().default(""),
+          bagsPerKg: z.number().nonnegative().max(1_000_000),
+        }),
+        imageDataUrl: z
+          .string()
+          .max(8 * 1024 * 1024)
+          .optional()
+          .nullable(),
+      });
+
+      const data = schema.parse(req.body);
+      ipHits.push(now);
+      bagQuoteIpHits.set(ip, ipHits);
+      bagQuoteGlobalHits.push(now);
+
+      const cfg = data.configuration;
+      const ref = `BC-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+      const safe = (s: string) =>
+        String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;")
+          .slice(0, 500);
+
+      const rows: Array<[string, string]> = [
+        ["العميل", safe(data.customer.name) || "—"],
+        ["الجوال", safe(data.customer.phone) || "—"],
+        ["نوع الكيس", safe(cfg.bagTypeLabel)],
+        ["العرض", `${cfg.width} سم`],
+        ["الطول", `${cfg.length} سم`],
+        ["الطية / العمق", cfg.sideGusset > 0 ? `${cfg.sideGusset} سم` : "بدون"],
+        ["السماكة التقديرية", `${cfg.thicknessMicrons} ميكرون`],
+        ["لون الكيس", safe(cfg.bagColor)],
+        ["عدد ألوان الطباعة", `${cfg.printColorsCount}`],
+        ["نص الطباعة", safe(cfg.printText) || "—"],
+        [
+          "عدد الأكياس / كجم (تقريبي)",
+          `≈ ${cfg.bagsPerKg.toLocaleString("ar-EG")}`,
+        ],
+      ];
+      const rowsHtml = rows
+        .map(
+          ([k, v]) =>
+            `<tr><td style="padding:8px 10px;font-weight:600;color:#374151;width:45%;border-bottom:1px solid #e5e7eb;">${k}</td><td style="padding:8px 10px;color:#111827;text-align:left;border-bottom:1px solid #e5e7eb;">${v}</td></tr>`,
+        )
+        .join("");
+
+      const attachments: Array<{
+        filename: string;
+        content: Buffer;
+        contentType: string;
+        cid?: string;
+      }> = [];
+      let imageHtml = "";
+      if (
+        data.imageDataUrl &&
+        typeof data.imageDataUrl === "string" &&
+        data.imageDataUrl.startsWith("data:image/")
+      ) {
+        const match = data.imageDataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          const ctype = match[1];
+          const buf = Buffer.from(match[2], "base64");
+          if (buf.length <= 6 * 1024 * 1024) {
+            const ext = ctype.split("/")[1] || "png";
+            attachments.push({
+              filename: `bag-${ref}.${ext}`,
+              content: buf,
+              contentType: ctype,
+              cid: "bagpreview",
+            });
+            imageHtml = `<div style="text-align:center;margin:12px 0;"><img src="cid:bagpreview" alt="معاينة الكيس" style="max-width:100%;max-height:380px;border:2px solid #2563eb;border-radius:10px;padding:8px;background:#f8fafc;" /></div>`;
+          }
+        }
+      }
+
+      const htmlBody = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head><meta charset="UTF-8"></head>
+<body style="font-family:'Tajawal','Segoe UI',Tahoma,Arial,sans-serif;background:#f3f4f6;padding:20px;color:#1f2937;margin:0;">
+  <div style="max-width:720px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+    <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;padding:18px 22px;">
+      <h1 style="margin:0;font-size:20px;font-weight:700;">طلب تصميم كيس جديد من العميل</h1>
+      <div style="font-size:12px;opacity:.85;margin-top:4px;">المرجع: ${ref} — ${new Date().toLocaleString("ar-SA")}</div>
+    </div>
+    <div style="padding:20px;">
+      ${imageHtml}
+      <h2 style="font-size:15px;color:#1e3a5f;margin:14px 0 8px;">المواصفات</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">${rowsHtml}</table>
+      <div style="background:#dcfce7;color:#166534;padding:12px 14px;border-radius:8px;margin-top:14px;font-weight:700;text-align:center;font-size:14px;">
+        عدد الأكياس في الكيلو تقريباً: ${cfg.bagsPerKg.toLocaleString("ar-EG")}
+      </div>
+    </div>
+    <div style="background:#f8fafc;padding:12px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;">
+      MPBF — معالج تصميم الأكياس
+    </div>
+  </div>
+</body>
+</html>`;
+
+      const subject = `طلب تصميم كيس — ${safe(data.customer.name) || "عميل"} — ${ref}`;
+      const fromEmail =
+        process.env.SENDGRID_FROM_EMAIL ||
+        process.env.SMTP_FROM ||
+        "noreply@modplastic.com";
+      const fromName = "MPBF — معالج تصميم الأكياس";
+
+      const sendgridApiKey = process.env.SENDGRID_API_KEY;
+      let sent = false;
+      let method: string | undefined;
+      let sendError: string | undefined;
+
+      if (sendgridApiKey) {
+        try {
+          const sgMail = (await import("@sendgrid/mail")).default;
+          sgMail.setApiKey(sendgridApiKey);
+          await sgMail.send({
+            to: recipients,
+            from: { email: fromEmail, name: fromName },
+            subject,
+            html: htmlBody,
+            attachments: attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content.toString("base64"),
+              type: a.contentType,
+              disposition: "inline",
+              content_id: a.cid,
+            })),
+          });
+          sent = true;
+          method = "sendgrid";
+        } catch (e: any) {
+          sendError = e?.response?.body?.errors?.[0]?.message || e?.message;
+          logger.error("Bag report SendGrid error", { error: sendError });
+        }
+      }
+
+      if (!sent) {
+        const smtpHost = process.env.SMTP_HOST;
+        const smtpUser =
+          process.env.SMTP_USER || (sendgridApiKey ? "apikey" : undefined);
+        const smtpPass = process.env.SMTP_PASS || sendgridApiKey;
+        if (smtpHost || sendgridApiKey) {
+          try {
+            const nodemailer = (await import("nodemailer")).default;
+            const transport = nodemailer.createTransport(
+              smtpHost
+                ? {
+                    host: smtpHost,
+                    port: parseInt(process.env.SMTP_PORT || "587"),
+                    secure: process.env.SMTP_SECURE === "true",
+                    auth: { user: smtpUser!, pass: smtpPass! },
+                  }
+                : {
+                    host: "smtp.sendgrid.net",
+                    port: 587,
+                    secure: false,
+                    auth: { user: "apikey", pass: sendgridApiKey! },
+                  },
+            );
+            await transport.sendMail({
+              from: `"${fromName}" <${fromEmail}>`,
+              to: recipients.join(", "),
+              subject,
+              html: htmlBody,
+              attachments: attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType,
+                cid: a.cid,
+              })),
+            });
+            sent = true;
+            method = "smtp";
+          } catch (e: any) {
+            sendError = e?.message;
+            logger.error("Bag report SMTP error", { error: sendError });
+          }
+        }
+      }
+
+      if (!sent) {
+        return res.status(503).json({
+          success: false,
+          error:
+            "تعذر إرسال البريد الإلكتروني. يرجى التأكد من تكوين SENDGRID_API_KEY أو SMTP في الخادم.",
+        });
+      }
+
+      return res.json({ success: true, reference: ref, method });
+    } catch (error: any) {
+      if (error?.issues) {
+        return res.status(400).json({
+          success: false,
+          error: "بيانات غير صحيحة",
+          details: error.issues.map((i: any) => i.message),
+        });
+      }
+      logger.error("Bag configurator report endpoint failed", {
+        error: error?.message,
+      });
+      return res
+        .status(500)
+        .json({ success: false, error: "تعذر إرسال التقرير" });
+    }
+  });
+
   // Replit Auth user endpoint
   app.get("/api/auth/user", isAuthenticatedReplit, async (req: any, res) => {
     try {
