@@ -188,6 +188,8 @@ export default function ProductionMonitoring() {
       string,
       {
         master_batch: string;
+        color_name_ar: string;
+        color_hex: string;
         required_kg: number;
         consumed_kg: number;
         required_orders: number;
@@ -251,6 +253,8 @@ export default function ProductionMonitoring() {
       if (!byColor[colorKey])
         byColor[colorKey] = {
           master_batch: colorKey,
+          color_name_ar: o.color_name_ar || colorKey,
+          color_hex: o.color_hex || "#CCCCCC",
           required_kg: 0,
           consumed_kg: 0,
           required_orders: 0,
@@ -876,9 +880,15 @@ export default function ProductionMonitoring() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">الكل</SelectItem>
-                        {(materials.facets?.colors || []).map((c: string) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
+                        {(materials.facets?.colors || []).map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className="inline-block w-3 h-3 rounded-full border border-border"
+                                style={{ backgroundColor: c.hex }}
+                              />
+                              {c.name_ar || c.name || c.id}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1233,7 +1243,7 @@ export default function ProductionMonitoring() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Palette className="h-5 w-5" />
-                    حسب اللون (الماستر باتش)
+                    حسب اللون
                     <Badge variant="secondary">
                       {materialAggregates.byColor.length}
                     </Badge>
@@ -1249,16 +1259,13 @@ export default function ProductionMonitoring() {
                         <TableHead className="text-center whitespace-nowrap">
                           مطلوب
                         </TableHead>
-                        <TableHead className="text-center whitespace-nowrap">
-                          مستهلك
-                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {materialAggregates.byColor.length === 0 ? (
                         <TableRow>
                           <TableCell
-                            colSpan={3}
+                            colSpan={2}
                             className="text-center py-8 text-muted-foreground"
                           >
                             لا توجد بيانات
@@ -1271,20 +1278,20 @@ export default function ProductionMonitoring() {
                             className="hover:bg-muted/50"
                           >
                             <TableCell className="font-medium whitespace-nowrap">
-                              <div>{c.master_batch}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatNum(c.required_orders)} /{" "}
-                                {formatNum(c.consumed_orders)} أمر
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="inline-block w-4 h-4 rounded-full border border-border shrink-0"
+                                  style={{ backgroundColor: c.color_hex }}
+                                />
+                                <span>{c.color_name_ar}</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {formatNum(c.required_orders)} أمر
                               </div>
                             </TableCell>
                             <TableCell className="text-center text-amber-700 font-semibold">
                               {c.required_kg > 0
                                 ? formatKg(c.required_kg)
-                                : "—"}
-                            </TableCell>
-                            <TableCell className="text-center text-green-700 font-semibold">
-                              {c.consumed_kg > 0
-                                ? formatKg(c.consumed_kg)
                                 : "—"}
                             </TableCell>
                           </TableRow>

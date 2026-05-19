@@ -8218,6 +8218,9 @@ export class DatabaseStorage implements IStorage {
         produced_quantity_kg: production_orders.produced_quantity_kg,
         raw_material: customer_products.raw_material,
         master_batch_id: customer_products.master_batch_id,
+        color_name: master_batch_colors.name,
+        color_name_ar: master_batch_colors.name_ar,
+        color_hex: master_batch_colors.color_hex,
         category_id: customer_products.category_id,
         category_name: categories.name,
         category_name_ar: categories.name_ar,
@@ -8236,6 +8239,10 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(categories, eq(customer_products.category_id, categories.id))
       .leftJoin(customers, eq(customer_products.customer_id, customers.id))
       .leftJoin(items, eq(customer_products.item_id, items.id))
+      .leftJoin(
+        master_batch_colors,
+        eq(customer_products.master_batch_id, master_batch_colors.id),
+      )
       .where(dateCondition(production_orders.created_at));
 
     // Recipe definitions (in percent). Components: HDPE / LLDPE / LDPE / FILLER / COLOR
@@ -8287,7 +8294,10 @@ export class DatabaseStorage implements IStorage {
       return null;
     };
 
-    const colorFacets = new Set<string>();
+    const colorFacetsMap = new Map<
+      string,
+      { id: string; name: string; name_ar: string; hex: string }
+    >();
     const rawMaterialFacets = new Set<string>();
     const categoryFacetsMap = new Map<
       string,
@@ -8329,7 +8339,22 @@ export class DatabaseStorage implements IStorage {
         return out;
       };
 
-      colorFacets.add(masterBatch);
+      const colorNameAr = isClear
+        ? "شفاف"
+        : row.color_name_ar || row.color_name || masterBatch;
+      const colorName = isClear
+        ? "CLEAR"
+        : row.color_name || row.color_name_ar || masterBatch;
+      const colorHex = isClear
+        ? "transparent"
+        : row.color_hex || "#CCCCCC";
+
+      colorFacetsMap.set(masterBatch, {
+        id: masterBatch,
+        name: colorName,
+        name_ar: colorNameAr,
+        hex: colorHex,
+      });
       rawMaterialFacets.add(rawMaterial);
       if (row.category_id) {
         categoryFacetsMap.set(row.category_id, {
@@ -8350,6 +8375,9 @@ export class DatabaseStorage implements IStorage {
         size_caption: row.size_caption || "",
         raw_material: rawMaterial,
         master_batch: masterBatch,
+        color_name: colorName,
+        color_name_ar: colorNameAr,
+        color_hex: colorHex,
         is_clear: isClear,
         category_id: row.category_id || null,
         category_name: row.category_name || null,
@@ -8392,7 +8420,9 @@ export class DatabaseStorage implements IStorage {
         orders: ordersOut,
         facets: {
           raw_materials: Array.from(rawMaterialFacets).sort(),
-          colors: Array.from(colorFacets).sort(),
+          colors: Array.from(colorFacetsMap.values()).sort((a, b) =>
+            (a.name_ar || a.name).localeCompare(b.name_ar || b.name, "ar"),
+          ),
           categories: Array.from(categoryFacetsMap.values()).sort((a, b) =>
             (a.name_ar || a.name).localeCompare(b.name_ar || b.name, "ar"),
           ),
