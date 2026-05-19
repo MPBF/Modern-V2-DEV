@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  Layers,
+  Palette,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -97,6 +99,28 @@ export default function ProductionMonitoring() {
   const machinesList = dashboard?.machines || [];
   const workersList = dashboard?.workers || [];
   const productsList = dashboard?.products || [];
+  const materials = dashboard?.materials || {
+    statuses: [],
+    status_totals: [],
+    raw_materials: [],
+    master_batches: [],
+    grand_total_kg: 0,
+    grand_total_orders: 0,
+  };
+  const STATUS_LABELS_AR: Record<string, string> = {
+    pending: "قيد الانتظار",
+    active: "قيد التنفيذ",
+    completed: "مكتمل",
+    cancelled: "ملغي",
+    archived: "مؤرشف",
+  };
+  const STATUS_COLORS: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-800",
+    active: "bg-blue-100 text-blue-800",
+    completed: "bg-green-100 text-green-800",
+    cancelled: "bg-red-100 text-red-800",
+    archived: "bg-gray-100 text-gray-700",
+  };
 
   const formatNum = (n: number = 0) =>
     new Intl.NumberFormat("en-US").format(Math.round(n));
@@ -302,7 +326,7 @@ export default function ProductionMonitoring() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="overview" className="py-2.5 gap-2">
               <Activity className="w-4 h-4" />
               <span>نظرة عامة</span>
@@ -314,6 +338,10 @@ export default function ProductionMonitoring() {
             <TabsTrigger value="workers" className="py-2.5 gap-2">
               <Users className="w-4 h-4" />
               <span>العمال</span>
+            </TabsTrigger>
+            <TabsTrigger value="materials" className="py-2.5 gap-2">
+              <Layers className="w-4 h-4" />
+              <span>المواد المطلوبة</span>
             </TabsTrigger>
             <TabsTrigger value="products" className="py-2.5 gap-2">
               <Award className="w-4 h-4" />
@@ -613,6 +641,222 @@ export default function ProductionMonitoring() {
                           />
                         );
                       })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="materials" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Scale className="h-5 w-5" />
+                  ملخص المواد المطلوبة حسب حالة أمر الإنتاج
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  الكميات محسوبة من الكمية النهائية لأوامر الإنتاج (شاملة نسبة
+                  الزيادة) خلال الفترة المحددة.
+                </p>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <Card className="border-r-4 border-r-primary">
+                    <CardContent className="p-3">
+                      <p className="text-xs text-muted-foreground">
+                        إجمالي المواد المطلوبة
+                      </p>
+                      <p className="text-lg font-bold text-primary">
+                        {formatKg(materials.grand_total_kg)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatNum(materials.grand_total_orders)} أمر إنتاج
+                      </p>
+                    </CardContent>
+                  </Card>
+                  {(materials.status_totals || []).map((s: any) => (
+                    <Card key={s.status}>
+                      <CardContent className="p-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-1 ${STATUS_COLORS[s.status] || ""}`}
+                        >
+                          {STATUS_LABELS_AR[s.status] || s.status}
+                        </Badge>
+                        <p className="text-lg font-bold">
+                          {formatKg(s.total_kg)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatNum(s.orders_count)} أمر
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Layers className="h-5 w-5" />
+                  المواد الخام المطلوبة
+                  <Badge variant="secondary">
+                    {materials.raw_materials?.length || 0}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold whitespace-nowrap">
+                        المادة الخام
+                      </TableHead>
+                      <TableHead className="font-semibold text-center">
+                        عدد الأوامر
+                      </TableHead>
+                      {(materials.statuses || []).map((s: string) => (
+                        <TableHead
+                          key={s}
+                          className="font-semibold text-center"
+                        >
+                          {STATUS_LABELS_AR[s] || s}
+                        </TableHead>
+                      ))}
+                      <TableHead className="font-semibold text-center bg-primary/5">
+                        الإجمالي (كجم)
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(materials.raw_materials?.length || 0) === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={(materials.statuses?.length || 0) + 3}
+                          className="text-center py-12 text-muted-foreground"
+                        >
+                          <Layers className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                          لا توجد بيانات مواد لأوامر الإنتاج في هذه الفترة
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      materials.raw_materials.map((m: any, i: number) => (
+                        <TableRow key={i} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">
+                            {m.material}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {formatNum(m.orders_count)}
+                          </TableCell>
+                          {(materials.statuses || []).map((s: string) => (
+                            <TableCell key={s} className="text-center text-sm">
+                              {m.by_status?.[s]?.total_kg > 0 ? (
+                                <div>
+                                  <div className="font-medium">
+                                    {formatKg(m.by_status[s].total_kg)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatNum(m.by_status[s].orders_count)}{" "}
+                                    أمر
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-center font-bold bg-primary/5">
+                            {formatKg(m.total_kg)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  الماستر باتش (الألوان) المطلوبة
+                  <Badge variant="secondary">
+                    {materials.master_batches?.length || 0}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold whitespace-nowrap">
+                        الماستر باتش
+                      </TableHead>
+                      <TableHead className="font-semibold text-center">
+                        عدد الأوامر
+                      </TableHead>
+                      {(materials.statuses || []).map((s: string) => (
+                        <TableHead
+                          key={s}
+                          className="font-semibold text-center"
+                        >
+                          {STATUS_LABELS_AR[s] || s}
+                        </TableHead>
+                      ))}
+                      <TableHead className="font-semibold text-center bg-primary/5">
+                        الإجمالي (كجم)
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(materials.master_batches?.length || 0) === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={(materials.statuses?.length || 0) + 3}
+                          className="text-center py-12 text-muted-foreground"
+                        >
+                          <Palette className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                          لا توجد بيانات ماستر باتش لأوامر الإنتاج في هذه الفترة
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      materials.master_batches.map((m: any, i: number) => (
+                        <TableRow key={i} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">
+                            {m.master_batch}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {formatNum(m.orders_count)}
+                          </TableCell>
+                          {(materials.statuses || []).map((s: string) => (
+                            <TableCell key={s} className="text-center text-sm">
+                              {m.by_status?.[s]?.total_kg > 0 ? (
+                                <div>
+                                  <div className="font-medium">
+                                    {formatKg(m.by_status[s].total_kg)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatNum(m.by_status[s].orders_count)}{" "}
+                                    أمر
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-center font-bold bg-primary/5">
+                            {formatKg(m.total_kg)}
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
                   </TableBody>
                 </Table>

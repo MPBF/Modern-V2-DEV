@@ -8198,6 +8198,163 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.total_kg - a.total_kg)
       .slice(0, 20);
 
+    // ============ Material requirements by production-order status ============
+    // Aggregates the total raw material (and master batch) required to fulfil
+    // production orders, grouped by status. Uses final_quantity_kg
+    // (= ordered quantity + overrun) since that's what is actually planned to
+    // be produced and therefore the real material need. The date filter
+    // applies to production_orders.created_at to stay consistent with the
+    // rest of the dashboard.
+    const materialRows = await db
+      .select({
+        status: production_orders.status,
+        final_quantity_kg: production_orders.final_quantity_kg,
+        raw_material: customer_products.raw_material,
+        master_batch_id: customer_products.master_batch_id,
+      })
+      .from(production_orders)
+      .leftJoin(
+        customer_products,
+        eq(production_orders.customer_product_id, customer_products.id),
+      )
+      .where(dateCondition(production_orders.created_at));
+
+    type StatusBucket = {
+      status: string;
+      orders_count: number;
+      total_kg: number;
+    };
+    const KNOWN_STATUSES = [
+      "pending",
+      "active",
+      "completed",
+      "cancelled",
+      "archived",
+    ];
+    // Build the final status list as the union of known statuses + any
+    // additional values observed in the data, so unexpected/legacy statuses
+    // still surface in the UI instead of being silently rolled into totals.
+    const observedStatuses = new Set<string>();
+    for (const r of materialRows) {
+      observedStatuses.add(r.status || "pending");
+    }
+    const ALL_STATUSES = [
+      ...KNOWN_STATUSES,
+      ...Array.from(observedStatuses).filter(
+        (s) => !KNOWN_STATUSES.includes(s),
+      ),
+    ];
+
+    const rawMaterialAgg = new Map<
+      string,
+      { material: string; by_status: Record<string, StatusBucket>; total_kg: number; orders_count: number }
+    >();
+    const masterBatchAgg = new Map<
+      string,
+      { master_batch: string; by_status: Record<string, StatusBucket>; total_kg: number; orders_count: number }
+    >();
+    const statusTotals: Record<string, StatusBucket> = {};
+    let materialsGrandTotalKg = 0;
+    let materialsGrandTotalOrders = 0;
+
+    const emptyStatusMap = (): Record<string, StatusBucket> =>
+      Object.fromEntries(
+        ALL_STATUSES.map((s) => [
+          s,
+          { status: s, orders_count: 0, total_kg: 0 },
+        ]),
+      );
+
+    for (const row of materialRows) {
+      const status = row.status || "pending";
+      const qty = parseFloat(String(row.final_quantity_kg || 0)) || 0;
+      const material = row.raw_material || "غير محدد";
+      const masterBatch = row.master_batch_id || "غير محدد";
+
+      materialsGrandTotalKg += qty;
+      materialsGrandTotalOrders += 1;
+
+      if (!statusTotals[status])
+        statusTotals[status] = {
+          status,
+          orders_count: 0,
+          total_kg: 0,
+        };
+      statusTotals[status].orders_count += 1;
+      statusTotals[status].total_kg += qty;
+
+      let rm = rawMaterialAgg.get(material);
+      if (!rm) {
+        rm = {
+          material,
+          by_status: emptyStatusMap(),
+          total_kg: 0,
+          orders_count: 0,
+        };
+        rawMaterialAgg.set(material, rm);
+      }
+      if (!rm.by_status[status])
+        rm.by_status[status] = { status, orders_count: 0, total_kg: 0 };
+      rm.by_status[status].orders_count += 1;
+      rm.by_status[status].total_kg += qty;
+      rm.total_kg += qty;
+      rm.orders_count += 1;
+
+      let mb = masterBatchAgg.get(masterBatch);
+      if (!mb) {
+        mb = {
+          master_batch: masterBatch,
+          by_status: emptyStatusMap(),
+          total_kg: 0,
+          orders_count: 0,
+        };
+        masterBatchAgg.set(masterBatch, mb);
+      }
+      if (!mb.by_status[status])
+        mb.by_status[status] = { status, orders_count: 0, total_kg: 0 };
+      mb.by_status[status].orders_count += 1;
+      mb.by_status[status].total_kg += qty;
+      mb.total_kg += qty;
+      mb.orders_count += 1;
+    }
+
+    const roundBucket = (b: StatusBucket) => ({
+      status: b.status,
+      orders_count: b.orders_count,
+      total_kg: +b.total_kg.toFixed(2),
+    });
+
+    const rawMaterialsResult = Array.from(rawMaterialAgg.values())
+      .map((m) => ({
+        material: m.material,
+        total_kg: +m.total_kg.toFixed(2),
+        orders_count: m.orders_count,
+        by_status: Object.fromEntries(
+          Object.entries(m.by_status).map(([k, v]) => [k, roundBucket(v)]),
+        ),
+      }))
+      .sort((a, b) => b.total_kg - a.total_kg);
+
+    const masterBatchesResult = Array.from(masterBatchAgg.values())
+      .map((m) => ({
+        master_batch: m.master_batch,
+        total_kg: +m.total_kg.toFixed(2),
+        orders_count: m.orders_count,
+        by_status: Object.fromEntries(
+          Object.entries(m.by_status).map(([k, v]) => [k, roundBucket(v)]),
+        ),
+      }))
+      .sort((a, b) => b.total_kg - a.total_kg);
+
+    const statusTotalsResult = ALL_STATUSES.map(
+      (s) =>
+        statusTotals[s] || {
+          status: s,
+          orders_count: 0,
+          total_kg: 0,
+        },
+    ).map(roundBucket);
+
     return {
       summary: {
         total_kg: +totalKg.toFixed(2),
@@ -8215,6 +8372,14 @@ export class DatabaseStorage implements IStorage {
       machines: machinesResult,
       workers: workersResult,
       products: productsResult,
+      materials: {
+        statuses: ALL_STATUSES,
+        status_totals: statusTotalsResult,
+        raw_materials: rawMaterialsResult,
+        master_batches: masterBatchesResult,
+        grand_total_kg: +materialsGrandTotalKg.toFixed(2),
+        grand_total_orders: materialsGrandTotalOrders,
+      },
     };
   }
 
