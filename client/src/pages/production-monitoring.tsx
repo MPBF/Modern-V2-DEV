@@ -111,37 +111,7 @@ export default function ProductionMonitoring() {
     orders: [],
     facets: { raw_materials: [], colors: [], categories: [] },
   };
-  const [matRawFilter, setMatRawFilter] = useState<string>("all");
-  const [matColorFilter, setMatColorFilter] = useState<string>("all");
-  const [matCategoryFilter, setMatCategoryFilter] = useState<string>("all");
-  const [matRecipeFilter, setMatRecipeFilter] = useState<string>("all");
-
-  const filteredOrders = useMemo(() => {
-    const orders: any[] = materials.orders || [];
-    return orders.filter((o: any) => {
-      if (matRawFilter !== "all" && o.raw_material !== matRawFilter)
-        return false;
-      if (matColorFilter !== "all" && o.master_batch !== matColorFilter)
-        return false;
-      if (
-        matCategoryFilter !== "all" &&
-        (o.category_id || "") !== matCategoryFilter
-      )
-        return false;
-      if (matRecipeFilter !== "all") {
-        if (matRecipeFilter === "unclassified") {
-          if (o.recipe_key) return false;
-        } else if (o.recipe_key !== matRecipeFilter) return false;
-      }
-      return true;
-    });
-  }, [
-    materials.orders,
-    matRawFilter,
-    matColorFilter,
-    matCategoryFilter,
-    matRecipeFilter,
-  ]);
+  const [matStatusFilter, setMatStatusFilter] = useState<string>("all");
 
   const COMPONENT_KEYS = ["HDPE", "LLDPE", "LDPE", "FILLER", "COLOR"] as const;
   const COMPONENT_COLORS: Record<string, string> = {
@@ -151,142 +121,55 @@ export default function ProductionMonitoring() {
     FILLER: "bg-amber-50 text-amber-700 border-amber-200",
     COLOR: "bg-pink-50 text-pink-700 border-pink-200",
   };
+  const STATUS_LABELS_AR_MAT: Record<string, string> = {
+    all: "كل الحالات",
+    pending: "قيد الانتظار",
+    active: "قيد التنفيذ",
+    completed: "مكتمل",
+    archived: "مؤرشف",
+    cancelled: "ملغي",
+  };
+
+  const recipesMap = useMemo(() => {
+    const m: Record<string, Record<string, number>> = {};
+    for (const r of materials.recipes || []) m[r.key] = r.components || {};
+    return m;
+  }, [materials.recipes]);
 
   const materialAggregates = useMemo(() => {
-    const blank = () => ({ HDPE: 0, LLDPE: 0, LDPE: 0, FILLER: 0, COLOR: 0 });
-    const required = blank();
-    const consumed = blank();
-    let requiredOrders = 0;
-    let consumedOrders = 0;
-    let requiredKg = 0;
-    let consumedKg = 0;
-    const byRecipe: Record<
-      string,
-      {
-        recipe_key: string | null;
-        recipe_label_ar: string;
-        required_kg: number;
-        consumed_kg: number;
-        required_orders: number;
-        consumed_orders: number;
-        required_components: Record<string, number>;
-        consumed_components: Record<string, number>;
-      }
-    > = {};
-    const byCategory: Record<
-      string,
-      {
-        category_id: string | null;
-        category_name_ar: string;
-        required_kg: number;
-        consumed_kg: number;
-        required_orders: number;
-        consumed_orders: number;
-      }
-    > = {};
-    const byColor: Record<
-      string,
-      {
-        master_batch: string;
-        color_name_ar: string;
-        color_hex: string;
-        required_kg: number;
-        consumed_kg: number;
-        required_orders: number;
-        consumed_orders: number;
-      }
-    > = {};
-
-    for (const o of filteredOrders) {
-      const rc = o.required_components || {};
-      const cc = o.consumed_components || {};
-      for (const k of COMPONENT_KEYS) {
-        required[k] += rc[k] || 0;
-        consumed[k] += cc[k] || 0;
-      }
-      if ((o.basis_required_kg || 0) > 0) {
-        requiredOrders += 1;
-        requiredKg += o.basis_required_kg || 0;
-      }
-      if ((o.basis_consumed_kg || 0) > 0) {
-        consumedOrders += 1;
-        consumedKg += o.basis_consumed_kg || 0;
-      }
-
-      const rk = o.recipe_key || "unclassified";
-      if (!byRecipe[rk])
-        byRecipe[rk] = {
-          recipe_key: o.recipe_key || null,
-          recipe_label_ar: o.recipe_label_ar || "غير مصنف",
-          required_kg: 0,
-          consumed_kg: 0,
-          required_orders: 0,
-          consumed_orders: 0,
-          required_components: blank(),
-          consumed_components: blank(),
-        };
-      byRecipe[rk].required_kg += o.basis_required_kg || 0;
-      byRecipe[rk].consumed_kg += o.basis_consumed_kg || 0;
-      if ((o.basis_required_kg || 0) > 0) byRecipe[rk].required_orders += 1;
-      if ((o.basis_consumed_kg || 0) > 0) byRecipe[rk].consumed_orders += 1;
-      for (const k of COMPONENT_KEYS) {
-        byRecipe[rk].required_components[k] += rc[k] || 0;
-        byRecipe[rk].consumed_components[k] += cc[k] || 0;
-      }
-
-      const catKey = o.category_id || "uncat";
-      if (!byCategory[catKey])
-        byCategory[catKey] = {
-          category_id: o.category_id || null,
-          category_name_ar: o.category_name_ar || "بدون فئة",
-          required_kg: 0,
-          consumed_kg: 0,
-          required_orders: 0,
-          consumed_orders: 0,
-        };
-      byCategory[catKey].required_kg += o.basis_required_kg || 0;
-      byCategory[catKey].consumed_kg += o.basis_consumed_kg || 0;
-      if ((o.basis_required_kg || 0) > 0) byCategory[catKey].required_orders += 1;
-      if ((o.basis_consumed_kg || 0) > 0) byCategory[catKey].consumed_orders += 1;
-
-      const colorKey = o.master_batch || "CLEAR";
-      if (!byColor[colorKey])
-        byColor[colorKey] = {
-          master_batch: colorKey,
-          color_name_ar: o.color_name_ar || colorKey,
-          color_hex: o.color_hex || "#CCCCCC",
-          required_kg: 0,
-          consumed_kg: 0,
-          required_orders: 0,
-          consumed_orders: 0,
-        };
-      byColor[colorKey].required_kg += o.basis_required_kg || 0;
-      byColor[colorKey].consumed_kg += o.basis_consumed_kg || 0;
-      if ((o.basis_required_kg || 0) > 0) byColor[colorKey].required_orders += 1;
-      if ((o.basis_consumed_kg || 0) > 0) byColor[colorKey].consumed_orders += 1;
-    }
-
-    return {
-      required,
-      consumed,
-      requiredOrders,
-      consumedOrders,
-      requiredKg,
-      consumedKg,
-      byRecipe: Object.values(byRecipe).sort(
-        (a, b) =>
-          b.required_kg + b.consumed_kg - (a.required_kg + a.consumed_kg),
-      ),
-      byCategory: Object.values(byCategory).sort(
-        (a, b) =>
-          b.required_kg + b.consumed_kg - (a.required_kg + a.consumed_kg),
-      ),
-      byColor: Object.values(byColor).sort(
-        (a, b) =>
-          b.required_kg + b.consumed_kg - (a.required_kg + a.consumed_kg),
-      ),
+    const totals: Record<string, number> = {
+      HDPE: 0,
+      LLDPE: 0,
+      LDPE: 0,
+      FILLER: 0,
+      COLOR: 0,
     };
-  }, [filteredOrders]);
+    let totalKg = 0;
+    let orderCount = 0;
+    const orders: any[] = materials.orders || [];
+
+    for (const o of orders) {
+      if (matStatusFilter !== "all" && o.status !== matStatusFilter) continue;
+      // Basis per status: pending → planned (final_quantity_kg);
+      // active/completed/archived → actual produced_quantity_kg; cancelled → excluded.
+      const basis =
+        o.status === "pending"
+          ? o.final_quantity_kg || 0
+          : o.status === "cancelled"
+            ? 0
+            : o.produced_quantity_kg || 0;
+      if (basis <= 0 || !o.recipe_key) continue;
+      const comps = recipesMap[o.recipe_key];
+      if (!comps) continue;
+      for (const k of COMPONENT_KEYS) {
+        const pct = comps[k] || 0;
+        totals[k] += (basis * pct) / 100;
+      }
+      totalKg += basis;
+      orderCount += 1;
+    }
+    return { totals, totalKg, orderCount };
+  }, [materials.orders, recipesMap, matStatusFilter]);
   const STATUS_LABELS_AR: Record<string, string> = {
     pending: "قيد الانتظار",
     active: "قيد التنفيذ",
@@ -829,479 +712,77 @@ export default function ProductionMonitoring() {
           </TabsContent>
 
           <TabsContent value="materials" className="space-y-6 mt-6">
-            {/* Filters */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Layers className="h-5 w-5" />
-                  فلاتر المواد
+                  المواد الخام المطلوبة
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  الحسابات تعتمد على وصفات ثابتة (HDPE/LDPE × شفاف/ملون) دون أي
-                  ربط بالمخزون. المطلوب = أوامر الانتظار، المستهلك = أوامر قيد
-                  التنفيذ + المكتملة.
+                  الحساب بحسب الوصفات الثابتة: HDPE ملون (35/35/25/5)، HDPE شفاف
+                  (50/50)، LDPE ملون (LLDPE 60 / LDPE 10 / 25 / 5)، LDPE شفاف
+                  (LLDPE 80 / LDPE 20). الكميات بالكيلوجرام.
                 </p>
               </CardHeader>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                  <div className="flex-1 max-w-xs">
                     <label className="text-xs text-muted-foreground mb-1 block">
-                      نوع الخام
+                      حالة أمر الإنتاج
                     </label>
                     <Select
-                      value={matRawFilter}
-                      onValueChange={setMatRawFilter}
+                      value={matStatusFilter}
+                      onValueChange={setMatStatusFilter}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">الكل</SelectItem>
-                        {(materials.facets?.raw_materials || []).map(
-                          (rm: string) => (
-                            <SelectItem key={rm} value={rm}>
-                              {rm}
-                            </SelectItem>
-                          ),
-                        )}
+                        <SelectItem value="all">كل الحالات</SelectItem>
+                        <SelectItem value="pending">قيد الانتظار</SelectItem>
+                        <SelectItem value="active">قيد التنفيذ</SelectItem>
+                        <SelectItem value="completed">مكتمل</SelectItem>
+                        <SelectItem value="archived">مؤرشف</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      اللون (ماستر باتش)
-                    </label>
-                    <Select
-                      value={matColorFilter}
-                      onValueChange={setMatColorFilter}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">الكل</SelectItem>
-                        {(materials.facets?.colors || []).map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className="inline-block w-3 h-3 rounded-full border border-border"
-                                style={{ backgroundColor: c.hex }}
-                              />
-                              {c.name_ar || c.name || c.id}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      الفئة
-                    </label>
-                    <Select
-                      value={matCategoryFilter}
-                      onValueChange={setMatCategoryFilter}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">الكل</SelectItem>
-                        {(materials.facets?.categories || []).map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name_ar || c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      الوصفة
-                    </label>
-                    <Select
-                      value={matRecipeFilter}
-                      onValueChange={setMatRecipeFilter}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">الكل</SelectItem>
-                        {(materials.recipes || []).map((r: any) => (
-                          <SelectItem key={r.key} value={r.key}>
-                            {r.label_ar}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="unclassified">غير مصنف</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      {formatNum(materialAggregates.orderCount)}
+                    </span>{" "}
+                    أمر إنتاج —{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatKg(materialAggregates.totalKg)}
+                    </span>{" "}
+                    إجمالي الإنتاج
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  عدد أوامر الإنتاج المطابقة: {formatNum(filteredOrders.length)}
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Side-by-side: Required vs Consumed component totals */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="border-r-4 border-r-amber-500">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Scale className="h-5 w-5 text-amber-600" />
-                    مواد مطلوبة (طلبات قيد الانتظار)
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    إجمالي{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatKg(materialAggregates.requiredKg)}
-                    </span>{" "}
-                    من{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatNum(materialAggregates.requiredOrders)}
-                    </span>{" "}
-                    أمر
-                  </p>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    {COMPONENT_KEYS.map((k) => (
-                      <div
-                        key={k}
-                        className={`rounded-md border p-3 text-center ${COMPONENT_COLORS[k]}`}
-                      >
-                        <p className="text-xs font-semibold">{k}</p>
-                        <p className="text-base font-bold">
-                          {formatKg(materialAggregates.required[k])}
-                        </p>
-                        <p className="text-[10px] opacity-75">
-                          {materialAggregates.requiredKg > 0
-                            ? (
-                                (materialAggregates.required[k] /
-                                  materialAggregates.requiredKg) *
-                                100
-                              ).toFixed(1)
-                            : 0}
-                          %
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-r-4 border-r-green-500">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    مواد مستهلكة (قيد التنفيذ + المكتمل)
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    إجمالي{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatKg(materialAggregates.consumedKg)}
-                    </span>{" "}
-                    من{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatNum(materialAggregates.consumedOrders)}
-                    </span>{" "}
-                    أمر
-                  </p>
-                </CardHeader>
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    {COMPONENT_KEYS.map((k) => (
-                      <div
-                        key={k}
-                        className={`rounded-md border p-3 text-center ${COMPONENT_COLORS[k]}`}
-                      >
-                        <p className="text-xs font-semibold">{k}</p>
-                        <p className="text-base font-bold">
-                          {formatKg(materialAggregates.consumed[k])}
-                        </p>
-                        <p className="text-[10px] opacity-75">
-                          {materialAggregates.consumedKg > 0
-                            ? (
-                                (materialAggregates.consumed[k] /
-                                  materialAggregates.consumedKg) *
-                                100
-                              ).toFixed(1)
-                            : 0}
-                          %
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recipe breakdown */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Layers className="h-5 w-5" />
-                  التفصيل حسب الوصفة
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold whitespace-nowrap">
-                        الوصفة
-                      </TableHead>
-                      <TableHead className="font-semibold text-center whitespace-nowrap">
-                        مطلوب (كجم)
-                      </TableHead>
-                      <TableHead className="font-semibold text-center whitespace-nowrap">
-                        مستهلك (كجم)
-                      </TableHead>
-                      {COMPONENT_KEYS.map((k) => (
-                        <TableHead
-                          key={k}
-                          className="font-semibold text-center whitespace-nowrap"
-                        >
-                          {k} (مطلوب)
-                        </TableHead>
-                      ))}
-                      {COMPONENT_KEYS.map((k) => (
-                        <TableHead
-                          key={`c-${k}`}
-                          className="font-semibold text-center whitespace-nowrap bg-green-50"
-                        >
-                          {k} (مستهلك)
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {materialAggregates.byRecipe.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={3 + COMPONENT_KEYS.length * 2}
-                          className="text-center py-12 text-muted-foreground"
-                        >
-                          <Layers className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                          لا توجد أوامر إنتاج مطابقة للفلاتر
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      materialAggregates.byRecipe.map((r) => (
-                        <TableRow
-                          key={r.recipe_key || "unclassified"}
-                          className="hover:bg-muted/50"
-                        >
-                          <TableCell className="font-medium whitespace-nowrap">
-                            <div>{r.recipe_label_ar}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatNum(r.required_orders)} مطلوب /{" "}
-                              {formatNum(r.consumed_orders)} مستهلك
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center font-bold text-amber-700">
-                            {r.required_kg > 0 ? formatKg(r.required_kg) : "—"}
-                          </TableCell>
-                          <TableCell className="text-center font-bold text-green-700">
-                            {r.consumed_kg > 0 ? formatKg(r.consumed_kg) : "—"}
-                          </TableCell>
-                          {COMPONENT_KEYS.map((k) => (
-                            <TableCell
-                              key={k}
-                              className="text-center text-sm"
-                            >
-                              {r.required_components[k] > 0
-                                ? formatKg(r.required_components[k])
-                                : "—"}
-                            </TableCell>
-                          ))}
-                          {COMPONENT_KEYS.map((k) => (
-                            <TableCell
-                              key={`c-${k}`}
-                              className="text-center text-sm bg-green-50/50"
-                            >
-                              {r.consumed_components[k] > 0
-                                ? formatKg(r.consumed_components[k])
-                                : "—"}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* Recipe legend */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  الوصفات المستخدمة
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {(materials.recipes || []).map((r: any) => (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {COMPONENT_KEYS.map((k) => (
                     <div
-                      key={r.key}
-                      className="rounded-md border p-3 bg-muted/30"
+                      key={k}
+                      className={`rounded-lg border p-4 text-center ${COMPONENT_COLORS[k]}`}
                     >
-                      <p className="text-sm font-semibold mb-2">
-                        {r.label_ar}
+                      <p className="text-sm font-semibold mb-1">{k}</p>
+                      <p className="text-2xl font-bold">
+                        {formatKg(materialAggregates.totals[k])}
                       </p>
-                      <div className="space-y-1">
-                        {Object.entries(r.components).map(([c, pct]) => (
-                          <div
-                            key={c}
-                            className="flex items-center justify-between text-xs"
-                          >
-                            <span className="font-medium">{c}</span>
-                            <span className="text-muted-foreground">
-                              {String(pct)}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-[10px] opacity-75 mt-1">
+                        {materialAggregates.totalKg > 0
+                          ? (
+                              (materialAggregates.totals[k] /
+                                materialAggregates.totalKg) *
+                              100
+                            ).toFixed(1)
+                          : 0}
+                        %
+                      </p>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
-
-            {/* Breakdown by category & color */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    حسب الفئة
-                    <Badge variant="secondary">
-                      {materialAggregates.byCategory.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold whitespace-nowrap">
-                          الفئة
-                        </TableHead>
-                        <TableHead className="text-center whitespace-nowrap">
-                          مطلوب
-                        </TableHead>
-                        <TableHead className="text-center whitespace-nowrap">
-                          مستهلك
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {materialAggregates.byCategory.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={3}
-                            className="text-center py-8 text-muted-foreground"
-                          >
-                            لا توجد بيانات
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        materialAggregates.byCategory.map((c) => (
-                          <TableRow
-                            key={c.category_id || "uncat"}
-                            className="hover:bg-muted/50"
-                          >
-                            <TableCell className="font-medium whitespace-nowrap">
-                              <div>{c.category_name_ar}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatNum(c.required_orders)} /{" "}
-                                {formatNum(c.consumed_orders)} أمر
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-amber-700 font-semibold">
-                              {c.required_kg > 0
-                                ? formatKg(c.required_kg)
-                                : "—"}
-                            </TableCell>
-                            <TableCell className="text-center text-green-700 font-semibold">
-                              {c.consumed_kg > 0
-                                ? formatKg(c.consumed_kg)
-                                : "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    حسب اللون
-                    <Badge variant="secondary">
-                      {materialAggregates.byColor.length}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold whitespace-nowrap">
-                          اللون
-                        </TableHead>
-                        <TableHead className="text-center whitespace-nowrap">
-                          مطلوب
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {materialAggregates.byColor.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={2}
-                            className="text-center py-8 text-muted-foreground"
-                          >
-                            لا توجد بيانات
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        materialAggregates.byColor.map((c) => (
-                          <TableRow
-                            key={c.master_batch}
-                            className="hover:bg-muted/50"
-                          >
-                            <TableCell className="font-medium whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="inline-block w-4 h-4 rounded-full border border-border shrink-0"
-                                  style={{ backgroundColor: c.color_hex }}
-                                />
-                                <span>{c.color_name_ar}</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {formatNum(c.required_orders)} أمر
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-amber-700 font-semibold">
-                              {c.required_kg > 0
-                                ? formatKg(c.required_kg)
-                                : "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
           <TabsContent value="products" className="space-y-6 mt-6">
