@@ -98,7 +98,21 @@ export default function CuttingOperatorDashboard({
   const [selectedRoll, setSelectedRoll] = useState<RollDetails | null>(null);
   const [netWeight, setNetWeight] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedMachineId, setSelectedMachineId] = useState<string>("");
+  const CUTTING_MACHINE_STORAGE_KEY = "mpbf:cutting-operator:selected-machine";
+  const [selectedMachineId, setSelectedMachineIdState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(CUTTING_MACHINE_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+  const setSelectedMachineId = (id: string) => {
+    setSelectedMachineIdState(id);
+    try {
+      if (id) localStorage.setItem(CUTTING_MACHINE_STORAGE_KEY, id);
+      else localStorage.removeItem(CUTTING_MACHINE_STORAGE_KEY);
+    } catch {}
+  };
 
   const { data: productionOrders = [], isLoading } = useQuery<
     ProductionOrderWithRolls[]

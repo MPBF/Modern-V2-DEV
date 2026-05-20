@@ -85,7 +85,21 @@ export default function PrintingOperatorDashboard({
   const [processingRollIds, setProcessingRollIds] = useState<Set<number>>(
     new Set(),
   );
-  const [selectedMachineId, setSelectedMachineId] = useState<string>("");
+  const PRINTING_MACHINE_STORAGE_KEY = "mpbf:printing-operator:selected-machine";
+  const [selectedMachineId, setSelectedMachineIdState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(PRINTING_MACHINE_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+  const setSelectedMachineId = (id: string) => {
+    setSelectedMachineIdState(id);
+    try {
+      if (id) localStorage.setItem(PRINTING_MACHINE_STORAGE_KEY, id);
+      else localStorage.removeItem(PRINTING_MACHINE_STORAGE_KEY);
+    } catch {}
+  };
 
   const { data: productionOrders = [], isLoading } = useQuery<
     ProductionOrderWithRolls[]
