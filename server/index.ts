@@ -687,6 +687,32 @@ function sanitizeResponseForLogging(response: any): any {
 
       console.log("✅ جميع الجداول الأساسية متوفرة");
     }
+
+    // Ensure production_orders.production_stage column exists on existing
+    // databases (drizzle-kit push only runs for fresh databases). Safe & idempotent.
+    try {
+      await db.execute(sql`
+        ALTER TABLE production_orders
+        ADD COLUMN IF NOT EXISTS production_stage varchar(20) NOT NULL DEFAULT 'film'
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_production_orders_production_stage
+        ON production_orders (production_stage)
+      `);
+      // One-time backfill of production_stage from current rolls state
+      const { storage: storageImpl } = await import("./storage");
+      const updatedCount = await storageImpl.backfillProductionOrderStages();
+      if (updatedCount > 0) {
+        console.log(
+          `🔁 تم ترحيل مرحلة ${updatedCount} أمر إنتاج بناءً على رولاتها الحالية`,
+        );
+      }
+    } catch (stageErr: any) {
+      console.warn(
+        "⚠️ فشل تهيئة عمود production_stage (سيتم المحاولة لاحقاً):",
+        stageErr?.message,
+      );
+    }
   } catch (error: any) {
     console.error("❌ فشل تهيئة قاعدة البيانات:", error?.message || error);
     if (isProduction) {

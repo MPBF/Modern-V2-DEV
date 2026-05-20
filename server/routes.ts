@@ -2601,6 +2601,9 @@ export async function registerRoutes(
       const customerId = req.query.customer_id
         ? String(req.query.customer_id).trim()
         : null;
+      const productionStageRaw = req.query.production_stage
+        ? String(req.query.production_stage).trim()
+        : null;
       const limitRaw = req.query.limit
         ? parseInt(String(req.query.limit))
         : NaN;
@@ -2611,6 +2614,7 @@ export async function registerRoutes(
       const filters: {
         order_id?: number;
         customer_id?: string;
+        production_stage?: string;
         limit?: number;
         offset?: number;
       } = {};
@@ -2619,6 +2623,12 @@ export async function registerRoutes(
       }
       if (customerId) {
         filters.customer_id = customerId;
+      }
+      if (
+        productionStageRaw &&
+        ["film", "printing", "cutting", "done"].includes(productionStageRaw)
+      ) {
+        filters.production_stage = productionStageRaw;
       }
       if (!isNaN(limitRaw) && limitRaw > 0) {
         filters.limit = Math.min(limitRaw, 1000);
@@ -2634,6 +2644,22 @@ export async function registerRoutes(
       res.status(500).json({ message: "خطأ في جلب أوامر الإنتاج" });
     }
   });
+
+  app.get(
+    "/api/production-orders/stages-summary",
+    requireAuth,
+    async (_req, res) => {
+      try {
+        const summary = await storage.getProductionOrdersStagesSummary();
+        res.json(summary);
+      } catch (error) {
+        console.error("Error fetching production stages summary:", error);
+        res
+          .status(500)
+          .json({ message: "خطأ في جلب ملخص مراحل أوامر الإنتاج" });
+      }
+    },
+  );
 
   app.get("/api/production-orders/:id", requireAuth, async (req, res, next) => {
     if (!/^\d+$/.test(req.params.id)) {

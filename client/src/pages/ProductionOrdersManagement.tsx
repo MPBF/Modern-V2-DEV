@@ -47,8 +47,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../hooks/use-auth";
 import { useLocalizedName } from "../hooks/use-localized-name";
+
+const STAGE_KEYS = ["film", "printing", "cutting", "done"] as const;
+type StageKey = (typeof STAGE_KEYS)[number];
+
+const STAGE_BADGE_CLASSES: Record<StageKey, string> = {
+  film: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-0",
+  printing:
+    "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-0",
+  cutting:
+    "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 border-0",
+  done: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 border-0",
+};
+
+const STAGE_CARD_BORDERS: Record<StageKey, string> = {
+  film: "border-r-blue-500",
+  printing: "border-r-purple-500",
+  cutting: "border-r-orange-500",
+  done: "border-r-green-500",
+};
+
+function formatKg(value: number): string {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export default function ProductionOrdersManagement() {
   const { t } = useTranslation();
@@ -233,6 +260,17 @@ export default function ProductionOrdersManagement() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="orders" className="space-y-6">
+        <TabsList className="grid grid-cols-2 w-full md:w-auto md:inline-grid">
+          <TabsTrigger value="orders" data-testid="tab-orders">
+            {t("production.productionStages.ordersTab")}
+          </TabsTrigger>
+          <TabsTrigger value="stages" data-testid="tab-production-stages">
+            {t("production.productionStages.tabTitle")}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="orders" className="space-y-6 mt-0">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-r-4 border-r-amber-500">
@@ -391,6 +429,9 @@ export default function ProductionOrdersManagement() {
                   <TableHead className="font-semibold text-center">
                     {t("production.table.status")}
                   </TableHead>
+                  <TableHead className="font-semibold text-center">
+                    {t("production.productionStages.currentStage")}
+                  </TableHead>
                   <TableHead className="font-semibold">
                     {t("production.table.assignment")}
                   </TableHead>
@@ -402,7 +443,7 @@ export default function ProductionOrdersManagement() {
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12">
+                    <TableCell colSpan={10} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <Package className="h-12 w-12 opacity-50" />
                         <p>{t("production.noOrders")}</p>
@@ -468,6 +509,17 @@ export default function ProductionOrdersManagement() {
                             {statusConfig.label}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const stage = (order.production_stage ||
+                              "film") as StageKey;
+                            return (
+                              <Badge className={STAGE_BADGE_CLASSES[stage]}>
+                                {t(`production.stages.${stage}`)}
+                              </Badge>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {order.assigned_machine_id && (
@@ -517,6 +569,12 @@ export default function ProductionOrdersManagement() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="stages" className="space-y-6 mt-0">
+          <ProductionStagesTab />
+        </TabsContent>
+      </Tabs>
 
       {/* Stats Panel */}
       {showStats && (
@@ -863,4 +921,251 @@ function PrintProductionOrderWrapper({
   }
 
   return null;
+}
+
+const STAGE_ICONS: Record<StageKey, any> = {
+  film: Factory,
+  printing: Printer,
+  cutting: Package,
+  done: CheckCircle2,
+};
+
+function ProductionStagesTab() {
+  const { t } = useTranslation();
+  const ln = useLocalizedName();
+  const [selectedStage, setSelectedStage] = useState<"all" | StageKey>("all");
+
+  const { data: summary, isLoading: summaryLoading } = useQuery<
+    Array<{
+      stage: string;
+      count: number;
+      remaining_kg: number;
+      target_kg: number;
+      produced_kg: number;
+    }>
+  >({
+    queryKey: ["/api/production-orders/stages-summary"],
+    refetchInterval: 30000,
+  });
+
+  const stageFilter =
+    selectedStage === "all" ? "" : `?production_stage=${selectedStage}`;
+
+  const { data: ordersData, isLoading: ordersLoading } = useQuery<any[]>({
+    queryKey: ["/api/production-orders", { production_stage: selectedStage }],
+    queryFn: async () => {
+      const res = await fetch(`/api/production-orders${stageFilter}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const r = await res.json();
+      return Array.isArray(r) ? r : r.data || [];
+    },
+  });
+
+  const summaryByStage = useMemo(() => {
+    const map: Record<StageKey, { count: number; remaining_kg: number }> = {
+      film: { count: 0, remaining_kg: 0 },
+      printing: { count: 0, remaining_kg: 0 },
+      cutting: { count: 0, remaining_kg: 0 },
+      done: { count: 0, remaining_kg: 0 },
+    };
+    summary?.forEach((s) => {
+      if ((STAGE_KEYS as readonly string[]).includes(s.stage)) {
+        map[s.stage as StageKey] = {
+          count: s.count,
+          remaining_kg: s.remaining_kg,
+        };
+      }
+    });
+    return map;
+  }, [summary]);
+
+  return (
+    <div className="space-y-6">
+      {/* Stage summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {STAGE_KEYS.map((stage) => {
+          const Icon = STAGE_ICONS[stage];
+          const data = summaryByStage[stage];
+          return (
+            <Card
+              key={stage}
+              className={`border-r-4 ${STAGE_CARD_BORDERS[stage]}`}
+              data-testid={`card-stage-${stage}`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      {t(`production.stages.${stage}`)}
+                    </p>
+                    <p className="text-3xl font-bold">
+                      {summaryLoading ? "…" : data.count}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("production.productionStages.remainingKg", {
+                        kg: formatKg(data.remaining_kg),
+                      })}
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                    <Icon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Sub-filter tabs */}
+      <Tabs
+        value={selectedStage}
+        onValueChange={(v) => setSelectedStage(v as "all" | StageKey)}
+        className="space-y-4"
+      >
+        <TabsList className="grid grid-cols-5 w-full md:w-auto md:inline-grid">
+          <TabsTrigger value="all" data-testid="stage-filter-all">
+            {t("production.productionStages.all")}
+          </TabsTrigger>
+          {STAGE_KEYS.map((s) => (
+            <TabsTrigger
+              key={s}
+              value={s}
+              data-testid={`stage-filter-${s}`}
+            >
+              {t(`production.stages.${s}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value={selectedStage} className="mt-0">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                {t("production.productionOrders")}
+                <Badge variant="secondary">{ordersData?.length ?? 0}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>
+                        {t("production.table.productionOrderNumber")}
+                      </TableHead>
+                      <TableHead>{t("production.table.orderNumber")}</TableHead>
+                      <TableHead>{t("production.table.customer")}</TableHead>
+                      <TableHead>{t("production.table.product")}</TableHead>
+                      <TableHead className="text-center">
+                        {t("production.productionStages.currentStage")}
+                      </TableHead>
+                      <TableHead className="text-center">
+                        {t("production.productionStages.requestedQuantity")}
+                      </TableHead>
+                      <TableHead className="text-center">
+                        {t("production.productionStages.producedQuantity")}
+                      </TableHead>
+                      <TableHead className="text-center">
+                        {t("production.productionStages.remainingInStage")}
+                      </TableHead>
+                      <TableHead className="text-center">
+                        {t("production.productionStages.overallProgress")}
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ordersLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                        </TableCell>
+                      </TableRow>
+                    ) : !ordersData || ordersData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <Package className="h-12 w-12 opacity-50" />
+                            <p>
+                              {t(
+                                "production.productionStages.noOrdersInStage",
+                              )}
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      ordersData.map((order: any) => {
+                        const stage = (order.production_stage ||
+                          "film") as StageKey;
+                        const requested = parseFloat(
+                          order.final_quantity_kg ||
+                            order.quantity_kg ||
+                            "0",
+                        );
+                        const produced = parseFloat(
+                          order.produced_quantity_kg || "0",
+                        );
+                        const remaining = Math.max(0, requested - produced);
+                        const progress =
+                          requested > 0
+                            ? Math.min(
+                                100,
+                                Math.round((produced / requested) * 100),
+                              )
+                            : 0;
+                        return (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-mono font-medium">
+                              {order.production_order_number}
+                            </TableCell>
+                            <TableCell className="font-mono text-muted-foreground">
+                              {order.order_number}
+                            </TableCell>
+                            <TableCell>
+                              {ln(
+                                order.customer_name_ar,
+                                order.customer_name,
+                              )}
+                            </TableCell>
+                            <TableCell>{order.size_caption}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge className={STAGE_BADGE_CLASSES[stage]}>
+                                {t(`production.stages.${stage}`)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {formatKg(requested)} {t("production.kg")}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatKg(produced)} {t("production.kg")}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {formatKg(remaining)} {t("production.kg")}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="w-24 mx-auto space-y-1">
+                                <Progress
+                                  value={progress}
+                                  className="h-2"
+                                />
+                                <div className="text-xs text-muted-foreground">
+                                  {progress}%
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 }

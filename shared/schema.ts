@@ -497,6 +497,10 @@ export const production_orders = pgTable(
 
     status: varchar("status", { length: 30 }).notNull().default("pending"),
     previous_status: varchar("previous_status", { length: 30 }),
+    // مرحلة أمر الإنتاج (مستقلة عن status) - تُحسب تلقائياً من حالة الرولات
+    production_stage: varchar("production_stage", { length: 20 })
+      .notNull()
+      .default("film"),
     created_at: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
@@ -516,6 +520,10 @@ export const production_orders = pgTable(
     statusValid: check(
       "production_status_valid",
       sql`${table.status} IN ('pending', 'active', 'completed', 'cancelled', 'archived')`,
+    ),
+    productionStageValid: check(
+      "production_stage_valid",
+      sql`${table.production_stage} IN ('film', 'printing', 'cutting', 'done')`,
     ),
 
     // NEW: قيود الكميات الجديدة
@@ -556,6 +564,9 @@ export const production_orders = pgTable(
     idx_production_orders_status: index("idx_production_orders_status").on(
       table.status,
     ),
+    idx_production_orders_production_stage: index(
+      "idx_production_orders_production_stage",
+    ).on(table.production_stage),
     idx_production_orders_created_at: index(
       "idx_production_orders_created_at",
     ).on(table.created_at),

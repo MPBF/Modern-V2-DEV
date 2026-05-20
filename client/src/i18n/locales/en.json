@@ -366,6 +366,19 @@
       "cuttingStage": "Cutting Stage",
       "archived": "Archived"
     },
+    "productionStages": {
+      "tabTitle": "Production Order Stages",
+      "ordersTab": "Orders",
+      "currentStage": "Current Stage",
+      "all": "All",
+      "ordersCount": "{{count}} orders",
+      "remainingKg": "Remaining: {{kg}} kg",
+      "noOrdersInStage": "No orders in this stage",
+      "remainingInStage": "Remaining in stage",
+      "overallProgress": "Overall progress",
+      "requestedQuantity": "Requested quantity",
+      "producedQuantity": "Produced quantity"
+    },
     "statuses": {
       "pending": "Pending",
       "waiting": "Waiting",

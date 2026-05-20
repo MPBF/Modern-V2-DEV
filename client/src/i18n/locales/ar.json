@@ -375,6 +375,19 @@
       "cuttingStage": "مرحلة التقطيع",
       "archived": "مؤرشف"
     },
+    "productionStages": {
+      "tabTitle": "مراحل أوامر الإنتاج",
+      "ordersTab": "الأوامر",
+      "currentStage": "المرحلة الحالية",
+      "all": "الكل",
+      "ordersCount": "{{count}} أمر",
+      "remainingKg": "متبقي: {{kg}} كجم",
+      "noOrdersInStage": "لا توجد أوامر في هذه المرحلة",
+      "remainingInStage": "المتبقي في المرحلة",
+      "overallProgress": "نسبة الإنجاز",
+      "requestedQuantity": "الكمية المطلوبة",
+      "producedQuantity": "الكمية المنتَجة"
+    },
     "statuses": {
       "pending": "معلق",
       "waiting": "انتظار",

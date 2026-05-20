@@ -521,9 +521,20 @@ export interface IStorage {
   getAllProductionOrders(filters?: {
     order_id?: number;
     customer_id?: string;
+    production_stage?: string;
     limit?: number;
     offset?: number;
   }): Promise<ProductionOrder[]>;
+  getProductionOrdersStagesSummary(): Promise<
+    Array<{
+      stage: string;
+      count: number;
+      remaining_kg: number;
+      target_kg: number;
+      produced_kg: number;
+    }>
+  >;
+  backfillProductionOrderStages(): Promise<number>;
   getProductionOrderById(id: number): Promise<ProductionOrder | undefined>;
   createProductionOrder(
     productionOrder: InsertProductionOrder,
@@ -1539,6 +1550,7 @@ export class DatabaseStorage implements IStorage {
   async getAllProductionOrders(filters?: {
     order_id?: number;
     customer_id?: string;
+    production_stage?: string;
     limit?: number;
     offset?: number;
   }): Promise<any[]> {
@@ -1553,6 +1565,16 @@ export class DatabaseStorage implements IStorage {
         }
         if (filters?.customer_id) {
           whereClauses.push(eq(orders.customer_id, filters.customer_id));
+        }
+        if (
+          filters?.production_stage &&
+          ["film", "printing", "cutting", "done"].includes(
+            filters.production_stage,
+          )
+        ) {
+          whereClauses.push(
+            eq(production_orders.production_stage, filters.production_stage),
+          );
         }
 
         let query = db
@@ -1586,6 +1608,7 @@ export class DatabaseStorage implements IStorage {
             warehouse_received_kg: production_orders.warehouse_received_kg,
             status: production_orders.status,
             previous_status: production_orders.previous_status,
+            production_stage: production_orders.production_stage,
             order_number: orders.order_number,
             order_created_at: orders.created_at,
             customer_id: customers.id,
@@ -6725,18 +6748,28 @@ export class DatabaseStorage implements IStorage {
           .execute(
             sql`
           SELECT
+            COUNT(*) AS total_rolls,
             COALESCE(SUM(weight_kg), 0) AS total_weight,
             COALESCE(SUM(CASE WHEN stage IN ('printing', 'done') THEN weight_kg ELSE 0 END), 0) AS printing_weight,
-            COALESCE(SUM(CASE WHEN stage = 'done' THEN COALESCE(cut_weight_total_kg, weight_kg) + COALESCE(waste_kg, 0) ELSE 0 END), 0) AS cutting_weight
+            COALESCE(SUM(CASE WHEN stage = 'done' THEN COALESCE(cut_weight_total_kg, weight_kg) + COALESCE(waste_kg, 0) ELSE 0 END), 0) AS cutting_weight,
+            COALESCE(SUM(CASE WHEN stage = 'film' THEN 1 ELSE 0 END), 0) AS film_rolls,
+            COALESCE(SUM(CASE WHEN stage = 'printing' THEN 1 ELSE 0 END), 0) AS printing_rolls,
+            COALESCE(SUM(CASE WHEN stage = 'cutting' THEN 1 ELSE 0 END), 0) AS cutting_rolls,
+            COALESCE(SUM(CASE WHEN stage = 'done' THEN 1 ELSE 0 END), 0) AS done_rolls
           FROM rolls
           WHERE production_order_id = ${id}
         `,
           )
           .then((r) => r.rows as any[]);
 
+        const totalRolls = parseInt(stats?.total_rolls || "0");
         const totalWeight = parseFloat(stats?.total_weight || "0");
         const printingWeight = parseFloat(stats?.printing_weight || "0");
         const cuttingWeight = parseFloat(stats?.cutting_weight || "0");
+        const filmRolls = parseInt(stats?.film_rolls || "0");
+        const printingRolls = parseInt(stats?.printing_rolls || "0");
+        const cuttingRolls = parseInt(stats?.cutting_rolls || "0");
+        const doneRolls = parseInt(stats?.done_rolls || "0");
 
         const filmPct =
           targetKg > 0 ? Math.min(100, (totalWeight / targetKg) * 100) : 0;
@@ -6745,6 +6778,27 @@ export class DatabaseStorage implements IStorage {
         const cutPct =
           targetKg > 0 ? Math.min(100, (cuttingWeight / targetKg) * 100) : 0;
 
+        // مرحلة أمر الإنتاج التلقائية (مستقلة عن status) - تتبع حرفياً قواعد المهمة:
+        // - done    : عندما تكون جميع الرولات في 'done'
+        // - cutting : عندما لا يوجد أي رول في مرحلة 'film' (وليست كل الرولات منتهية)
+        // - printing: عندما يصل produced_quantity_kg إلى final_quantity_kg ولا يزال هناك رول في 'film'
+        // - film    : افتراضياً (لم يكتمل إنتاج الفيلم بعد)
+        // Suppress unused-variable warnings (kept for SQL aggregation clarity)
+        void printingRolls;
+        void cuttingRolls;
+        let computedStage: "film" | "printing" | "cutting" | "done" = "film";
+        if (totalRolls > 0) {
+          if (doneRolls === totalRolls) {
+            computedStage = "done";
+          } else if (filmRolls === 0) {
+            computedStage = "cutting";
+          } else if (targetKg > 0 && totalWeight >= targetKg - 0.001) {
+            computedStage = "printing";
+          } else {
+            computedStage = "film";
+          }
+        }
+
         const [updated] = await db
           .update(production_orders)
           .set({
@@ -6752,6 +6806,7 @@ export class DatabaseStorage implements IStorage {
             film_completion_percentage: filmPct.toFixed(2),
             printing_completion_percentage: printPct.toFixed(2),
             cutting_completion_percentage: cutPct.toFixed(2),
+            production_stage: computedStage,
           } as any)
           .where(eq(production_orders.id, id))
           .returning();
@@ -6760,6 +6815,99 @@ export class DatabaseStorage implements IStorage {
       },
       "updateProductionOrderCompletionPercentages",
       `تحديث نسبة اكتمال أمر الإنتاج ${id}`,
+    );
+  }
+
+  async getProductionOrdersStagesSummary(): Promise<
+    Array<{
+      stage: string;
+      count: number;
+      remaining_kg: number;
+      target_kg: number;
+      produced_kg: number;
+    }>
+  > {
+    return withDatabaseErrorHandling(
+      async () => {
+        const result = await db.execute(sql`
+          SELECT
+            production_stage AS stage,
+            COUNT(*)::int AS count,
+            COALESCE(SUM(
+              CASE
+                WHEN final_quantity_kg::numeric > produced_quantity_kg::numeric
+                THEN final_quantity_kg::numeric - produced_quantity_kg::numeric
+                ELSE 0
+              END
+            ), 0) AS remaining_kg,
+            COALESCE(SUM(final_quantity_kg::numeric), 0) AS target_kg,
+            COALESCE(SUM(produced_quantity_kg::numeric), 0) AS produced_kg
+          FROM production_orders
+          GROUP BY production_stage
+        `);
+        const rows = result.rows as any[];
+        const stages = ["film", "printing", "cutting", "done"];
+        return stages.map((stage) => {
+          const r = rows.find((x: any) => x.stage === stage);
+          return {
+            stage,
+            count: r ? parseInt(String(r.count)) : 0,
+            remaining_kg: r ? parseFloat(String(r.remaining_kg)) : 0,
+            target_kg: r ? parseFloat(String(r.target_kg)) : 0,
+            produced_kg: r ? parseFloat(String(r.produced_kg)) : 0,
+          };
+        });
+      },
+      "getProductionOrdersStagesSummary",
+      "جلب ملخص مراحل أوامر الإنتاج",
+    );
+  }
+
+  async backfillProductionOrderStages(): Promise<number> {
+    return withDatabaseErrorHandling(
+      async () => {
+        // سكربت ترحيل لمرة واحدة: يحسب المرحلة الصحيحة لكل أمر إنتاج
+        // من واقع الرولات الحالية، باستخدام نفس قواعد الانتقال التلقائي.
+        const result = await db.execute(sql`
+          WITH stats AS (
+            SELECT
+              po.id,
+              GREATEST(po.final_quantity_kg::numeric, 0) AS target_kg,
+              COALESCE(SUM(r.weight_kg::numeric), 0) AS total_weight,
+              COUNT(r.id)::int AS total_rolls,
+              COALESCE(SUM(CASE WHEN r.stage = 'film' THEN 1 ELSE 0 END), 0)::int AS film_rolls,
+              COALESCE(SUM(CASE WHEN r.stage = 'printing' THEN 1 ELSE 0 END), 0)::int AS printing_rolls,
+              COALESCE(SUM(CASE WHEN r.stage = 'done' THEN 1 ELSE 0 END), 0)::int AS done_rolls
+            FROM production_orders po
+            LEFT JOIN rolls r ON r.production_order_id = po.id
+            GROUP BY po.id
+          )
+          UPDATE production_orders po
+          SET production_stage = CASE
+            WHEN s.total_rolls = 0 THEN 'film'
+            WHEN s.done_rolls = s.total_rolls THEN 'done'
+            WHEN s.film_rolls = 0 THEN 'cutting'
+            WHEN s.target_kg > 0
+              AND s.total_weight >= s.target_kg - 0.001 THEN 'printing'
+            ELSE 'film'
+          END
+          FROM stats s
+          WHERE po.id = s.id
+            AND po.production_stage IS DISTINCT FROM (
+              CASE
+                WHEN s.total_rolls = 0 THEN 'film'
+                WHEN s.done_rolls = s.total_rolls THEN 'done'
+                WHEN s.film_rolls = 0 THEN 'cutting'
+                WHEN s.target_kg > 0
+                  AND s.total_weight >= s.target_kg - 0.001 THEN 'printing'
+                ELSE 'film'
+              END
+            )
+        `);
+        return (result as any).rowCount ?? 0;
+      },
+      "backfillProductionOrderStages",
+      "ترحيل مراحل أوامر الإنتاج",
     );
   }
 
