@@ -19,8 +19,10 @@ import {
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAuth } from "../../hooks/use-auth";
 import { useToast } from "../../hooks/use-toast";
 import { cn } from "../../lib/utils";
+import { canEditInArea } from "../../utils/roleUtils";
 import { Button } from "../ui/button";
 import { Calendar } from "../ui/calendar";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
@@ -75,6 +77,8 @@ interface ModifiedEntry {
 }
 
 export default function AttendanceManagement() {
+  const { user } = useAuth();
+  const canEditHr = canEditInArea(user, "hr");
   const { t } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [modifiedEntries, setModifiedEntries] = useState<
@@ -559,7 +563,7 @@ export default function AttendanceManagement() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {selectedCount > 0 && (
+              {selectedCount > 0 && canEditHr && (
                 <>
                   <Button
                     variant="outline"
@@ -584,6 +588,7 @@ export default function AttendanceManagement() {
                 </>
               )}
 
+              {canEditHr && (
               <Button
                 onClick={handleSave}
                 disabled={modifiedCount === 0 || saveMutation.isPending}
@@ -595,6 +600,7 @@ export default function AttendanceManagement() {
                   ? t("common.pleaseWait")
                   : `${t("hr.attendance.saveChanges")} (${modifiedCount})`}
               </Button>
+              )}
             </div>
           </div>
 

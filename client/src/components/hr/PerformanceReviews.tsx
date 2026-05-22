@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../../hooks/use-auth";
 import { formatNumber, formatPercentage } from "../../lib/formatNumber";
-import { canAddInArea } from "../../utils/roleUtils";
+import { canAddInArea, canEditInArea } from "../../utils/roleUtils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
@@ -58,6 +58,7 @@ export default function PerformanceReviews() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const canAddHr = canAddInArea(user, "hr");
+  const canEditHr = canEditInArea(user, "hr");
   const [selectedReview, setSelectedReview] = useState<number | null>(null);
 
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery<
@@ -426,9 +427,11 @@ export default function PerformanceReviews() {
                 >
                   {t("hr.performance.viewDetails")}
                 </Button>
+                {canEditHr && (
                 <Button size="sm" variant="outline" className="flex-1">
                   {t("common.edit")}
                 </Button>
+                )}
               </div>
             </CardContent>
           </Card>

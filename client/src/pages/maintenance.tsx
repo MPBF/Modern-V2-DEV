@@ -70,7 +70,12 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/use-auth";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
-import { userHasPermission } from "../utils/roleUtils";
+import {
+  canAddInArea,
+  canDeleteInArea,
+  canEditInArea,
+  userHasPermission,
+} from "../utils/roleUtils";
 
 import type { PermissionKey } from "../../../shared/permissions";
 import type { TFunction } from "i18next";
@@ -189,6 +194,7 @@ const maintenanceTabPermissions: {
 export default function Maintenance() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const canAddMaint = canAddInArea(user, "maintenance");
   const [currentTab, setCurrentTab] = useState(
     maintenanceTabPermissions.find((tp) =>
       userHasPermission(user, tp.permissions),
@@ -536,12 +542,14 @@ export default function Maintenance() {
                   open={isRequestDialogOpen}
                   onOpenChange={setIsRequestDialogOpen}
                 >
+                  {canAddMaint && (
                   <DialogTrigger asChild>
                     <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                       <Plus className="h-4 w-4 mr-2" />
                       {t("maintenance.newRequest")}
                     </Button>
                   </DialogTrigger>
+                  )}
                   <MaintenanceRequestDialog
                     machines={machines}
                     users={users}
@@ -958,6 +966,9 @@ function MaintenanceActionsTab({
 
   const { data: spareParts } = useQuery({ queryKey: ["/api/spare-parts"] });
   const { user } = useAuth();
+  const canAddMaint = canAddInArea(user, "maintenance");
+  const canEditMaint = canEditInArea(user, "maintenance");
+  const canDeleteMaint = canDeleteInArea(user, "maintenance");
 
   const maintenanceActionSchema = createMaintenanceActionSchema(t);
 
@@ -1011,12 +1022,14 @@ function MaintenanceActionsTab({
         <CardTitle className="flex items-center justify-between">
           <span>{t("maintenance.tabs.actions")}</span>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {canAddMaint && (
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 ml-2" />
                 {t("maintenance.addNewAction")}
               </Button>
             </DialogTrigger>
+            )}
             <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>
@@ -1559,6 +1572,7 @@ function MaintenanceActionsTab({
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
+                          {canEditMaint && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1568,6 +1582,8 @@ function MaintenanceActionsTab({
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          )}
+                          {canDeleteMaint && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1577,6 +1593,7 @@ function MaintenanceActionsTab({
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1607,6 +1624,7 @@ function MaintenanceReportsTab({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const canAddMaint = canAddInArea(user, "maintenance");
 
   const maintenanceReportSchema = createMaintenanceReportSchema(t);
 
@@ -1658,12 +1676,14 @@ function MaintenanceReportsTab({
         <CardTitle className="flex items-center justify-between">
           <span>{t("maintenance.tabs.reports")}</span>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {canAddMaint && (
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 ml-2" />
                 {t("maintenance.addNewReport")}
               </Button>
             </DialogTrigger>
+            )}
             <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>
@@ -1934,6 +1954,7 @@ function OperatorNegligenceTab({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const canAddMaint = canAddInArea(user, "maintenance");
 
   const operatorNegligenceSchema = createOperatorNegligenceSchema(t);
 
@@ -1987,12 +2008,14 @@ function OperatorNegligenceTab({
         <CardTitle className="flex items-center justify-between">
           <span>{t("maintenance.tabs.negligence")}</span>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {canAddMaint && (
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 ml-2" />
                 {t("maintenance.addNegligenceReport")}
               </Button>
             </DialogTrigger>
+            )}
             <DialogContent className="max-w-4xl">
               <DialogHeader>
                 <DialogTitle>
@@ -2510,6 +2533,10 @@ function SparePartsTab({
   isLoading: boolean;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canAddMaint = canAddInArea(user, "maintenance");
+  const canEditMaint = canEditInArea(user, "maintenance");
+  const canDeleteMaint = canDeleteInArea(user, "maintenance");
   const [selectedPart, setSelectedPart] = useState<any>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -2602,12 +2629,14 @@ function SparePartsTab({
           {t("maintenance.sparePartsManagement")}
         </h3>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          {canAddMaint && (
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4 ml-2" />
               {t("maintenance.addNewSparePart")}
             </Button>
           </DialogTrigger>
+          )}
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{t("maintenance.addNewSparePart")}</DialogTitle>
@@ -2690,6 +2719,7 @@ function SparePartsTab({
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
+                            {canEditMaint && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2698,6 +2728,8 @@ function SparePartsTab({
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+                            )}
+                            {canDeleteMaint && (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -2706,6 +2738,7 @@ function SparePartsTab({
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

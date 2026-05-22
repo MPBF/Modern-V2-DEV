@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAuth } from "../../hooks/use-auth";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
+import { canEditInArea } from "../../utils/roleUtils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -148,6 +150,8 @@ const statusOptions = [
 
 export default function MonthlyAttendanceEditor() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canEditHr = canEditInArea(user, "hr");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const printRef = useRef<HTMLDivElement>(null);
@@ -591,6 +595,7 @@ export default function MonthlyAttendanceEditor() {
             </div>
 
             <div className="flex gap-2">
+              {canEditHr && (
               <Button
                 onClick={handleSave}
                 disabled={!hasChanges || saveMutation.isPending}
@@ -603,6 +608,7 @@ export default function MonthlyAttendanceEditor() {
                 )}
                 {t("hr.monthlyEditor.saveChanges")}
               </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={handlePrint}
@@ -889,7 +895,7 @@ export default function MonthlyAttendanceEditor() {
                 </div>
               </div>
 
-              {hasChanges && (
+              {hasChanges && canEditHr && (
                 <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 rounded-lg flex items-center justify-between">
                   <span className="text-yellow-800 dark:text-yellow-200">
                     {t("hr.monthlyEditor.unsavedChanges", {

@@ -14,8 +14,10 @@ import {
 import React, { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAuth } from "../../hooks/use-auth";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
+import { canEditInArea } from "../../utils/roleUtils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
@@ -53,6 +55,8 @@ interface UserRequest {
 
 export default function LeaveManagement() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canEditHr = canEditInArea(user, "hr");
   const [selectedRequest, setSelectedRequest] = useState<UserRequest | null>(
     null,
   );
@@ -510,32 +514,33 @@ export default function LeaveManagement() {
                               <Eye className="w-4 h-4 mr-1" />
                               {t("common.view")}
                             </Button>
-                            {(request.status?.toLowerCase() === "pending" ||
-                              request.status === "معلق" ||
-                              request.status === "قيد المراجعة") && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  onClick={() =>
-                                    handleApproval(request, "approve")
-                                  }
-                                >
-                                  <Check className="w-4 h-4 mr-1" />
-                                  {t("hr.leaves.approve")}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="bg-red-600 hover:bg-red-700 text-white"
-                                  onClick={() =>
-                                    handleApproval(request, "reject")
-                                  }
-                                >
-                                  <X className="w-4 h-4 mr-1" />
-                                  {t("hr.leaves.reject")}
-                                </Button>
-                              </>
-                            )}
+                            {canEditHr &&
+                              (request.status?.toLowerCase() === "pending" ||
+                                request.status === "معلق" ||
+                                request.status === "قيد المراجعة") && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() =>
+                                      handleApproval(request, "approve")
+                                    }
+                                  >
+                                    <Check className="w-4 h-4 mr-1" />
+                                    {t("hr.leaves.approve")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                    onClick={() =>
+                                      handleApproval(request, "reject")
+                                    }
+                                  >
+                                    <X className="w-4 h-4 mr-1" />
+                                    {t("hr.leaves.reject")}
+                                  </Button>
+                                </>
+                              )}
                           </div>
                         </td>
                       </tr>
