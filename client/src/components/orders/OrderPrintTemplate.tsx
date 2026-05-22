@@ -704,15 +704,17 @@ export default function OrderPrintTemplate({
                         fontWeight: 900,
                       }}
                     >
-                      {item?.name_ar || item?.name || "-"}
+                      <div style={{ fontSize: "16px", fontWeight: 900 }}>
+                        {item?.name_ar || "-"}
+                      </div>
                       <div
                         style={{
-                          fontSize: "15px",
+                          fontSize: "13px",
                           color: "#555",
                           fontWeight: 800,
                         }}
                       >
-                        {cp?.size_caption}
+                        {item?.name || ""}
                       </div>
                     </td>
 
@@ -723,7 +725,7 @@ export default function OrderPrintTemplate({
                         fontWeight: 900,
                       }}
                     >
-                      {cp?.width ? `${cp.width} cm` : "-"}
+                      {cp?.size_caption || (cp?.width ? `${cp.width} cm` : "-")}
                     </td>
                     <td
                       style={{
@@ -743,7 +745,7 @@ export default function OrderPrintTemplate({
                         fontWeight: 900,
                       }}
                     >
-                      {cp?.thickness ? `${cp.thickness} mic` : "-"}
+                      {cp?.thickness ? `${Math.round(Number(cp.thickness))} mic` : "-"}
                     </td>
                     <td style={{ ...styles.td, fontWeight: 900 }}>
                       {cp?.raw_material || t("orders.print.pure")}
