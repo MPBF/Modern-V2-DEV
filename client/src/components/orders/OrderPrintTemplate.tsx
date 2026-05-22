@@ -55,6 +55,10 @@ interface CustomerProduct {
   handle_type?: string;
   punching?: string;
   unit_weight_gram?: number | string;
+  unit_weight_kg?: number | string;
+  cutting_unit?: string;
+  unit_quantity?: number | string;
+  package_weight_kg?: number | string;
   notes?: string;
 }
 
@@ -874,10 +878,32 @@ export default function OrderPrintTemplate({
                         fontSize: "14px",
                         textAlign: "center",
                         fontWeight: 900,
-                        color: cp?.notes ? "#dc2626" : undefined,
                       }}
                     >
-                      {cp?.notes || "-"}
+                      {cp?.unit_weight_kg != null &&
+                      cp?.unit_quantity != null &&
+                      cp?.package_weight_kg != null ? (
+                        <div style={{ direction: "ltr", fontWeight: 900 }}>
+                          {formatNumber(cp.unit_weight_kg)}
+                          {cp.cutting_unit ? ` ${cp.cutting_unit}` : ""} ×{" "}
+                          {formatNumber(cp.unit_quantity)} ={" "}
+                          {formatNumber(cp.package_weight_kg)}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                      {cp?.notes && (
+                        <div
+                          style={{
+                            color: "#dc2626",
+                            fontSize: "13px",
+                            fontWeight: 900,
+                            marginTop: "4px",
+                          }}
+                        >
+                          {cp.notes}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
