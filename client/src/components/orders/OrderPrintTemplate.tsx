@@ -883,8 +883,10 @@ export default function OrderPrintTemplate({
                             }}
                           >
                             {formatNumber(
-                              Number(po.quantity_kg) /
-                                Number(cp?.package_weight_kg),
+                              Math.round(
+                                Number(po.quantity_kg) /
+                                  Number(cp?.package_weight_kg),
+                              ),
                             )}{" "}
                             Bundle
                           </div>
