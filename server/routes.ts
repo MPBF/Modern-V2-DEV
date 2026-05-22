@@ -5365,7 +5365,7 @@ Input: ${text}`;
   app.post(
     "/api/customers",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("add_customers", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         const validatedData = insertCustomerSchema.parse(req.body);
@@ -5397,7 +5397,7 @@ Input: ${text}`;
   app.put(
     "/api/customers/:id",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("edit_customers", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id?.trim();
@@ -5481,7 +5481,7 @@ Input: ${text}`;
   app.post(
     "/api/items/:itemId/packaging-units",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("add_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         const itemId = String(req.params.itemId);
@@ -5509,7 +5509,7 @@ Input: ${text}`;
   app.patch(
     "/api/packaging-units/:id",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("edit_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
@@ -5527,7 +5527,7 @@ Input: ${text}`;
   app.delete(
     "/api/packaging-units/:id",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("delete_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
@@ -5589,7 +5589,7 @@ Input: ${text}`;
   app.post(
     "/api/customer-products",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("add_customer_products", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         // STEP 1: Zod schema validation
@@ -5796,7 +5796,7 @@ Input: ${text}`;
   app.post(
     "/api/categories",
     requireAuth,
-    requirePermission("manage_categories", "manage_definitions"),
+    requirePermission("add_categories", "manage_categories", "manage_definitions"),
     async (req, res) => {
       try {
         // Generate sequential ID if not provided with enhanced null safety
@@ -5854,7 +5854,7 @@ Input: ${text}`;
   app.put(
     "/api/categories/:id",
     requireAuth,
-    requirePermission("manage_categories", "manage_definitions"),
+    requirePermission("edit_categories", "manage_categories", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id;
@@ -5883,7 +5883,7 @@ Input: ${text}`;
   app.delete(
     "/api/categories/:id",
     requireAuth,
-    requirePermission("manage_categories", "manage_definitions"),
+    requirePermission("delete_categories", "manage_categories", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id;
@@ -5930,7 +5930,7 @@ Input: ${text}`;
   app.post(
     "/api/master-batch-colors",
     requireAuth,
-    requirePermission("manage_master_batch", "manage_definitions"),
+    requirePermission("add_master_batch", "manage_master_batch", "manage_definitions"),
     async (req, res) => {
       try {
         const parseResult = insertMasterBatchColorSchema.safeParse(req.body);
@@ -5954,7 +5954,7 @@ Input: ${text}`;
   app.put(
     "/api/master-batch-colors/:id",
     requireAuth,
-    requirePermission("manage_master_batch", "manage_definitions"),
+    requirePermission("edit_master_batch", "manage_master_batch", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id?.trim();
@@ -5987,7 +5987,7 @@ Input: ${text}`;
   app.delete(
     "/api/master-batch-colors/:id",
     requireAuth,
-    requirePermission("manage_master_batch", "manage_definitions"),
+    requirePermission("delete_master_batch", "manage_master_batch", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id?.trim();
@@ -6987,7 +6987,7 @@ Input: ${text}`;
   app.post(
     "/api/machines",
     requireAuth,
-    requirePermission("manage_machines", "manage_definitions"),
+    requirePermission("add_machines", "manage_machines", "manage_definitions"),
     async (req, res) => {
       try {
         // Generate sequential ID if not provided with enhanced null safety
@@ -7058,7 +7058,7 @@ Input: ${text}`;
   app.put(
     "/api/machines/:id",
     requireAuth,
-    requirePermission("manage_machines", "manage_definitions"),
+    requirePermission("edit_machines", "manage_machines", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id; // Now using string ID
@@ -7099,7 +7099,7 @@ Input: ${text}`;
   app.post(
     "/api/users",
     requireAuth,
-    requirePermission("manage_users"),
+    requirePermission("add_users", "manage_users", "manage_definitions"),
     async (req, res) => {
       try {
         // Resolve role_id (number, "ROLE0X", or role name) BEFORE Zod validation.
@@ -7197,7 +7197,7 @@ Input: ${text}`;
   app.put(
     "/api/users/:id",
     requireAuth,
-    requirePermission("manage_users"),
+    requirePermission("edit_users", "manage_users", "manage_definitions"),
     async (req, res) => {
       try {
         // Enhanced parameter validation
@@ -7414,7 +7414,7 @@ Input: ${text}`;
   app.post(
     "/api/sections",
     requireAuth,
-    requirePermission("manage_sections", "manage_definitions"),
+    requirePermission("add_sections", "manage_sections", "manage_definitions"),
     async (req, res) => {
       try {
         // Generate sequential ID if not provided with enhanced null safety
@@ -7460,7 +7460,7 @@ Input: ${text}`;
   app.put(
     "/api/sections/:id",
     requireAuth,
-    requirePermission("manage_sections", "manage_definitions"),
+    requirePermission("edit_sections", "manage_sections", "manage_definitions"),
     async (req, res) => {
       try {
         // Enhanced parameter validation
@@ -7491,7 +7491,7 @@ Input: ${text}`;
   app.post(
     "/api/items",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("add_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         // Generate sequential ID if not provided with enhanced null safety
@@ -7548,7 +7548,7 @@ Input: ${text}`;
   app.put(
     "/api/items/:id",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("edit_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         // Enhanced parameter validation
@@ -7592,7 +7592,7 @@ Input: ${text}`;
   app.put(
     "/api/customer-products/:id",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("edit_customer_products", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         const id = parseInt(req.params.id);
@@ -8258,7 +8258,7 @@ Input: ${text}`;
   app.delete(
     "/api/customers/:id",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("delete_customers", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         await storage.deleteCustomer(req.params.id);
@@ -8273,7 +8273,7 @@ Input: ${text}`;
   app.delete(
     "/api/sections/:id",
     requireAuth,
-    requirePermission("manage_sections", "manage_definitions"),
+    requirePermission("delete_sections", "manage_sections", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id;
@@ -8289,7 +8289,7 @@ Input: ${text}`;
   app.delete(
     "/api/items/:id",
     requireAuth,
-    requirePermission("manage_items", "manage_definitions"),
+    requirePermission("delete_items", "manage_items", "manage_definitions"),
     async (req, res) => {
       try {
         await storage.deleteItem(req.params.id);
@@ -8304,7 +8304,7 @@ Input: ${text}`;
   app.delete(
     "/api/customer-products/:id",
     requireAuth,
-    requirePermission("manage_customers", "manage_definitions"),
+    requirePermission("delete_customer_products", "manage_customers", "manage_definitions"),
     async (req, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");
@@ -8336,7 +8336,7 @@ Input: ${text}`;
   app.delete(
     "/api/machines/:id",
     requireAuth,
-    requirePermission("manage_machines", "manage_definitions"),
+    requirePermission("delete_machines", "manage_machines", "manage_definitions"),
     async (req, res) => {
       try {
         const id = req.params.id;
@@ -8352,7 +8352,7 @@ Input: ${text}`;
   app.delete(
     "/api/users/:id",
     requireAuth,
-    requirePermission("manage_users"),
+    requirePermission("delete_users", "manage_users", "manage_definitions"),
     async (req, res) => {
       try {
         const id = parseRouteParam(req.params.id, "id");

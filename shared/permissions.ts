@@ -76,6 +76,30 @@ export type PermissionKey =
   | "manage_sections"
   | "manage_categories"
   | "manage_master_batch"
+  | "add_customers"
+  | "edit_customers"
+  | "delete_customers"
+  | "add_sections"
+  | "edit_sections"
+  | "delete_sections"
+  | "add_categories"
+  | "edit_categories"
+  | "delete_categories"
+  | "add_items"
+  | "edit_items"
+  | "delete_items"
+  | "add_customer_products"
+  | "edit_customer_products"
+  | "delete_customer_products"
+  | "add_machines"
+  | "edit_machines"
+  | "delete_machines"
+  | "add_users"
+  | "edit_users"
+  | "delete_users"
+  | "add_master_batch"
+  | "edit_master_batch"
+  | "delete_master_batch"
   | "view_warehouse_vouchers"
   | "manage_warehouse_vouchers"
   | "view_warehouse_reports"
@@ -551,6 +575,176 @@ export const PERMISSIONS: Permission[] = [
     name_ar: "إدارة ألوان الماستر باتش",
     category: "التعريفات",
     description: "Create, edit, and manage master batch color definitions",
+  },
+
+  // Definitions — granular per-tab actions (add / edit / delete)
+  {
+    id: "add_customers",
+    name: "Add Customers",
+    name_ar: "إضافة العملاء",
+    category: "التعريفات",
+    description: "Create new customer records",
+  },
+  {
+    id: "edit_customers",
+    name: "Edit Customers",
+    name_ar: "تعديل العملاء",
+    category: "التعريفات",
+    description: "Edit existing customer records",
+  },
+  {
+    id: "delete_customers",
+    name: "Delete Customers",
+    name_ar: "حذف العملاء",
+    category: "التعريفات",
+    description: "Delete customer records",
+  },
+  {
+    id: "add_sections",
+    name: "Add Sections",
+    name_ar: "إضافة الأقسام",
+    category: "التعريفات",
+    description: "Create new section records",
+  },
+  {
+    id: "edit_sections",
+    name: "Edit Sections",
+    name_ar: "تعديل الأقسام",
+    category: "التعريفات",
+    description: "Edit existing section records",
+  },
+  {
+    id: "delete_sections",
+    name: "Delete Sections",
+    name_ar: "حذف الأقسام",
+    category: "التعريفات",
+    description: "Delete section records",
+  },
+  {
+    id: "add_categories",
+    name: "Add Categories",
+    name_ar: "إضافة الفئات",
+    category: "التعريفات",
+    description: "Create new category records",
+  },
+  {
+    id: "edit_categories",
+    name: "Edit Categories",
+    name_ar: "تعديل الفئات",
+    category: "التعريفات",
+    description: "Edit existing category records",
+  },
+  {
+    id: "delete_categories",
+    name: "Delete Categories",
+    name_ar: "حذف الفئات",
+    category: "التعريفات",
+    description: "Delete category records",
+  },
+  {
+    id: "add_items",
+    name: "Add Items",
+    name_ar: "إضافة الأصناف",
+    category: "التعريفات",
+    description: "Create new item records",
+  },
+  {
+    id: "edit_items",
+    name: "Edit Items",
+    name_ar: "تعديل الأصناف",
+    category: "التعريفات",
+    description: "Edit existing item records",
+  },
+  {
+    id: "delete_items",
+    name: "Delete Items",
+    name_ar: "حذف الأصناف",
+    category: "التعريفات",
+    description: "Delete item records",
+  },
+  {
+    id: "add_customer_products",
+    name: "Add Customer Products",
+    name_ar: "إضافة منتجات العملاء",
+    category: "التعريفات",
+    description: "Create new customer product records",
+  },
+  {
+    id: "edit_customer_products",
+    name: "Edit Customer Products",
+    name_ar: "تعديل منتجات العملاء",
+    category: "التعريفات",
+    description: "Edit existing customer product records",
+  },
+  {
+    id: "delete_customer_products",
+    name: "Delete Customer Products",
+    name_ar: "حذف منتجات العملاء",
+    category: "التعريفات",
+    description: "Delete customer product records",
+  },
+  {
+    id: "add_machines",
+    name: "Add Machines",
+    name_ar: "إضافة الماكينات",
+    category: "التعريفات",
+    description: "Create new machine records",
+  },
+  {
+    id: "edit_machines",
+    name: "Edit Machines",
+    name_ar: "تعديل الماكينات",
+    category: "التعريفات",
+    description: "Edit existing machine records",
+  },
+  {
+    id: "delete_machines",
+    name: "Delete Machines",
+    name_ar: "حذف الماكينات",
+    category: "التعريفات",
+    description: "Delete machine records",
+  },
+  {
+    id: "add_users",
+    name: "Add Users",
+    name_ar: "إضافة المستخدمين",
+    category: "التعريفات",
+    description: "Create new user records",
+  },
+  {
+    id: "edit_users",
+    name: "Edit Users",
+    name_ar: "تعديل المستخدمين",
+    category: "التعريفات",
+    description: "Edit existing user records",
+  },
+  {
+    id: "delete_users",
+    name: "Delete Users",
+    name_ar: "حذف المستخدمين",
+    category: "التعريفات",
+    description: "Delete user records",
+  },
+  {
+    id: "add_master_batch",
+    name: "Add Master Batch Colors",
+    name_ar: "إضافة ألوان الماستر باتش",
+    category: "التعريفات",
+    description: "Create new master batch color records",
+  },
+  {
+    id: "edit_master_batch",
+    name: "Edit Master Batch Colors",
+    name_ar: "تعديل ألوان الماستر باتش",
+    category: "التعريفات",
+    description: "Edit existing master batch color records",
+  },
+  {
+    id: "delete_master_batch",
+    name: "Delete Master Batch Colors",
+    name_ar: "حذف ألوان الماستر باتش",
+    category: "التعريفات",
+    description: "Delete master batch color records",
   },
 
   // WhatsApp Integration

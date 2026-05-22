@@ -65,7 +65,12 @@ import { useToast } from "../hooks/use-toast";
 import { formatNumber } from "../lib/formatNumber";
 import { packagingUnitErrorToast } from "../lib/packagingUnitErrors";
 import { apiRequest } from "../lib/queryClient";
-import { canAccessDefinitionsTab } from "../utils/roleUtils";
+import {
+  canAccessDefinitionsTab,
+  canAddInTab,
+  canEditInTab,
+  canDeleteInTab,
+} from "../utils/roleUtils";
 
 const DEFINITIONS_TABS = [
   { value: "customers", labelKey: "definitions.tabs.customers" },
@@ -91,6 +96,26 @@ export default function Definitions() {
   const accessibleTabs = DEFINITIONS_TABS.filter((tab) =>
     canAccessDefinitionsTab(user, tab.value),
   );
+
+  const canAddCustomers = canAddInTab(user, "customers");
+  const canEditCustomers = canEditInTab(user, "customers");
+  const canDeleteCustomers = canDeleteInTab(user, "customers");
+  const canAddCategories = canAddInTab(user, "categories");
+  const canEditCategories = canEditInTab(user, "categories");
+  const canAddSections = canAddInTab(user, "sections");
+  const canEditSections = canEditInTab(user, "sections");
+  const canAddItems = canAddInTab(user, "items");
+  const canEditItems = canEditInTab(user, "items");
+  const canAddCustomerProducts = canAddInTab(user, "customer-products");
+  const canEditCustomerProducts = canEditInTab(user, "customer-products");
+  const canDeleteCustomerProducts = canDeleteInTab(user, "customer-products");
+  const canAddMachines = canAddInTab(user, "machines");
+  const canEditMachines = canEditInTab(user, "machines");
+  const canAddUsers = canAddInTab(user, "users");
+  const canEditUsers = canEditInTab(user, "users");
+  const canAddMasterBatch = canAddInTab(user, "master-batch-colors");
+  const canEditMasterBatch = canEditInTab(user, "master-batch-colors");
+  const canDeleteMasterBatch = canDeleteInTab(user, "master-batch-colors");
 
   const [selectedTab, setSelectedTab] = useState(
     () => accessibleTabs[0]?.value || "customers",
@@ -2099,16 +2124,18 @@ export default function Definitions() {
                       <Building2 className="w-5 h-5" />
                       {t("definitions.customers.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("customers");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.customers.addNew")}
-                    </Button>
+                    {canAddCustomers && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("customers");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.customers.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -2161,60 +2188,65 @@ export default function Definitions() {
                                       >
                                         <Printer className="w-4 h-4" />
                                       </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setEditingItem(customer);
-                                          setCustomerForm({
-                                            name: customer.name || "",
-                                            name_ar: customer.name_ar || "",
-                                            code: customer.code || "",
-                                            user_id: customer.user_id || "",
-                                            plate_drawer_code:
-                                              customer.plate_drawer_code || "",
-                                            city: customer.city || "",
-                                            address: customer.address || "",
-                                            tax_number:
-                                              customer.tax_number || "",
-                                            phone: customer.phone || "",
-                                            sales_rep_id:
-                                              customer.sales_rep_id || "",
-                                          });
-                                          setSelectedTab("customers");
-                                          setIsDialogOpen(true);
-                                        }}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-red-600"
-                                        disabled={
-                                          deleteCustomerMutation.isPending
-                                        }
-                                        onClick={() => {
-                                          if (
-                                            confirm(
-                                              t(
-                                                "definitions.messages.confirmDeleteCustomer",
-                                                {
-                                                  name:
-                                                    customer.name_ar ||
-                                                    customer.name,
-                                                },
-                                              ),
-                                            )
-                                          ) {
-                                            deleteCustomerMutation.mutate(
-                                              customer.id,
-                                            );
+                                      {canEditCustomers && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditingItem(customer);
+                                            setCustomerForm({
+                                              name: customer.name || "",
+                                              name_ar: customer.name_ar || "",
+                                              code: customer.code || "",
+                                              user_id: customer.user_id || "",
+                                              plate_drawer_code:
+                                                customer.plate_drawer_code ||
+                                                "",
+                                              city: customer.city || "",
+                                              address: customer.address || "",
+                                              tax_number:
+                                                customer.tax_number || "",
+                                              phone: customer.phone || "",
+                                              sales_rep_id:
+                                                customer.sales_rep_id || "",
+                                            });
+                                            setSelectedTab("customers");
+                                            setIsDialogOpen(true);
+                                          }}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                      {canDeleteCustomers && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-red-600"
+                                          disabled={
+                                            deleteCustomerMutation.isPending
                                           }
-                                        }}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
+                                          onClick={() => {
+                                            if (
+                                              confirm(
+                                                t(
+                                                  "definitions.messages.confirmDeleteCustomer",
+                                                  {
+                                                    name:
+                                                      customer.name_ar ||
+                                                      customer.name,
+                                                  },
+                                                ),
+                                              )
+                                            ) {
+                                              deleteCustomerMutation.mutate(
+                                                customer.id,
+                                              );
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -2340,61 +2372,67 @@ export default function Definitions() {
                                         >
                                           <Printer className="w-4 h-4" />
                                         </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setEditingItem(customer);
-                                            setCustomerForm({
-                                              name: customer.name || "",
-                                              name_ar: customer.name_ar || "",
-                                              code: customer.code || "",
-                                              user_id: customer.user_id || "",
-                                              plate_drawer_code:
-                                                customer.plate_drawer_code ||
-                                                "",
-                                              city: customer.city || "",
-                                              address: customer.address || "",
-                                              tax_number:
-                                                customer.tax_number || "",
-                                              phone: customer.phone || "",
-                                              sales_rep_id:
-                                                customer.sales_rep_id || "",
-                                            });
-                                            setSelectedTab("customers");
-                                            setIsDialogOpen(true);
-                                          }}
-                                        >
-                                          <Edit className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                          disabled={
-                                            deleteCustomerMutation.isPending
-                                          }
-                                          onClick={() => {
-                                            if (
-                                              confirm(
-                                                t(
-                                                  "definitions.messages.confirmDeleteCustomer",
-                                                  {
-                                                    name:
-                                                      customer.name_ar ||
-                                                      customer.name,
-                                                  },
-                                                ),
-                                              )
-                                            ) {
-                                              deleteCustomerMutation.mutate(
-                                                customer.id,
-                                              );
+                                        {canEditCustomers && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setEditingItem(customer);
+                                              setCustomerForm({
+                                                name: customer.name || "",
+                                                name_ar:
+                                                  customer.name_ar || "",
+                                                code: customer.code || "",
+                                                user_id:
+                                                  customer.user_id || "",
+                                                plate_drawer_code:
+                                                  customer.plate_drawer_code ||
+                                                  "",
+                                                city: customer.city || "",
+                                                address: customer.address || "",
+                                                tax_number:
+                                                  customer.tax_number || "",
+                                                phone: customer.phone || "",
+                                                sales_rep_id:
+                                                  customer.sales_rep_id || "",
+                                              });
+                                              setSelectedTab("customers");
+                                              setIsDialogOpen(true);
+                                            }}
+                                          >
+                                            <Edit className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                        {canDeleteCustomers && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            disabled={
+                                              deleteCustomerMutation.isPending
                                             }
-                                          }}
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </Button>
+                                            onClick={() => {
+                                              if (
+                                                confirm(
+                                                  t(
+                                                    "definitions.messages.confirmDeleteCustomer",
+                                                    {
+                                                      name:
+                                                        customer.name_ar ||
+                                                        customer.name,
+                                                    },
+                                                  ),
+                                                )
+                                              ) {
+                                                deleteCustomerMutation.mutate(
+                                                  customer.id,
+                                                );
+                                              }
+                                            }}
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
@@ -2449,16 +2487,18 @@ export default function Definitions() {
                       <Package className="w-5 h-5" />
                       {t("definitions.categories.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("categories");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.categories.addNew")}
-                    </Button>
+                    {canAddCategories && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("categories");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.categories.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -2518,6 +2558,7 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                     <div className="flex items-center justify-center gap-2">
+                                      {canEditCategories && (
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -2538,6 +2579,7 @@ export default function Definitions() {
                                       >
                                         <Edit className="w-4 h-4" />
                                       </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -2592,16 +2634,18 @@ export default function Definitions() {
                       <Cog className="w-5 h-5" />
                       {t("definitions.sections.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("sections");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.sections.addNew")}
-                    </Button>
+                    {canAddSections && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("sections");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.sections.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -2661,23 +2705,25 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setEditingItem(section);
-                                          setSectionForm({
-                                            name: section.name || "",
-                                            name_ar: section.name_ar || "",
-                                            description:
-                                              section.description || "",
-                                          });
-                                          setSelectedTab("sections");
-                                          setIsDialogOpen(true);
-                                        }}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
+                                      {canEditSections && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditingItem(section);
+                                            setSectionForm({
+                                              name: section.name || "",
+                                              name_ar: section.name_ar || "",
+                                              description:
+                                                section.description || "",
+                                            });
+                                            setSelectedTab("sections");
+                                            setIsDialogOpen(true);
+                                          }}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -2730,16 +2776,18 @@ export default function Definitions() {
                       <Package className="w-5 h-5" />
                       {t("definitions.items.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("items");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.items.addNew")}
-                    </Button>
+                    {canAddItems && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("items");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.items.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -2796,25 +2844,27 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setEditingItem(item);
-                                          setItemForm({
-                                            name: item.name || "",
-                                            name_ar: item.name_ar || "",
-                                            code: item.code || "",
-                                            category_id:
-                                              item.category_id || "none",
-                                            status: item.status || "active",
-                                          });
-                                          setSelectedTab("items");
-                                          setIsDialogOpen(true);
-                                        }}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
+                                      {canEditItems && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setEditingItem(item);
+                                            setItemForm({
+                                              name: item.name || "",
+                                              name_ar: item.name_ar || "",
+                                              code: item.code || "",
+                                              category_id:
+                                                item.category_id || "none",
+                                              status: item.status || "active",
+                                            });
+                                            setSelectedTab("items");
+                                            setIsDialogOpen(true);
+                                          }}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                      )}
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -2875,16 +2925,18 @@ export default function Definitions() {
                       <Package className="w-5 h-5" />
                       {t("definitions.customerProducts.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("customer-products");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.customerProducts.addNew")}
-                    </Button>
+                    {canAddCustomerProducts && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("customer-products");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.customerProducts.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -3053,6 +3105,7 @@ export default function Definitions() {
                                     </td>
                                     <td className="px-2 py-3 text-sm font-medium text-center">
                                       <div className="grid grid-cols-2 gap-1 w-fit mx-auto">
+                                        {canEditCustomerProducts && (
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -3114,17 +3167,20 @@ export default function Definitions() {
                                         >
                                           <Edit className="w-3 h-3" />
                                         </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                          onClick={() =>
-                                            handleCloneCustomerProduct(product)
-                                          }
-                                          title={t("definitions.table.clone")}
-                                        >
-                                          <Copy className="w-3 h-3" />
-                                        </Button>
+                                        )}
+                                        {canAddCustomerProducts && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                            onClick={() =>
+                                              handleCloneCustomerProduct(product)
+                                            }
+                                            title={t("definitions.table.clone")}
+                                          >
+                                            <Copy className="w-3 h-3" />
+                                          </Button>
+                                        )}
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -3136,24 +3192,26 @@ export default function Definitions() {
                                         >
                                           <Printer className="w-3 h-3" />
                                         </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                          onClick={() =>
-                                            handleDeleteCustomerProduct(product)
-                                          }
-                                          title={t("definitions.table.delete")}
-                                          disabled={
-                                            deleteCustomerProductMutation.isPending
-                                          }
-                                        >
-                                          {deleteCustomerProductMutation.isPending ? (
-                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
-                                          ) : (
-                                            <Trash2 className="w-3 h-3" />
-                                          )}
-                                        </Button>
+                                        {canDeleteCustomerProducts && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() =>
+                                              handleDeleteCustomerProduct(product)
+                                            }
+                                            title={t("definitions.table.delete")}
+                                            disabled={
+                                              deleteCustomerProductMutation.isPending
+                                            }
+                                          >
+                                            {deleteCustomerProductMutation.isPending ? (
+                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                                            ) : (
+                                              <Trash2 className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
@@ -3208,16 +3266,18 @@ export default function Definitions() {
                       <Settings className="w-5 h-5" />
                       {t("definitions.machines.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("machines");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.machines.addNew")}
-                    </Button>
+                    {canAddMachines && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("machines");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.machines.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -3360,6 +3420,7 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                     <div className="flex items-center justify-center gap-2">
+                                      {canEditMachines && (
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -3388,6 +3449,7 @@ export default function Definitions() {
                                       >
                                         <Edit className="w-4 h-4" />
                                       </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -3440,16 +3502,18 @@ export default function Definitions() {
                       <User className="w-5 h-5" />
                       {t("definitions.users.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("users");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.users.addNew")}
-                    </Button>
+                    {canAddUsers && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("users");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.users.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -3536,6 +3600,7 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                                     <div className="flex items-center justify-center gap-2">
+                                      {canEditUsers && (
                                       <Button
                                         variant="outline"
                                         size="sm"
@@ -3581,6 +3646,7 @@ export default function Definitions() {
                                       >
                                         <Edit className="w-4 h-4" />
                                       </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
@@ -3629,16 +3695,18 @@ export default function Definitions() {
                       <Package className="w-5 h-5" />
                       {t("definitions.masterBatch.title")}
                     </CardTitle>
-                    <Button
-                      onClick={() => {
-                        resetForm();
-                        setSelectedTab("master-batch-colors");
-                        setIsDialogOpen(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {t("definitions.masterBatch.addNew")}
-                    </Button>
+                    {canAddMasterBatch && (
+                      <Button
+                        onClick={() => {
+                          resetForm();
+                          setSelectedTab("master-batch-colors");
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("definitions.masterBatch.addNew")}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -3747,50 +3815,55 @@ export default function Definitions() {
                                   </td>
                                   <td className="px-6 py-4 text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => {
-                                          setEditingItem(color);
-                                          setMasterBatchColorForm({
-                                            id: color.id,
-                                            name: color.name || "",
-                                            name_ar: color.name_ar || "",
-                                            color_hex:
-                                              color.color_hex || "#000000",
-                                            text_color:
-                                              color.text_color || "#ffffff",
-                                            brand: color.brand || "",
-                                            aliases: color.aliases || "",
-                                            is_active: color.is_active ?? true,
-                                            sort_order: color.sort_order || 0,
-                                          });
-                                          setIsDialogOpen(true);
-                                        }}
-                                      >
-                                        <Edit className="w-4 h-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-red-500 hover:text-red-700"
-                                        onClick={() => {
-                                          if (
-                                            window.confirm(
-                                              t(
-                                                "definitions.masterBatch.confirmDelete",
-                                                { name: color.name_ar },
-                                              ),
-                                            )
-                                          ) {
-                                            deleteMasterBatchColorMutation.mutate(
-                                              color.id,
-                                            );
-                                          }
-                                        }}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
+                                      {canEditMasterBatch && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            setEditingItem(color);
+                                            setMasterBatchColorForm({
+                                              id: color.id,
+                                              name: color.name || "",
+                                              name_ar: color.name_ar || "",
+                                              color_hex:
+                                                color.color_hex || "#000000",
+                                              text_color:
+                                                color.text_color || "#ffffff",
+                                              brand: color.brand || "",
+                                              aliases: color.aliases || "",
+                                              is_active:
+                                                color.is_active ?? true,
+                                              sort_order: color.sort_order || 0,
+                                            });
+                                            setIsDialogOpen(true);
+                                          }}
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                      {canDeleteMasterBatch && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="text-red-500 hover:text-red-700"
+                                          onClick={() => {
+                                            if (
+                                              window.confirm(
+                                                t(
+                                                  "definitions.masterBatch.confirmDelete",
+                                                  { name: color.name_ar },
+                                                ),
+                                              )
+                                            ) {
+                                              deleteMasterBatchColorMutation.mutate(
+                                                color.id,
+                                              );
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
