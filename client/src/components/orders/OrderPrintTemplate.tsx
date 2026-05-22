@@ -883,7 +883,8 @@ export default function OrderPrintTemplate({
                       {cp?.unit_weight_kg != null &&
                       cp?.unit_quantity != null ? (
                         <div style={{ direction: "ltr", fontWeight: 900 }}>
-                          {formatNumber(cp.unit_weight_kg)} Kg{" "}
+                          {formatNumber(cp.unit_weight_kg)} Kg ×{" "}
+                          {formatNumber(cp.unit_quantity)}{" "}
                           {(() => {
                             const map: Record<string, string> = {
                               "رول": "Roll",
@@ -894,8 +895,7 @@ export default function OrderPrintTemplate({
                             const u = cp.cutting_unit?.trim();
                             if (!u) return "";
                             return map[u] || u;
-                          })()}{" "}
-                          × {formatNumber(cp.unit_quantity)}
+                          })()}
                         </div>
                       ) : (
                         "-"
