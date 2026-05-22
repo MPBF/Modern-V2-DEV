@@ -65,7 +65,9 @@ const CATEGORY_TRANSLATION_MAP: Record<string, string> = {
 };
 
 export default function RoleManagementTab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const getPermissionLabel = (perm: { name: string; name_ar: string }) =>
+    i18n.language === "en" ? perm.name : perm.name_ar;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -350,7 +352,7 @@ export default function RoleManagementTab() {
                         htmlFor={`${isEditing ? "edit" : "new"}-${permission.id}`}
                         className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        {permission.name_ar}
+                        {getPermissionLabel(permission)}
                       </label>
                       {permission.description && (
                         <p className="text-xs text-muted-foreground">
@@ -600,7 +602,7 @@ export default function RoleManagementTab() {
                                         className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded"
                                       >
                                         <Check className="w-4 h-4 text-green-600" />
-                                        <span>{perm.name_ar}</span>
+                                        <span>{getPermissionLabel(perm)}</span>
                                       </div>
                                     ))}
                                   </div>
