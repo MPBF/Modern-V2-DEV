@@ -883,7 +883,7 @@ export default function OrderPrintTemplate({
                       {cp?.unit_weight_kg != null &&
                       cp?.unit_quantity != null ? (
                         <div style={{ direction: "ltr", fontWeight: 900 }}>
-                          {String(cp.unit_weight_kg)} Kg{" "}
+                          {formatNumber(cp.unit_weight_kg)} Kg{" "}
                           {(() => {
                             const map: Record<string, string> = {
                               "رول": "Roll",
