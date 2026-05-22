@@ -881,13 +881,11 @@ export default function OrderPrintTemplate({
                       }}
                     >
                       {cp?.unit_weight_kg != null &&
-                      cp?.unit_quantity != null &&
-                      cp?.package_weight_kg != null ? (
+                      cp?.unit_quantity != null ? (
                         <div style={{ direction: "ltr", fontWeight: 900 }}>
                           {formatNumber(cp.unit_weight_kg)}
                           {cp.cutting_unit ? ` ${cp.cutting_unit}` : ""} ×{" "}
-                          {formatNumber(cp.unit_quantity)} ={" "}
-                          {formatNumber(cp.package_weight_kg)}
+                          {formatNumber(cp.unit_quantity)}
                         </div>
                       ) : (
                         "-"
