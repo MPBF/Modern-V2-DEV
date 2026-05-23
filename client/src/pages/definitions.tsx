@@ -936,7 +936,9 @@ export default function Definitions() {
   }, [editingItem, selectedTab, isDialogOpen]);
 
   // Auto-set punching, cutting_unit, and cutting_length based on category
+  // Skip when editing an existing product to preserve saved values
   React.useEffect(() => {
+    if (editingItem) return;
     const { category_id } = customerProductForm;
     if (!category_id || category_id === "none") {
       setCustomerProductForm((prev) => ({
@@ -973,10 +975,12 @@ export default function Definitions() {
         }));
       }
     }
-  }, [customerProductForm.category_id, categories]);
+  }, [customerProductForm.category_id, categories, editingItem]);
 
   // Auto-calculate cutting length from printing cylinder (skip for sufra categories and "no printing" where it's manual)
+  // Skip when editing an existing product to preserve saved values
   React.useEffect(() => {
+    if (editingItem) return;
     const selectedCat = Array.isArray(categories)
       ? (categories as any[]).find(
           (c: any) => c.id === customerProductForm.category_id,
@@ -1012,6 +1016,7 @@ export default function Definitions() {
     customerProductForm.printing_cylinder,
     customerProductForm.category_id,
     categories,
+    editingItem,
   ]);
 
   // Filter helper function
