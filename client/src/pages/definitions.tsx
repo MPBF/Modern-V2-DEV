@@ -5185,13 +5185,10 @@ export default function Definitions() {
                           <SelectItem value="كرتون">
                             {t("definitions.form.unitCarton")}
                           </SelectItem>
-                          <SelectItem value="قطعة">
-                            {t("definitions.form.unitPiece")}
-                          </SelectItem>
                           <SelectItem value="كيس">
                             {t("definitions.form.unitBag")}
                           </SelectItem>
-                          <SelectItem value="غطاء">
+                          <SelectItem value="غلاف">
                             {t("definitions.form.unitCover")}
                           </SelectItem>
                         </SelectContent>

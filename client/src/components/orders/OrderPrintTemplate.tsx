@@ -909,8 +909,12 @@ export default function OrderPrintTemplate({
                             const map: Record<string, string> = {
                               "رول": "Roll",
                               "باكت": "PKT",
-                              "قطعة": "Pecs",
+                              "قطعة": "PKT",
                               "كيلو": "Kg",
+                              "كرتون": "Carton",
+                              "كيس": "Bag",
+                              "غلاف": "Wrap",
+                              "غطاء": "Wrap",
                             };
                             const u = cp.cutting_unit?.trim();
                             if (!u) return "";
