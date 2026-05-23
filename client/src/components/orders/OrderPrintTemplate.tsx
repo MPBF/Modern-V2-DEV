@@ -907,14 +907,12 @@ export default function OrderPrintTemplate({
                           {formatNumber(cp.unit_quantity)}{" "}
                           {(() => {
                             const map: Record<string, string> = {
-                              "رول": "Roll",
-                              "باكت": "PKT",
-                              "قطعة": "PKT",
                               "كيلو": "Kg",
-                              "كرتون": "Carton",
-                              "كيس": "Bag",
-                              "غلاف": "Wrap",
-                              "غطاء": "Wrap",
+                              "باكت": "PKT",
+                              "كيس": "Pecs",
+                              "رول": "Roll",
+                              "كرتون": "Box",
+                              "بندل": "Bundle",
                             };
                             const u = cp.cutting_unit?.trim();
                             if (!u) return "";

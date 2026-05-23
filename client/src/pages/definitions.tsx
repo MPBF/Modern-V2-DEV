@@ -5173,24 +5173,12 @@ export default function Definitions() {
                           <SelectItem value="none">
                             {t("definitions.form.selectUnit")}
                           </SelectItem>
-                          <SelectItem value="كيلو">
-                            {t("definitions.form.unitKilo")}
-                          </SelectItem>
-                          <SelectItem value="رول">
-                            {t("definitions.form.unitRoll")}
-                          </SelectItem>
-                          <SelectItem value="باكت">
-                            {t("definitions.form.unitPacket")}
-                          </SelectItem>
-                          <SelectItem value="كرتون">
-                            {t("definitions.form.unitCarton")}
-                          </SelectItem>
-                          <SelectItem value="كيس">
-                            {t("definitions.form.unitBag")}
-                          </SelectItem>
-                          <SelectItem value="غلاف">
-                            {t("definitions.form.unitCover")}
-                          </SelectItem>
+                          <SelectItem value="كيلو">كيلو / Kg</SelectItem>
+                          <SelectItem value="باكت">باكت / PKT</SelectItem>
+                          <SelectItem value="كيس">كيس / Pecs</SelectItem>
+                          <SelectItem value="رول">رول / Roll</SelectItem>
+                          <SelectItem value="كرتون">كرتون / Box</SelectItem>
+                          <SelectItem value="بندل">بندل / Bundle</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
